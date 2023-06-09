@@ -1,5 +1,8 @@
 #![warn(rust_2018_idioms)]
 
+mod httpServer;
+
+use futures::future::ok;
 use plonky::api::{
     aggregation_check, aggregation_prove, aggregation_verify, analyse, calculate_witness,
     export_aggregation_verification_key, export_verification_key, generate_aggregation_verifier,
@@ -18,8 +21,21 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use tokio_util::codec::{AnyDelimiterCodec, Framed};
 
+use actix_web::{App,HttpServer};
+
+use crate::httpServer::http_make_prove_opt;
+use crate::httpServer::http_make_prove_opt_for_update;
+use crate::httpServer::http_make_prove_opt_for_withdraw;
+use crate::httpServer::http_verify;
+use crate::httpServer::ping;
+use actix_cors::Cors;
+
+
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> std::io::Result<()> {
+
+    
     let addr = env::args()
         .nth(1)
         .unwrap_or_else(|| "127.0.0.1:6142".to_string());
@@ -28,17 +44,49 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     println!("server running on {}", addr);
 
-    loop {
-        // Asynchronously wait for an inbound TcpStream.
-        let (stream, addr) = listener.accept().await?;
+    tokio::spawn(async move { 
+        loop {
+            // Asynchronously wait for an inbound TcpStream.
+            let (stream, addr) = listener.accept().await.unwrap();
+    
+            // Clone a handle to the `Shared` state for the new connection.
+            tokio::spawn(async move {
+                if let Err(e) = process(stream, addr).await {
+                    println!("an error occurred; error = {:?}", e);
+                }
+            });
+        }
+    });
 
-        // Clone a handle to the `Shared` state for the new connection.
-        tokio::spawn(async move {
-            if let Err(e) = process(stream, addr).await {
-                println!("an error occurred; error = {:?}", e);
-            }
-        });
-    }
+    //START http server 
+    println!("http server running on 8888 port");
+
+
+        HttpServer::new(move || {
+
+            let cors = Cors::default()
+                .allow_any_origin()
+                .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+                .allowed_headers(vec![actix_web::http::header::AUTHORIZATION,
+                actix_web::http::header::ACCEPT,])
+                .allowed_header(actix_web::http::header::CONTENT_TYPE)
+            .max_age(3600);
+
+            App::new()
+            .wrap(cors)
+            .service(http_make_prove_opt)
+            .service(http_make_prove_opt_for_update)
+            .service(http_make_prove_opt_for_withdraw)
+            .service(http_verify)
+            .service(ping)
+            
+        }) .bind(("0.0.0.0", 8888))?
+        .run()
+        .await
+
+
+
+   
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -48,7 +96,7 @@ struct Request {
 }
 
 /// Prove by Plonk, https://github.com/0xEigenLabs/eigen-zkvm/blob/main/zkit/src/main.rs#L60
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize,Serialize)]
 struct ProveOpt {
     #[serde(default)]
     circuit_file: String,
@@ -107,7 +155,7 @@ fn make_prove_opt_for_withdraw(value: Value) -> ProveOpt {
     opt
 }
 
-fn make_prove_opt(value: Value) -> ProveOpt {
+ fn make_prove_opt(value: Value) -> ProveOpt {
     let task_name = value.get("task_name").unwrap();
     match task_name.as_str() {
         Some("update") => make_prove_opt_for_update(value),
