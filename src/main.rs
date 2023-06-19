@@ -26,6 +26,7 @@ use actix_web::{App, HttpServer};
 use crate::http_server::http_make_prove_opt;
 use crate::http_server::http_make_prove_opt_for_update;
 use crate::http_server::http_make_prove_opt_for_withdraw;
+use crate::http_server::http_prove;
 use crate::http_server::http_verify;
 use crate::http_server::ping;
 use actix_cors::Cors;
@@ -75,6 +76,7 @@ async fn main() -> std::io::Result<()> {
             .service(http_make_prove_opt_for_withdraw)
             .service(http_verify)
             .service(ping)
+            .service(http_prove)
     })
     .bind(("0.0.0.0", http_port_addr))?
     .run()
