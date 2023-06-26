@@ -1,6 +1,8 @@
 use std::env;
+use std::fs;
 use std::fs::File;
 use std::io::BufReader;
+use std::os::unix::prelude::FileExt;
 
 use crate::make_prove_opt_for_update;
 use crate::make_prove_opt_for_withdraw;
@@ -26,6 +28,9 @@ use plonky::bellman_ce::{
     },
     Field, PrimeField, PrimeFieldRepr, ScalarEngine,
 };
+use plonky::circom_circuit::CircomCircuit;
+use plonky::plonk;
+use plonky::reader;
 use serde_json::Value;
 
 #[post("/make_prove_opt")]
@@ -93,6 +98,56 @@ fn verifys() {
     let current_dir = env::current_dir().unwrap();
     println!("Current directory: {:?}", current_dir);
 
+    //export_verification_key
+    let circuit = CircomCircuit {
+        r1cs: reader::load_r1cs("./test/multiplier.r1cs"),
+        witness: None,
+        wire_mapping: None,
+        aux_offset: plonk::AUX_OFFSET,
+    };
+
+    let setup = plonk::SetupForProver::prepare_setup_for_prover(
+        circuit,
+        reader::load_key_monomial_form("./test/setup_2^10.key"),
+        None,
+    )
+    .expect("prepare err");
+    let vk = setup.make_verification_key().unwrap();
+    let mut buf = vec![];
+    vk.write(&mut buf).unwrap();
+
+    std::fs::write("./test/vk.bin", buf.clone()).unwrap();
+
+    let check_vk = fs::read("./test/vk.bin").unwrap();
+    assert_eq!(check_vk, buf);
+
+    //export proof
+    let circuit = CircomCircuit {
+        r1cs: reader::load_r1cs("./test/multiplier.r1cs"),
+        witness: Some(reader::load_witness_from_file::<Bn256>(
+            "./test/witness.wtns",
+        )),
+        wire_mapping: None,
+        aux_offset: plonk::AUX_OFFSET,
+    };
+
+    let setup = plonk::SetupForProver::prepare_setup_for_prover(
+        circuit.clone(),
+        reader::load_key_monomial_form("./test/setup_2^10.key"),
+        reader::maybe_load_key_lagrange_form(None),
+    )
+    .unwrap();
+
+    assert!(setup.validate_witness(circuit.clone()).is_ok());
+
+    let _ = setup.get_srs_lagrange_form_from_monomial_form();
+
+    let proof = setup.prove(circuit, "keccak").unwrap();
+    let mut buf = vec![];
+    proof.write(&mut buf).unwrap();
+    std::fs::write("./test/proof.bin", buf.clone()).unwrap();
+
+    //read and check
     let f = File::open("./test/vk.bin").expect("read vk err");
     println!("{:?}", f);
     let mut reader = BufReader::with_capacity(1 << 24, f);
