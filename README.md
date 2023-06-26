@@ -11,4 +11,12 @@ cargo run -r
 http server running in 127.0.0.1:8888. 
 
 
+# Run test
+
+
+```
+cargo test -- --nocapture
+```
+
+
 

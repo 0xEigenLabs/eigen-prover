@@ -24,8 +24,7 @@ use tokio_util::codec::{AnyDelimiterCodec, Framed};
 use actix_web::{App, HttpServer};
 
 use crate::http_server::http_make_prove_opt;
-use crate::http_server::http_make_prove_opt_for_update;
-use crate::http_server::http_make_prove_opt_for_withdraw;
+
 use crate::http_server::http_prove;
 use crate::http_server::http_verify;
 use crate::http_server::ping;
@@ -72,8 +71,6 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .service(http_make_prove_opt)
-            .service(http_make_prove_opt_for_update)
-            .service(http_make_prove_opt_for_withdraw)
             .service(http_verify)
             .service(ping)
             .service(http_prove)
