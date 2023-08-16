@@ -1,14 +1,5 @@
 # eigen-prover
 
-A proving RPC interface for Plonk and Stark.
+* StateDB: SMT
 
-# Quick start
-
-```
-cargo run -r
-```
-
-http server running in 127.0.0.1:8888. 
-
-
-
+* Executor: 
