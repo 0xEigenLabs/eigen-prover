@@ -132,4 +132,10 @@ impl DatabaseConnection {
         }
         self.write_remote(false, key, value_str, update);
     }
+
+    /*
+    pub fn read_tree_remote(key: &String, keys: Vec<u64>, level: u64) -> nu {
+
+    }
+    */
 }
