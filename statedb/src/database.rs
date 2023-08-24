@@ -6,7 +6,10 @@ use diesel::prelude::*;
 use plonky::field_gl::Fr;
 use plonky::to_hex;
 use std::env;
-use utils::scalar::{normalize_to_n_format, prepend_zeros, byte2char};
+use utils::{
+    errors::{EigenError, Result},
+    scalar::{byte2char, normalize_to_n_format, prepend_zeros},
+};
 
 pub struct DatabaseConnection {
     connection: PgConnection,
@@ -24,7 +27,7 @@ impl DatabaseConnection {
         }
     }
 
-    fn read_program(&mut self, key: &String) -> Result<String, diesel::result::Error> {
+    fn read_program(&mut self, key: &String) -> Result<String> {
         let result = program
             .find(key)
             .select(Program::as_select())
@@ -32,12 +35,12 @@ impl DatabaseConnection {
             .optional();
         match result {
             Ok(Some(pg)) => Ok(pg.data),
-            Ok(None) => Err(diesel::NotFound),
-            Err(e) => Err(e),
+            Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
+            Err(e) => Err(EigenError::DatabaseError(e)),
         }
     }
 
-    fn read_nodes(&mut self, key: &String) -> Result<String, diesel::result::Error> {
+    fn read_nodes(&mut self, key: &String) -> Result<String> {
         let result = nodes
             .find(key)
             .select(Nodes::as_select())
@@ -45,28 +48,19 @@ impl DatabaseConnection {
             .optional();
         match result {
             Ok(Some(pg)) => Ok(pg.data),
-            Ok(None) => Err(diesel::NotFound),
-            Err(e) => Err(e),
+            Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
+            Err(e) => Err(EigenError::DatabaseError(e)),
         }
     }
 
-    pub fn read_remote(
-        &mut self,
-        is_program: bool,
-        key: &String,
-    ) -> Result<String, diesel::result::Error> {
+    pub fn read_remote(&mut self, is_program: bool, key: &String) -> Result<String> {
         match is_program {
             true => self.read_program(key),
             _ => self.read_nodes(key),
         }
     }
 
-    fn write_program(
-        &mut self,
-        key: String,
-        value: String,
-        update: bool,
-    ) -> Result<usize, diesel::result::Error> {
+    fn write_program(&mut self, key: String, value: String, update: bool) -> Result<usize> {
         let new_pro = Program {
             hash: key,
             data: value,
@@ -86,12 +80,7 @@ impl DatabaseConnection {
         Ok(res)
     }
 
-    fn write_nodes(
-        &mut self,
-        key: String,
-        value: String,
-        update: bool,
-    ) -> Result<usize, diesel::result::Error> {
+    fn write_nodes(&mut self, key: String, value: String, update: bool) -> Result<usize> {
         let new_pro = Nodes {
             hash: key,
             data: value,
@@ -117,7 +106,7 @@ impl DatabaseConnection {
         key: String,
         value: String,
         update: bool,
-    ) -> Result<usize, diesel::result::Error> {
+    ) -> Result<usize> {
         match is_program {
             true => self.write_program(key, value, update),
             _ => self.write_nodes(key, value, update),
@@ -133,18 +122,24 @@ impl DatabaseConnection {
         self.write_remote(false, key, value_str, update);
     }
 
-    pub fn read_tree_remote(key: &String, keys: Vec<u64>, level: u64) -> Result<u64, diesel::result::Error> {
+    pub fn read_tree_remote(key: &String, keys: Vec<u64>, level: u64) -> Result<u64> {
         let mut rkey = String::from("");
         for i in (level as usize)..keys.len() {
-            let aux: u8 = keys[i] & 0xFF;
+            let aux = (keys[i] & 0xFF) as u8;
             if aux > 1 {
-                log::info!("Database::read_tree_remote(), found invalid keys value = {} at position {}", aux, i);
-                return Err(diesel::result::QueryResult);
+                log::info!(
+                    "Database::read_tree_remote(), found invalid keys value = {} at position {}",
+                    aux,
+                    i
+                );
+                return Err(EigenError::InvalidValue(
+                    "Invalid key when read_tree_remote".to_string(),
+                ));
             }
-            rkey.push(byte2char(aux));
+            rkey.push(byte2char(aux >> 4));
+            rkey.push(byte2char(aux & 0x0F));
         }
 
-
-        return Ok(0)
+        return Ok(0);
     }
 }
