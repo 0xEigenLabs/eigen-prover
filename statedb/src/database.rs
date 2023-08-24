@@ -6,7 +6,7 @@ use diesel::prelude::*;
 use plonky::field_gl::Fr;
 use plonky::to_hex;
 use std::env;
-use utils::scalar::{normalize_to_n_format, prepend_zeros};
+use utils::scalar::{normalize_to_n_format, prepend_zeros, byte2char};
 
 pub struct DatabaseConnection {
     connection: PgConnection,
@@ -133,9 +133,18 @@ impl DatabaseConnection {
         self.write_remote(false, key, value_str, update);
     }
 
-    /*
-    pub fn read_tree_remote(key: &String, keys: Vec<u64>, level: u64) -> nu {
+    pub fn read_tree_remote(key: &String, keys: Vec<u64>, level: u64) -> Result<u64, diesel::result::Error> {
+        let mut rkey = String::from("");
+        for i in (level as usize)..keys.len() {
+            let aux: u8 = keys[i] & 0xFF;
+            if aux > 1 {
+                log::info!("Database::read_tree_remote(), found invalid keys value = {} at position {}", aux, i);
+                return Err(diesel::result::QueryResult);
+            }
+            rkey.push(byte2char(aux));
+        }
 
+
+        return Ok(0)
     }
-    */
 }

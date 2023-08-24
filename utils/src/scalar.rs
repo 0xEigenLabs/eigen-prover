@@ -17,6 +17,10 @@ pub fn normalize_to_0xn_format(s: &String, n: usize) -> String {
     format!("0x{}", prepend_zeros(&remove_0x(s), n))
 }
 
+pub fn byte2char(b: u8) -> char {
+    std::char::from_u32(b as u32).unwrap()
+}
+
 #[cfg(test)]
 mod test {
     use crate::scalar::prepend_zeros;
