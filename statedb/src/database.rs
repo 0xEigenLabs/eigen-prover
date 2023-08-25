@@ -11,17 +11,17 @@ use utils::{
     scalar::{byte2string, normalize_to_n_format, prepend_zeros, string2ba},
 };
 
-pub struct DatabaseConnection {
+pub struct Database{
     connection: PgConnection,
     in_use: bool,
 }
 
-impl DatabaseConnection {
+impl Database{
     pub fn new() -> Self {
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
         let conn = PgConnection::establish(&database_url)
             .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
-        DatabaseConnection {
+        Database{
             connection: conn,
             in_use: true,
         }
