@@ -15,7 +15,6 @@ pub enum EigenError {
 
     // #[error("json serialization error")]
     // SerdeError(#[from] serde_json::Error),
-
     #[error("poseidon hash error`{0}`")]
     PoseidonHashError(String),
 
