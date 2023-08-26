@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 thiserror="1.0"
 diesel = { version = "2.1.0", features = ["postgres"] }
+num-bigint = "0.4.4"

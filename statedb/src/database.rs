@@ -8,22 +8,24 @@ use plonky::to_hex;
 use std::env;
 use utils::{
     errors::{EigenError, Result},
-    scalar::{byte2string, normalize_to_n_format, prepend_zeros, string2ba},
+    scalar::{byte2string, normalize_to_n_format, prepend_zeros, string2ba, string2fea},
 };
 
-pub struct Database{
+pub struct Database {
     connection: PgConnection,
     in_use: bool,
+    pub db_state_root_key: &str,
 }
 
-impl Database{
+impl Database {
     pub fn new() -> Self {
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
         let conn = PgConnection::establish(&database_url)
             .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
-        Database{
+        Database {
             connection: conn,
             in_use: true,
+            db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         }
     }
 
@@ -120,6 +122,12 @@ impl Database{
             value_str.push_str(&prepend_zeros(&to_hex(v), 16));
         }
         self.write_remote(false, key, value_str, update).unwrap();
+    }
+
+    pub fn read(&mut self, key: &String, level: u64) -> Result<Vec<Fr>> {
+        let key = normalize_to_n_format(key, 64).to_lowercase();
+        let s_data = self.read_remote(false, &key)?;
+        Ok(string2fea(&s_data))
     }
 
     /*

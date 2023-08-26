@@ -1,3 +1,6 @@
+use plonky::field_gl::Fr;
+use num_bigint::BigUint;
+
 pub fn remove_0x(key: &String) -> String {
     key.trim_start_matches("0x").to_string()
 }
@@ -28,6 +31,26 @@ pub fn byte2string(b: u8) -> String {
     result
 }
 
+pub fn fea2scalar(fea: &[Fr; 4]) -> BigUint {
+    let mut f1: BigUint = BigUint::from(fea[3].as_int());
+    f1 <<= 64;
+    f1 |= BigUint::from(fea[2].as_int());
+    f1 <<= 64;
+    f1 |= BigUint::from(fea[1].as_int());
+    f1 <<= 64;
+    f1 |= BigUint::from(fea[0].as_int());
+    f1
+}
+
+pub fn fea2string(fea: &[Fr; 4]) -> String {
+    let f1 = fea2scalar(fea);
+    f1.to_str_radix(16)
+}
+
+pub fn scalar2fe(scalar: u64) -> Fr {
+    Fr::from(scalar)
+}
+
 /// Byte to/from char conversion
 pub fn char2byte(c: char) -> u8 {
     match c {
@@ -56,6 +79,24 @@ pub fn string2ba(os: &String) -> Vec<u8> {
         result.push(char2byte(chars.next().unwrap()));
     }
     result
+}
+
+pub fn string2fea(os: &String) -> Vec<Fr> {
+    let mut r = [Fr::ZERO; 4];
+    let mut fea = vec![];
+    for i in (0..os.len()).step_by(16) {
+        if i + 16 > os.len() {
+            panic!("string2fea: invalid input: {}", os);
+        }
+        let fe = os.get(i .. (i+16)).unwrap();
+        let cr = string2fe(&fe.to_string());
+        fea.push(cr);
+    }
+    fea
+}
+
+pub fn string2fe(os: &String) -> Fr {
+    Fr::from_str(os).unwrap()
 }
 
 #[cfg(test)]
