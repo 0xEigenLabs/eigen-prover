@@ -116,8 +116,18 @@ impl SMT {
             }
         }
 
+        let mut mode = 0;
         // update the existing node
-        if value != 0 {}
+        if value != 0 {
+            if b_found_key {
+                if key[0] == found_key[0] &&
+                   key[1] == found_key[1] &&
+                   key[2] == found_key[2] &&
+                   key[3] == found_key[3] {
+                    mode = 1; // "update";
+                }
+            }
+        }
     }
 
     #[inline(always)]
