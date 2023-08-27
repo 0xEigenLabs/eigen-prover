@@ -43,14 +43,8 @@ impl SMT {
         value: u64,
         persistent: bool,
     ) -> Result<SmtSetResult> {
-        let mut r = [Fr::ZERO; 4];
-        for i in 0..4 {
-            r[i] = old_root[i];
-        }
-        let mut new_root = [Fr::ZERO; 4];
-        for i in 0..4 {
-            new_root[i] = old_root[i];
-        }
+        let mut r = old_root.clone();
+        let mut new_root = old_root.clone();
 
         let keys = self.split_key(key);
         let mut level = 0;
@@ -70,8 +64,7 @@ impl SMT {
         let mut is_old0 = false;
         let mut b_found_key = false;
 
-        let mut acc_key: Vec<u64>;
-        let mut last_acc_key: BigUint = 0;
+        let mut acc_key: Vec<u64> = Vec::new();
 
         while not_all_zero(&r) && !b_found_key {
             let str_root = fea2string(&r);
@@ -414,6 +407,128 @@ impl SMT {
             mode: mode,
             proof_hash_counter: proof_hash_counter,
         })
+    }
+
+    pub fn get(&mut self, root: &[Fr; 4], key: &[Fr; 4]) -> Result<SmtGetResult> {
+        let mut r = root.clone();
+        // Get a list of the bits of the key to navigate top-down through the tree
+        let mut keys = self.split_key(key);
+        let mut level = 0;
+        let mut b_found_key = false;
+
+        let mut acc_key: Vec<u64> = Vec::new();
+        let mut found_key = [Fr::ZERO; 4];
+        let mut ins_key = [Fr::ZERO; 4];
+        let mut siblings: HashMap<u64, Fr> = HashMap::new();
+        let mut ins_value: BigUint = 0;
+        let mut value: BigUint = 0;
+        let mut found_val: BigUint = 0;
+
+        let mut is_old0 = true;
+
+        // Start natigating the tree from the top: r = root
+        // Go down while r!=0 (while there is branch) until we find the key
+        while not_all_zero(r) && !b_found_key {
+            // Read the content of db for entry r: siblings[level] = db.read(r)
+            let str_r = fea2string(r);
+            let db_value = self.db.read(&str_r, level)?;
+            // Get a copy of the content of this database entry, at the corresponding level: 0, 1...
+            siblings[level] = db_value;
+
+            // if siblings[level][8]=1 then this is a leaf
+            if siblings[level].len() > 8 && siblings[level][8] == Fr::ONE {
+                // Second 4 elements are the hash of the value, so we can get value=db(valueHash)
+                let mut value_hash_fea = [Fr::ZERO; 4];
+                value_hash_fea[0] = siblings[level][4];
+                value_hash_fea[1] = siblings[level][5];
+                value_hash_fea[2] = siblings[level][6];
+                value_hash_fea[3] = siblings[level][7];
+
+                let str_value_hash = fea2string(&value_hash_fea);
+                let db_value = self.db.read(str_value_hash, 0);
+                // dbres = db.read(valueHashString, dbValue, dbReadLog);
+
+                // First 4 elements are the remaining key
+                let mut found_r_key = [Fr::ZERO; 4];
+                found_r_key[0] = siblings[level][0];
+                found_r_key[1] = siblings[level][1];
+                found_r_key[2] = siblings[level][2];
+                found_r_key[3] = siblings[level][3];
+
+                // We convert the 8 found value elements to a scalar called foundVal
+                let mut fea = [Fr::ZERO; 8];
+                fea.copy_from_slice(db_value[0..8]);
+                found_val = fea2scalar(&fea);
+
+                // We construct the whole key of that value in the database, and we call it foundKey
+                found_key = self.join_key(acc_key, found_r_key);
+                b_found_key = true;
+            }
+            // If this is an intermediate node
+            else {
+                // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
+                r[0] = siblings[level][keys[level] * 4];
+                r[1] = siblings[level][keys[level] * 4 + 1];
+                r[2] = siblings[level][keys[level] * 4 + 2];
+                r[3] = siblings[level][keys[level] * 4 + 3];
+
+                // Store the used key bit in accKey
+                acc_key.push_back(keys[level]);
+
+                // Increase the level
+                level += 1;
+            }
+        }
+
+        // One step back
+        level -= 1;
+        acc_key.pop();
+
+        // if we found the key, then we reached a leaf node while going down the tree
+        if b_found_key {
+            // if foundKey==key, then foundVal is what we were looking for
+            if key[0] == found_key[0]
+                && key[1] == found_key[1]
+                && key[2] == found_key[2]
+                && key[3] == found_key[3]
+            {
+                value = found_val;
+            }
+            // if foundKey!=key, then the requested value was not found
+            else {
+                ins_key[0] = found_key[0];
+                ins_key[1] = found_key[1];
+                ins_key[2] = found_key[2];
+                ins_key[3] = found_key[3];
+                ins_value = found_val;
+                is_old0 = false;
+            }
+        }
+
+        // We leave the siblings only up to the leaf node level
+        // map< uint64_t, vector<Goldilocks::Element> >::iterator it;
+        // it = siblings.find(level+1);
+        // siblings.erase(it, siblings.end());
+        siblings.remove(level + 1);
+
+        let mut ret = SmtGetResult {
+            root: root,
+            key: key,
+            value: value,
+            ins_key: ins_key,
+            ins_value: ins_value,
+            is_old0: is_old0,
+        };
+
+        if not_all_zero(root) {
+            ret.proof_hash_counter = siblings.len();
+            if value != BigUint::zero() || !is_old0 {
+                ret.proof_hash_counter += 2;
+            }
+        } else {
+            ret.proof_hash_counter = 0;
+        }
+        Ok(ret)
     }
 
     #[inline(always)]
