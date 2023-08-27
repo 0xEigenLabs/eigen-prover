@@ -6,6 +6,7 @@ use starky::linearhash::LinearHash;
 use std::collections::HashMap;
 use utils::errors::Result;
 use utils::{fea2scalar, fea2string, scalar2fe, scalar2fea};
+use num_traits::identities::Zero;
 
 pub struct SmtSetResult {
     old_root: [Fr; 4],
@@ -13,10 +14,10 @@ pub struct SmtSetResult {
     key: [Fr; 4],
     siblings: HashMap<u64, Vec<Fr>>,
     ins_key: [Fr; 4],
-    ins_value: u64,
+    ins_value: BigUint,
     is_old0: bool,
-    old_value: u64,
-    new_value: u64,
+    old_value: BigUint,
+    new_value: BigUint,
     mode: String,
     proof_hash_counter: u64,
 }
@@ -27,7 +28,7 @@ pub struct SmtGetResult {
     siblings: HashMap<u64, Vec<Fr>>,
     ins_key: [Fr; 4],
     is_old0: bool,
-    value: u64,
+    value: BigUint,
     proof_hash_counter: u64,
 }
 
@@ -66,7 +67,7 @@ impl SMT {
 
         let mut acc_key: Vec<u64> = Vec::new();
 
-        while not_all_zero(&r) && !b_found_key {
+        while Self::not_all_zero(&r) && !b_found_key {
             let str_root = fea2string(&r);
             let db_value = self.db.read(&str_root, level)?;
             siblings.insert(level, db_value);
@@ -82,18 +83,18 @@ impl SMT {
                     value_fea[i] = db_value[i];
                 }
                 found_value = fea2scalar(&value_fea);
-                found_rkey[0] = siblings[level][0];
-                found_rkey[1] = siblings[level][1];
-                found_rkey[2] = siblings[level][2];
-                found_rkey[3] = siblings[level][3];
+                found_rkey[0] = siblings[&level][0];
+                found_rkey[1] = siblings[&level][1];
+                found_rkey[2] = siblings[&level][2];
+                found_rkey[3] = siblings[&level][3];
                 self.join_key(acc_key, found_rkey, &mut found_key);
                 b_found_key = true;
             } else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
-                r[0] = siblings[level][keys[level] * 4];
-                r[1] = siblings[level][keys[level] * 4 + 1];
-                r[2] = siblings[level][keys[level] * 4 + 2];
-                r[3] = siblings[level][keys[level] * 4 + 3];
+                r[0] = siblings[&level][keys[level] * 4];
+                r[1] = siblings[&level][keys[level] * 4 + 1];
+                r[2] = siblings[&level][keys[level] * 4 + 2];
+                r[3] = siblings[&level][keys[level] * 4 + 3];
                 acc_key.push(keys[level]);
 
                 level += 1;
@@ -102,7 +103,7 @@ impl SMT {
         level -= 1;
         acc_key.pop();
 
-        if not_all_zero(old_root) {
+        if Self::not_all_zero(old_root) {
             proof_hash_counter = std::cmp::min(siblings.len(), level + 1);
             if found_value != 0 {
                 proof_hash_counter += 2;
@@ -134,10 +135,10 @@ impl SMT {
                     proof_hash_counter += 2;
 
                     if level >= 0 {
-                        siblings[level][keys[level] * 4] = new_leaf_hash[0];
-                        siblings[level][keys[level] * 4 + 1] = new_leaf_hash[1];
-                        siblings[level][keys[level] * 4 + 2] = new_leaf_hash[2];
-                        siblings[level][keys[level] * 4 + 3] = new_leaf_hash[3];
+                        siblings[&level][keys[level] * 4] = new_leaf_hash[0];
+                        siblings[&level][keys[level] * 4 + 1] = new_leaf_hash[1];
+                        siblings[&level][keys[level] * 4 + 2] = new_leaf_hash[2];
+                        siblings[&level][keys[level] * 4 + 3] = new_leaf_hash[3];
                     } else {
                         new_root[0] = new_leaf_hash[0];
                         new_root[1] = new_leaf_hash[1];
@@ -207,7 +208,7 @@ impl SMT {
 
                     if level >= 0 {
                         for j in 0..4 {
-                            siblings[level][keys[level] * 4 + j] = r2[j];
+                            siblings[&level][keys[level] * 4 + j] = r2[j];
                         }
                     } else {
                         new_root[0] = r2[0];
@@ -236,7 +237,7 @@ impl SMT {
                 proof_hash_counter += 2;
                 if level >= 0 {
                     for j in 0..4 {
-                        siblings[level][keys[level] * 4 + j] = new_leaf_hash[j];
+                        siblings[&level][keys[level] * 4 + j] = new_leaf_hash[j];
                     }
                 } else {
                     new_root[0] = new_leaf_hash[0];
@@ -261,25 +262,25 @@ impl SMT {
                     //
                     // Set the hash of the deleted node to zero
                     for j in 0..4 {
-                        siblings[level][keys[level] * 4 + j] = Fr::ZERO;
+                        siblings[&level][keys[level] * 4 + j] = Fr::ZERO;
                     }
 
                     // Find if there is only one non-zero hash in the siblings list for this level
-                    let ukey = self.get_unique_sibling(&siblings[level]);
+                    let ukey = self.get_unique_sibling(&siblings[&level]);
                     if ukey >= 0 {
                         mode = "deleteFound".to_string();
                         let mut aux_fea = [Fr::ZERO; 4];
                         for i in 0..4 {
-                            aux_fea[i] = siblings[level][ukey * 4 + 1];
+                            aux_fea[i] = siblings[&level][ukey * 4 + 1];
                         }
                         let str_aux = fea2string(aux_fea);
                         let db_value = self.db.read(&str_aux, level);
-                        siblings[level + 1] = db_value;
+                        siblings[&level + 1] = db_value;
 
-                        if siblings[level + 1].len() > 8 && siblings[level + 1][8] == Fr::ONE {
+                        if siblings[&level + 1].len() > 8 && siblings[&level + 1][8] == Fr::ONE {
                             let val_h = [Fr::ZERO; 8];
                             for i in 0..4 {
-                                val_h[i] = siblings[level + 1][4 + i];
+                                val_h[i] = siblings[&level + 1][4 + i];
                             }
 
                             let str_val_h = fea2string(&val_h);
@@ -298,7 +299,7 @@ impl SMT {
 
                             let mut rkey = [Fr::ZERO; 4];
                             for i in 0..4 {
-                                rkey[i] = siblings[level + 1][i];
+                                rkey[i] = siblings[&level + 1][i];
                             }
 
                             // Calculate the insKey
@@ -313,7 +314,7 @@ impl SMT {
                             while ukey >= 0 && level >= 0 {
                                 level -= 1;
                                 if level >= 0 {
-                                    ukey = self.get_unique_sibling(&siblings[level]);
+                                    ukey = self.get_unique_sibling(&siblings[&level]);
                                 }
                             }
 
@@ -328,7 +329,7 @@ impl SMT {
                             proof_hash_counter += 1;
                             if level >= 0 {
                                 for j in 0..4 {
-                                    siblings[level][keys[level] * 4 + j] = old_leaf_hash[j];
+                                    siblings[&level][keys[level] * 4 + j] = old_leaf_hash[j];
                                 }
                             } else {
                                 new_root[0] = old_leaf_hash[0];
@@ -371,8 +372,8 @@ impl SMT {
         while level >= 0 {
             let mut a = [Fr::ZERO; 8];
             let mut c = [Fr::ZERO; 4];
-            a.copy_from_slice(siblings[level][0..8]);
-            c.copy_from_slice(siblings[level][8..12]);
+            a.copy_from_slice(siblings[&level][0..8]);
+            c.copy_from_slice(siblings[&level][8..12]);
 
             new_root = self.hash_save(&a, &c);
             proof_hash_counter += 1;
@@ -381,7 +382,7 @@ impl SMT {
             if level >= 0 {
                 // Overwrite the first or second 4 elements (based on keys[level] bit) with the new root hash from the lower level
                 for j in 0..4 {
-                    siblings[level][keys[level] * 4 + j] = new_root[j];
+                    siblings[&level][keys[level] * 4 + j] = new_root[j];
                 }
             }
         }
@@ -428,21 +429,21 @@ impl SMT {
 
         // Start natigating the tree from the top: r = root
         // Go down while r!=0 (while there is branch) until we find the key
-        while not_all_zero(r) && !b_found_key {
-            // Read the content of db for entry r: siblings[level] = db.read(r)
+        while Self::not_all_zero(r) && !b_found_key {
+            // Read the content of db for entry r: siblings[&level] = db.read(r)
             let str_r = fea2string(r);
             let db_value = self.db.read(&str_r, level)?;
             // Get a copy of the content of this database entry, at the corresponding level: 0, 1...
-            siblings[level] = db_value;
+            siblings[&level] = db_value;
 
-            // if siblings[level][8]=1 then this is a leaf
-            if siblings[level].len() > 8 && siblings[level][8] == Fr::ONE {
+            // if siblings[&level][8]=1 then this is a leaf
+            if siblings[&level].len() > 8 && siblings[&level][8] == Fr::ONE {
                 // Second 4 elements are the hash of the value, so we can get value=db(valueHash)
                 let mut value_hash_fea = [Fr::ZERO; 4];
-                value_hash_fea[0] = siblings[level][4];
-                value_hash_fea[1] = siblings[level][5];
-                value_hash_fea[2] = siblings[level][6];
-                value_hash_fea[3] = siblings[level][7];
+                value_hash_fea[0] = siblings[&level][4];
+                value_hash_fea[1] = siblings[&level][5];
+                value_hash_fea[2] = siblings[&level][6];
+                value_hash_fea[3] = siblings[&level][7];
 
                 let str_value_hash = fea2string(&value_hash_fea);
                 let db_value = self.db.read(str_value_hash, 0);
@@ -450,10 +451,10 @@ impl SMT {
 
                 // First 4 elements are the remaining key
                 let mut found_r_key = [Fr::ZERO; 4];
-                found_r_key[0] = siblings[level][0];
-                found_r_key[1] = siblings[level][1];
-                found_r_key[2] = siblings[level][2];
-                found_r_key[3] = siblings[level][3];
+                found_r_key[0] = siblings[&level][0];
+                found_r_key[1] = siblings[&level][1];
+                found_r_key[2] = siblings[&level][2];
+                found_r_key[3] = siblings[&level][3];
 
                 // We convert the 8 found value elements to a scalar called foundVal
                 let mut fea = [Fr::ZERO; 8];
@@ -467,10 +468,10 @@ impl SMT {
             // If this is an intermediate node
             else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
-                r[0] = siblings[level][keys[level] * 4];
-                r[1] = siblings[level][keys[level] * 4 + 1];
-                r[2] = siblings[level][keys[level] * 4 + 2];
-                r[3] = siblings[level][keys[level] * 4 + 3];
+                r[0] = siblings[&level][keys[level] * 4];
+                r[1] = siblings[&level][keys[level] * 4 + 1];
+                r[2] = siblings[&level][keys[level] * 4 + 2];
+                r[3] = siblings[&level][keys[level] * 4 + 3];
 
                 // Store the used key bit in accKey
                 acc_key.push_back(keys[level]);
@@ -520,7 +521,7 @@ impl SMT {
             is_old0: is_old0,
         };
 
-        if not_all_zero(root) {
+        if Self::not_all_zero(root) {
             ret.proof_hash_counter = siblings.len();
             if value != BigUint::zero() || !is_old0 {
                 ret.proof_hash_counter += 2;
@@ -532,7 +533,7 @@ impl SMT {
     }
 
     #[inline(always)]
-    fn not_all_zero(r: &[Fr; 4]) -> bool {
+    fn Self::not_all_zero(r: &[Fr; 4]) -> bool {
         !Fr::is_zero(&r[0]) || !Fr::is_zero(&r[1]) || !Fr::is_zero(&r[2]) || !Fr::is_zero(&r[3])
     }
 
@@ -575,7 +576,7 @@ impl SMT {
         let mut n_found = 0;
         let mut fnd: i32 = 0;
         for i in (0..a.len()).step_by(4) {
-            if not_all_zero(&a[i..(i + 4)]) {
+            if Self::not_all_zero(&a[i..(i + 4)]) {
                 n_found += 1;
                 fnd = (i as i32) / 4;
             }

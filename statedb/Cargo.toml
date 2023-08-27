@@ -15,3 +15,6 @@ utils = { path = "../utils" }
 
 log = "0.4.0"
 env_logger = "0.10"
+
+num-bigint = "0.4.4"
+num-traits = "0.2.16"

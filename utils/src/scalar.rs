@@ -1,5 +1,7 @@
-use plonky::field_gl::Fr;
 use num_bigint::BigUint;
+use num_traits::cast::ToPrimitive;
+use plonky::field_gl::Fr;
+use plonky::PrimeField;
 use std::str::FromStr;
 
 pub fn remove_0x(key: &String) -> String {
@@ -52,26 +54,27 @@ pub fn scalar2fe(scalar: u64) -> Fr {
     Fr::from(scalar)
 }
 
+#[inline(always)]
 pub fn scalar2fea(s: &String) -> [u64; 8] {
     let mut fea = [0u64; 8];
-    let mask = BigUint::from(0xFFFFFFFF);
+    let mask = BigUint::from(0xFFFFFFFFu64);
     let scalar = BigUint::from_str(s).unwrap();
-    let aux: BigUint = scalar & mask;
-    fea[0] = aux.to_u64();
-    let aux = scalar>>32 & mask;
-    fea[1] = aux.to_u64();
-    let aux = scalar>>64 & mask;
-    fea[2] = aux.to_u64();
-    let aux = scalar>>96 & mask;
-    fea[3] = aux.to_u64();
-    let aux = scalar>>128 & mask;
-    fea[4] = aux.to_u64();
-    let aux = scalar>>160 & mask;
-    fea[5] = aux.to_u64();
-    let aux = scalar>>192 & mask;
-    fea[6] = aux.to_u64();
-    let aux = scalar>>224 & mask;
-    fea[7] = aux.to_u64();
+    let mut aux: BigUint = scalar.clone() & mask.clone();
+    fea[0] = aux.to_u64().unwrap();
+    aux = (scalar.clone() >> 32) & mask.clone();
+    fea[1] = aux.to_u64().unwrap();
+    aux = scalar.clone() >> 64 & mask.clone();
+    fea[2] = aux.to_u64().unwrap();
+    aux = scalar.clone() >> 96 & mask.clone();
+    fea[3] = aux.to_u64().unwrap();
+    aux = scalar.clone() >> 128 & mask.clone();
+    fea[4] = aux.to_u64().unwrap();
+    aux = scalar.clone() >> 160 & mask.clone();
+    fea[5] = aux.to_u64().unwrap();
+    aux = scalar.clone() >> 192 & mask.clone();
+    fea[6] = aux.to_u64().unwrap();
+    aux = scalar.clone() >> 224 & mask.clone();
+    fea[7] = aux.to_u64().unwrap();
     fea
 }
 
@@ -106,13 +109,12 @@ pub fn string2ba(os: &String) -> Vec<u8> {
 }
 
 pub fn string2fea(os: &String) -> Vec<Fr> {
-    let mut r = [Fr::ZERO; 4];
     let mut fea = vec![];
     for i in (0..os.len()).step_by(16) {
         if i + 16 > os.len() {
             panic!("string2fea: invalid input: {}", os);
         }
-        let fe = os.get(i .. (i+16)).unwrap();
+        let fe = os.get(i..(i + 16)).unwrap();
         let cr = string2fe(&fe.to_string());
         fea.push(cr);
     }
