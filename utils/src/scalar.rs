@@ -1,5 +1,6 @@
 use plonky::field_gl::Fr;
 use num_bigint::BigUint;
+use std::str::FromStr;
 
 pub fn remove_0x(key: &String) -> String {
     key.trim_start_matches("0x").to_string()
@@ -49,6 +50,29 @@ pub fn fea2string(fea: &[Fr; 4]) -> String {
 
 pub fn scalar2fe(scalar: u64) -> Fr {
     Fr::from(scalar)
+}
+
+pub fn scalar2fea(s: &String) -> [u64; 8] {
+    let mut fea = [0u64; 8];
+    let mask = BigUint::from(0xFFFFFFFF);
+    let scalar = BigUint::from_str(s).unwrap();
+    let aux: BigUint = scalar & mask;
+    fea[0] = aux.to_u64();
+    let aux = scalar>>32 & mask;
+    fea[1] = aux.to_u64();
+    let aux = scalar>>64 & mask;
+    fea[2] = aux.to_u64();
+    let aux = scalar>>96 & mask;
+    fea[3] = aux.to_u64();
+    let aux = scalar>>128 & mask;
+    fea[4] = aux.to_u64();
+    let aux = scalar>>160 & mask;
+    fea[5] = aux.to_u64();
+    let aux = scalar>>192 & mask;
+    fea[6] = aux.to_u64();
+    let aux = scalar>>224 & mask;
+    fea[7] = aux.to_u64();
+    fea
 }
 
 /// Byte to/from char conversion

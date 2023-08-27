@@ -5,7 +5,7 @@ use plonky::Field;
 use starky::linearhash::LinearHash;
 use std::collections::HashMap;
 use utils::errors::Result;
-use utils::{fea2scalar, fea2string, scalar2fe};
+use utils::{fea2scalar, fea2string, scalar2fe, scalar2fea};
 
 pub struct SmtSetResult {
     old_root: [Fr; 4],
@@ -116,23 +116,309 @@ impl SMT {
             }
         }
 
-        let mut mode = 0;
-        // update the existing node
+        let mut mode: String;
+        // If value!=0, it means we want to update an existing leaf node value, or create a new leaf node with the new value, in case keys are different
         if value != 0 {
             if b_found_key {
-                if key[0] == found_key[0] &&
-                   key[1] == found_key[1] &&
-                   key[2] == found_key[2] &&
-                   key[3] == found_key[3] {
-                    mode = 1; // "update";
+                if key[0] == found_key[0]
+                    && key[1] == found_key[1]
+                    && key[2] == found_key[2]
+                    && key[3] == found_key[3]
+                {
+                    mode = "update".to_string();
+
+                    old_value = found_value;
+                    // First, we create the db entry for the new VALUE, and store the calculated hash in newValH
+                    let v = scalar2fea(&value);
+                    let mut c = [Fr::ZERO; 4];
+                    let new_val_h = self.hash_save(&v, &c)?;
+                    // Second, we create the db entry for the new leaf node = RKEY + HASH, and store the calculated hash in new_leaf_hash
+                    v[0..4].copy_from_slice(&found_rkey);
+                    v[4..].copy_from_slice(&new_val_h);
+                    c[0] = Fr::ONE;
+
+                    let new_leaf_hash = self.hash_save(&v, &c);
+                    proof_hash_counter += 2;
+
+                    if level >= 0 {
+                        siblings[level][keys[level] * 4] = new_leaf_hash[0];
+                        siblings[level][keys[level] * 4 + 1] = new_leaf_hash[1];
+                        siblings[level][keys[level] * 4 + 2] = new_leaf_hash[2];
+                        siblings[level][keys[level] * 4 + 3] = new_leaf_hash[3];
+                    } else {
+                        new_root[0] = new_leaf_hash[0];
+                        new_root[1] = new_leaf_hash[1];
+                        new_root[2] = new_leaf_hash[2];
+                        new_root[3] = new_leaf_hash[3];
+                    }
+                } else {
+                    mode = "insertFound".to_string();
+                    let mut level2 = level + 1;
+                    let found_keys = self.split_key(&found_key);
+                    while keys[level2] == found_keys[level2] {
+                        level2 += 1;
+                    }
+                    let old_key = self.remove_key_bits(&found_key, level2 + 1);
+
+                    // Insert a new leaf node for the old value, and store the hash in oldLeafHash
+
+                    // Prepare the vector of field elements
+                    v[0..4].copy_from_slice(&old_key);
+                    v[4..].copy_from_slice(&found_old_val_h);
+                    let mut c = [Fr::ZERO; 4];
+                    let old_leaf_hash = self.hash_save(&v, &c);
+                    ins_key[0] = found_key[0];
+                    ins_key[1] = found_key[1];
+                    ins_key[2] = found_key[2];
+                    ins_key[3] = found_key[3];
+                    ins_value = found_val;
+                    is_old0 = false;
+
+                    let new_key = self.remove_key_bits(&key, level2 + 1);
+                    let value_fea = scalar2fea(value);
+
+                    c[0] = Fr::ZERO;
+                    let new_val_h = self.hash_save(&value_fea, c);
+                    v[0..4].copy_from_slice(&new_key);
+                    v[4..].copy_from_slice(&new_val_h);
+
+                    C[0] = Fr::ONE;
+                    let new_leaf_hash = self.hash_save(&v, &c);
+
+                    // Insert a new bifurcation intermediate node with both hashes (old and new) in the right position based on the bit
+
+                    // Prepare the 2 hashes: new|old or old|new, based on the bit
+                    let mut node = [Fr::ZERO; 8];
+                    for j in 0..4 {
+                        node[keys[level2] * 4 + j] = new_leaf_hash[j];
+                        node[found_keys[level2] * 4 + j] = old_leaf_hash[j];
+                    }
+
+                    c[0] = Fr::ZERO;
+                    let r2 = self.hash_save(&node, &c);
+
+                    proof_hash_counter += 4;
+                    level2 -= 1;
+
+                    while level2 != level {
+                        node.fill(Fr::ZERO);
+                        for j in 0..4 {
+                            node[keys[level2] * 4 + j] = r2[j];
+                        }
+
+                        c[0] = Fr::ZERO;
+                        let r2 = self.hash_save(&node, &c);
+                        proof_hash_counter += 1;
+                        level2 -= 1;
+                    }
+
+                    if level >= 0 {
+                        for j in 0..4 {
+                            siblings[level][keys[level] * 4 + j] = r2[j];
+                        }
+                    } else {
+                        new_root[0] = r2[0];
+                        new_root[1] = r2[1];
+                        new_root[2] = r2[2];
+                        new_root[3] = r2[3];
+                    }
+                }
+            } else {
+                // insert without foundKey
+                mode = "insertNotFound".to_string();
+                // Build the new remaining key
+                let new_keys = self.remove_key_bits(&key, level + 1);
+                let value_fea = scalar2fea(value);
+
+                let c = [Fr::ZERO; 4];
+                let new_val_h = self.hash_save(&value_fea, &c);
+                let mut key_val_vec = [Fr::ZERO; 8];
+                key_val_vec[0..4].copy_from_slice(&new_key);
+                key_val_vec[4..].copy_from_slice(&new_val_h);
+
+                // Capacity marks the node as leaf
+                c[0] = Fr::ONE;
+                let new_leaf_hash = self.hash_save(&key_val_vec, &c);
+
+                proof_hash_counter += 2;
+                if level >= 0 {
+                    for j in 0..4 {
+                        siblings[level][keys[level] * 4 + j] = new_leaf_hash[j];
+                    }
+                } else {
+                    new_root[0] = new_leaf_hash[0];
+                    new_root[1] = new_leaf_hash[1];
+                    new_root[2] = new_leaf_hash[2];
+                    new_root[3] = new_leaf_hash[3];
+                }
+            }
+        } else {
+            // If value=0, we are possibly going to delete an existing node
+            //
+            // Setting a value=0 in an existing key, i.e. deleting
+            if b_found_key
+                && key[0] == found_key[0]
+                && key[1] == found_key[1]
+                && key[2] == found_key[2]
+                && key[3] == found_key[3]
+            {
+                old_value = found_val;
+                if level > 0 {
+                    // If level > 0, we are going to delete and existing node (not the root node)
+                    //
+                    // Set the hash of the deleted node to zero
+                    for j in 0..4 {
+                        siblings[level][keys[level] * 4 + j] = Fr::ZERO;
+                    }
+
+                    // Find if there is only one non-zero hash in the siblings list for this level
+                    let ukey = self.get_unique_sibling(&siblings[level]);
+                    if ukey >= 0 {
+                        mode = "deleteFound".to_string();
+                        let mut aux_fea = [Fr::ZERO; 4];
+                        for i in 0..4 {
+                            aux_fea[i] = siblings[level][ukey * 4 + 1];
+                        }
+                        let str_aux = fea2string(aux_fea);
+                        let db_value = self.db.read(&str_aux, level);
+                        siblings[level + 1] = db_value;
+
+                        if siblings[level + 1].len() > 8 && siblings[level + 1][8] == Fr::ONE {
+                            let val_h = [Fr::ZERO; 8];
+                            for i in 0..4 {
+                                val_h[i] = siblings[level + 1][4 + i];
+                            }
+
+                            let str_val_h = fea2string(&val_h);
+                            if db_value.len() < 8 {
+                                panic!("Smt::set() dbValue.size()<8 root: {}", str_val_h);
+                            }
+
+                            let mut val_a = [Fr::ZERO; 8];
+                            for i in 0..8 {
+                                val_a[i] = db_value[i];
+                            }
+
+                            let val = fea2scalar(&val_a);
+
+                            proof_hash_counter += 2;
+
+                            let mut rkey = [Fr::ZERO; 4];
+                            for i in 0..4 {
+                                rkey[i] = siblings[level + 1][i];
+                            }
+
+                            // Calculate the insKey
+
+                            let mut aux_bits = acc_key.clone();
+                            aux_bits.push(ukey);
+                            ins_key = self.join_key(&aux_bits, &rkey);
+                            ins_value = val;
+                            is_old0 = false;
+
+                            // Climb the branch until there are two siblings
+                            while ukey >= 0 && level >= 0 {
+                                level -= 1;
+                                if level >= 0 {
+                                    ukey = self.get_unique_sibling(&siblings[level]);
+                                }
+                            }
+
+                            let old_key = self.remove_key_bits(&ins_key, level + 1);
+
+                            let mut a = [Fr::ZERO; 8];
+                            a[0..4].copy_from_slice(&old_key);
+                            a[4..].copy_from_slice(&val_h);
+
+                            let mut c = [Fr::ONE, Fr: ZERO, Fr::ZERO, Fr::ZERO];
+                            let old_leaf_hash = self.hash_save(&a, &c);
+                            proof_hash_counter += 1;
+                            if level >= 0 {
+                                for j in 0..4 {
+                                    siblings[level][keys[level] * 4 + j] = old_leaf_hash[j];
+                                }
+                            } else {
+                                new_root[0] = old_leaf_hash[0];
+                                new_root[1] = old_leaf_hash[1];
+                                new_root[2] = old_leaf_hash[2];
+                                new_root[3] = old_leaf_hash[3];
+                            }
+                        } else {
+                            mode = "deleteNotFound".to_string();
+                        }
+                    } else {
+                        // 2 siblings found
+                        mode = "deleteNotFound".to_string()
+                    }
+                } else {
+                    // If level=0, this means we are deleting the root node
+                    mode = "deleteLast".to_string();
+                    new_root[0] = Fr::ZERO;
+                    new_root[1] = Fr::ZERO;
+                    new_root[2] = Fr::ZERO;
+                    new_root[3] = Fr::ZERO;
+                }
+            } else {
+                // Setting to zero a node that does not exist, so nothing to do
+                mode = "zeroToZero".to_string();
+                if b_found_key {
+                    ins_key.copy_from_slice(&found_key);
+                    ins_value = found_val;
+                    is_old0 = false;
                 }
             }
         }
+
+        // Delete the extra siblings
+        // map< uint64_t, vector<Goldilocks::Element> >::iterator it;
+        // it = siblings.find(level+1);
+        // siblings.erase(it, siblings.end());
+
+        siblings.remove(level + 1);
+        while level >= 0 {
+            let mut a = [Fr::ZERO; 8];
+            let mut c = [Fr::ZERO; 4];
+            a.copy_from_slice(siblings[level][0..8]);
+            c.copy_from_slice(siblings[level][8..12]);
+
+            new_root = self.hash_save(&a, &c);
+            proof_hash_counter += 1;
+
+            level -= 1;
+            if level >= 0 {
+                // Overwrite the first or second 4 elements (based on keys[level] bit) with the new root hash from the lower level
+                for j in 0..4 {
+                    siblings[level][keys[level] * 4 + j] = new_root[j];
+                }
+            }
+        }
+        if persistent
+            && (old_root[0] != new_root[0]
+                || old_root[1] != new_root[1]
+                || old_root[2] != new_root[2]
+                || old_root[3] != new_root[3])
+        {
+            self.save_state_root(&new_root)?;
+        }
+
+        Ok(SmtSetResult {
+            old_root: old_root,
+            new_root: new_root,
+            key: key,
+            siblings: siblings,
+            ins_key: ins_key,
+            ins_value: ins_value,
+            is_old0: is_old0,
+            old_value: old_value,
+            new_value: value,
+            mode: mode,
+            proof_hash_counter: proof_hash_counter,
+        })
     }
 
     #[inline(always)]
     fn not_all_zero(r: &[Fr; 4]) -> bool {
-        !Fr::is_zero(r[0]) || !Fr::is_zero(r[1]) || !Fr::is_zero(r[2]) || !Fr::is_zero(r[3])
+        !Fr::is_zero(&r[0]) || !Fr::is_zero(&r[1]) || !Fr::is_zero(&r[2]) || !Fr::is_zero(&r[3])
     }
 
     pub fn get(&mut self, root: &[Fr; 4], key: &[Fr; 4]) -> Result<SmtGetResult> {
@@ -197,7 +483,7 @@ impl SMT {
             .write(&self.db.db_state_root_key.to_string(), &db_value, true)
     }
 
-    fn hash_save(&mut self, a: &[Fr; 8], c: &[Fr; 4], hash: &[Fr; 4]) -> Result<usize> {
+    fn hash_save(&mut self, a: &[Fr; 8], c: &[Fr; 4]) -> Result<usize> {
         let mut db_value = [Fr::ZERO; 12];
         for i in 0..8 {
             db_value[i] = a[i];
