@@ -1,14 +1,9 @@
 # eigen-prover
 
-A proving RPC interface for Plonk and Stark.
+The whole process to produce a zkVM proof refers to [SM](https://github.com/0xEigenLabs/eigen-zkvm/tree/main/SM#sm).
 
-# Quick start
+This repo aims to build components as below.
 
-```
-cargo run -r
-```
-
-http server running in 127.0.0.1:8888. 
-
-
-
+* executor
+* statedb
+* prover
