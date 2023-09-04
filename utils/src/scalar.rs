@@ -1,3 +1,4 @@
+use log::{info, warn};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use plonky::field_gl::Fr;
@@ -34,7 +35,7 @@ pub fn byte2string(b: u8) -> String {
     result
 }
 
-pub fn fea2scalar(fea: &[Fr; 4]) -> BigUint {
+pub fn fea42scalar(fea: &[Fr; 4]) -> BigUint {
     let mut f1: BigUint = BigUint::from(fea[3].as_int());
     f1 <<= 64;
     f1 |= BigUint::from(fea[2].as_int());
@@ -45,8 +46,102 @@ pub fn fea2scalar(fea: &[Fr; 4]) -> BigUint {
     f1
 }
 
+pub fn fea82scalar(fea: &[Fr; 8]) -> Option<BigUint> {
+    // Add field element 7
+    let aux_h = fea[7].as_int();
+    if aux_h >= 0x100000000 {
+        warn!(
+            "fea2scalar() found element 7 has a too high value={}",
+            fea[7]
+        );
+        return None;
+    }
+
+    // Add field element 6
+    let aux_l = fea[6].as_int();
+    if aux_l >= 0x100000000 {
+        warn!(
+            "fea2scalar() found element 6 has a too high value={}",
+            fea[6]
+        );
+        return None;
+    }
+
+    let mut scalar: BigUint = (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
+    scalar <<= 64;
+
+    // Add field element 5
+    let aux_h = fea[5].as_int();
+    if aux_h >= 0x100000000 {
+        warn!(
+            "fea2scalar() found element 5 has a too high value={}",
+            fea[5]
+        );
+        return None;
+    }
+
+    // Add field element 4
+    let aux_l = fea[4].as_int();
+    if aux_l >= 0x100000000 {
+        warn!(
+            "fea2scalar() found element 4 has a too high value={}",
+            fea[4]
+        );
+        return None;
+    }
+
+    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
+    scalar <<= 64;
+
+    // Add field element 3
+    let aux_h = fea[3].as_int();
+    if aux_h >= 0x100000000 {
+        warn!(
+            "fea2scalar() found element 3 has a too high value={}",
+            fea[3]
+        );
+        return None;
+    }
+
+    // Add field element 2
+    let aux_l = fea[2].as_int();
+    if aux_l >= 0x100000000 {
+        warn!(
+            "fea2scalar() found element 2 has a too high value={}",
+            fea[2]
+        );
+        return None;
+    }
+
+    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
+    scalar <<= 64;
+
+    // Add field element 1
+    let aux_h = fea[1].as_int();
+    if aux_h >= 0x100000000 {
+        warn!(
+            "fea2scalar() found element 1 has a too high value={}",
+            fea[1]
+        );
+        return None;
+    }
+
+    // Add field element 0
+    let aux_l = fea[0].as_int();
+    if aux_l >= 0x100000000 {
+        warn!(
+            "fea2scalar() found element 0 has a too high value={}",
+            fea[0]
+        );
+        return None;
+    }
+
+    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
+    Some(scalar)
+}
+
 pub fn fea2string(fea: &[Fr; 4]) -> String {
-    let f1 = fea2scalar(fea);
+    let f1 = fea42scalar(fea);
     f1.to_str_radix(16)
 }
 
@@ -55,10 +150,10 @@ pub fn scalar2fe(scalar: u64) -> Fr {
 }
 
 #[inline(always)]
-pub fn scalar2fea(s: &String) -> [u64; 8] {
+pub fn scalar2fea(scalar: &BigUint) -> [u64; 8] {
     let mut fea = [0u64; 8];
     let mask = BigUint::from(0xFFFFFFFFu64);
-    let scalar = BigUint::from_str(s).unwrap();
+    // let scalar = BigUint::from_str(s).unwrap();
     let mut aux: BigUint = scalar.clone() & mask.clone();
     fea[0] = aux.to_u64().unwrap();
     aux = (scalar.clone() >> 32) & mask.clone();

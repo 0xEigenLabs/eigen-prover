@@ -14,7 +14,7 @@ use utils::{
 pub struct Database {
     connection: PgConnection,
     in_use: bool,
-    pub db_state_root_key: &str,
+    pub db_state_root_key: String,
 }
 
 impl Database {
@@ -25,7 +25,8 @@ impl Database {
         Database {
             connection: conn,
             in_use: true,
-            db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                .to_string(),
         }
     }
 
