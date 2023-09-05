@@ -14,7 +14,7 @@ use utils::{
 pub struct Database {
     connection: PgConnection,
     in_use: bool,
-    pub db_state_root_key: &str,
+    pub db_state_root_key: String,
 }
 
 impl Database {
@@ -25,7 +25,8 @@ impl Database {
         Database {
             connection: conn,
             in_use: true,
-            db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                .to_string(),
         }
     }
 
@@ -115,16 +116,16 @@ impl Database {
         }
     }
 
-    pub fn write(&mut self, key: &String, value: &Vec<Fr>, update: bool) {
+    pub fn write(&mut self, key: &String, value: &Vec<Fr>, update: bool) -> Result<usize> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let mut value_str = String::from("");
         for v in value {
             value_str.push_str(&prepend_zeros(&to_hex(v), 16));
         }
-        self.write_remote(false, key, value_str, update).unwrap();
+        self.write_remote(false, key, value_str, update)
     }
 
-    pub fn read(&mut self, key: &String, level: u64) -> Result<Vec<Fr>> {
+    pub fn read(&mut self, key: &String, level: i64) -> Result<Vec<Fr>> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let s_data = self.read_remote(false, &key)?;
         Ok(string2fea(&s_data))
