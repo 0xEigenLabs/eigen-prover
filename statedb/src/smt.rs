@@ -13,7 +13,7 @@ pub struct SmtSetResult {
     old_root: [Fr; 4],
     new_root: [Fr; 4],
     key: [Fr; 4],
-    siblings: HashMap<u64, Vec<Fr>>,
+    siblings: HashMap<i64, Vec<Fr>>,
     ins_key: [Fr; 4],
     ins_value: BigUint,
     is_old0: bool,
@@ -26,7 +26,7 @@ pub struct SmtSetResult {
 pub struct SmtGetResult {
     root: [Fr; 4],
     key: [Fr; 4],
-    siblings: HashMap<u64, Vec<Fr>>,
+    siblings: HashMap<i64, Vec<Fr>>,
     ins_key: [Fr; 4],
     ins_value: BigUint,
     is_old0: bool,
@@ -50,14 +50,14 @@ impl SMT {
         let mut new_root = old_root.clone();
 
         let keys = self.split_key(key);
-        let mut level = 0; //TODO FIXME, level should be signed integer
+        let mut level: i64 = 0;
         let mut proof_hash_counter = 0;
 
         let mut found_key = [Fr::ZERO; 4];
         let mut found_rkey = [Fr::ZERO; 4];
         let mut ins_key = [Fr::ZERO; 4];
 
-        let mut siblings: HashMap<u64, Vec<Fr>> = HashMap::new();
+        let mut siblings: HashMap<i64, Vec<Fr>> = HashMap::new();
 
         let mut ins_value = BigUint::zero();
         let mut old_value = BigUint::zero();
@@ -107,7 +107,7 @@ impl SMT {
         acc_key.pop();
 
         if Self::not_all_zero(old_root) {
-            proof_hash_counter = std::cmp::min(siblings.len() as u64, level + 1);
+            proof_hash_counter = std::cmp::min(siblings.len() as i64, level + 1);
             if found_value != BigUint::zero() {
                 proof_hash_counter += 2;
             }
@@ -438,13 +438,13 @@ impl SMT {
         let mut r = root.clone();
         // Get a list of the bits of the key to navigate top-down through the tree
         let keys = self.split_key(key);
-        let mut level = 0;
+        let mut level: i64 = 0;
         let mut b_found_key = false;
 
         let mut acc_key: Vec<u64> = Vec::new();
         let mut found_key = [Fr::ZERO; 4];
         let mut ins_key = [Fr::ZERO; 4];
-        let mut siblings: HashMap<u64, Vec<Fr>> = HashMap::new();
+        let mut siblings: HashMap<i64, Vec<Fr>> = HashMap::new();
         let mut ins_value: BigUint = BigUint::zero();
         let mut value: BigUint = BigUint::zero();
         let mut found_val: BigUint = BigUint::zero();
@@ -654,8 +654,8 @@ impl SMT {
         Ok(())
     }
 
-    fn remove_key_bits(&mut self, key: &[Fr; 4], nbits: u64) -> [Fr; 4] {
-        let full_lvl: u64 = nbits / 4;
+    fn remove_key_bits(&mut self, key: &[Fr; 4], nbits: i64) -> [Fr; 4] {
+        let full_lvl: i64 = nbits / 4;
         let mut auxk = [0u64; 4];
 
         for i in 0..4 {

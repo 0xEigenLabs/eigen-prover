@@ -125,7 +125,7 @@ impl Database {
         self.write_remote(false, key, value_str, update)
     }
 
-    pub fn read(&mut self, key: &String, level: u64) -> Result<Vec<Fr>> {
+    pub fn read(&mut self, key: &String, level: i64) -> Result<Vec<Fr>> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let s_data = self.read_remote(false, &key)?;
         Ok(string2fea(&s_data))
