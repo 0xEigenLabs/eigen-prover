@@ -1,13 +1,22 @@
-diesel::table! {
-    nodes (hash) {
-        hash -> Varchar,
-        data -> Varchar,
-    }
-}
+// @generated automatically by Diesel CLI.
 
-diesel::table! {
-    program (hash) {
-        hash -> Varchar,
-        data -> Varchar,
+pub mod state {
+    diesel::table! {
+        state.nodes (hash) {
+            hash -> Text,
+            data -> Text,
+        }
     }
+
+    diesel::table! {
+        state.program (hash) {
+            hash -> Text,
+            data -> Text,
+        }
+    }
+
+    diesel::allow_tables_to_appear_in_same_query!(
+        nodes,
+        program,
+    );
 }

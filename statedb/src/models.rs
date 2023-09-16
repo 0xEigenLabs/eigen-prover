@@ -1,4 +1,4 @@
-use crate::schema::{nodes, program};
+use crate::schema::state::{nodes, program};
 use diesel::prelude::*;
 
 #[derive(Queryable, Selectable, Insertable, AsChangeset)]

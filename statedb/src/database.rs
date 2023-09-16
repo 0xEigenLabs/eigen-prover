@@ -1,6 +1,6 @@
 use crate::models::{Nodes, Program};
-use crate::schema::nodes::dsl::nodes;
-use crate::schema::program::dsl::program;
+use crate::schema::state::nodes::dsl::nodes;
+use crate::schema::state::program::dsl::program;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use plonky::field_gl::Fr;
@@ -71,7 +71,7 @@ impl Database {
         let res = match update {
             true => diesel::insert_into(program)
                 .values(&new_pro)
-                .on_conflict(crate::schema::program::hash)
+                .on_conflict(crate::schema::state::program::hash)
                 .do_update()
                 .set(&new_pro)
                 .execute(&mut self.connection)?,
@@ -91,7 +91,7 @@ impl Database {
         let res = match update {
             true => diesel::insert_into(nodes)
                 .values(&new_pro)
-                .on_conflict(crate::schema::nodes::hash)
+                .on_conflict(crate::schema::state::nodes::hash)
                 .do_update()
                 .set(&new_pro)
                 .execute(&mut self.connection)?,

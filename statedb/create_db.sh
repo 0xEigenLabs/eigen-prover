@@ -18,8 +18,8 @@ function create() {
     sleep 2
     echo "Creating table state.merkletree..."
     docker exec -ti $NAME psql -U $user -d $db -c 'create schema state;'
-    docker exec -ti $NAME psql -U $user -d $db -c 'create table state.nodes (hash bytea primary key, data bytea not null);'
-    docker exec -ti $NAME psql -U $user -d $db -c 'create table state.program (hash bytea primary key, data bytea not null);'
+    #docker exec -ti $NAME psql -U $user -d $db -c 'create table state.nodes (hash bytea primary key, data bytea not null);'
+    #docker exec -ti $NAME psql -U $user -d $db -c 'create table state.program (hash bytea primary key, data bytea not null);'
     if [ $# == 4 ]; then
         docker exec -ti $NAME psql -U $user -d $db -f $4
     fi
