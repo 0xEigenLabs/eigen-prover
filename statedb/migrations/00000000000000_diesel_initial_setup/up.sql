@@ -34,3 +34,5 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE SCHEMA state

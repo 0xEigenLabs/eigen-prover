@@ -17,7 +17,7 @@ function create() {
     docker run -d --name $NAME -p $PORT:5432 -e POSTGRES_PASSWORD=$pswd -e POSTGRES_USER=$user -e POSTGRES_DB=$db postgres
     sleep 2
     echo "Creating table state.merkletree..."
-    docker exec -ti $NAME psql -U $user -d $db -c 'create schema state;'
+    #docker exec -ti $NAME psql -U $user -d $db -c 'create schema state;'
     #docker exec -ti $NAME psql -U $user -d $db -c 'create table state.nodes (hash bytea primary key, data bytea not null);'
     #docker exec -ti $NAME psql -U $user -d $db -c 'create table state.program (hash bytea primary key, data bytea not null);'
     if [ $# == 4 ]; then

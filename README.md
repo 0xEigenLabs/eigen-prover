@@ -24,8 +24,10 @@ cargo run --example set
 # create
 bash -x statedb/create_db.sh create state root password
 
-export DATABASE_URL="postgresql://root:password@127.0.0.1:5432/state"
 sudo apt install libpq-dev
+export DATABASE_URL="postgresql://root:password@127.0.0.1:5432/state"
+
+diesel migration run
 cargo run --example nodes
 
 # delete
