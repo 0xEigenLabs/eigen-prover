@@ -7,7 +7,7 @@ use plonky::Field;
 use starky::linearhash::LinearHash;
 use std::collections::HashMap;
 use utils::errors::Result;
-use utils::{fea2string, fea42scalar, fea82scalar, scalar2fe, scalar2fea};
+use utils::{fea2string, fea82scalar, scalar2fe, scalar2fea};
 
 pub struct SmtSetResult {
     old_root: [Fr; 4],

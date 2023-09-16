@@ -1,6 +1,6 @@
-use crate::database::nodes::dsl::nodes;
-use crate::database::program::dsl::program;
-use crate::database_model::*;
+use crate::models::{Nodes, Program};
+use crate::schema::nodes::dsl::nodes;
+use crate::schema::program::dsl::program;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use plonky::field_gl::Fr;
@@ -63,15 +63,15 @@ impl Database {
         }
     }
 
-    pub fn write_program(&mut self, key: String, value: String, update: bool) -> Result<usize> {
+    pub fn write_program(&mut self, key: &String, value: &String, update: bool) -> Result<usize> {
         let new_pro = Program {
-            hash: key,
-            data: value,
+            hash: key.clone(),
+            data: value.clone(),
         };
         let res = match update {
             true => diesel::insert_into(program)
                 .values(&new_pro)
-                .on_conflict(crate::database_model::program::hash)
+                .on_conflict(crate::schema::program::hash)
                 .do_update()
                 .set(&new_pro)
                 .execute(&mut self.connection)?,
@@ -83,15 +83,15 @@ impl Database {
         Ok(res)
     }
 
-    pub fn write_nodes(&mut self, key: String, value: String, update: bool) -> Result<usize> {
+    pub fn write_nodes(&mut self, key: &String, value: &String, update: bool) -> Result<usize> {
         let new_pro = Nodes {
-            hash: key,
-            data: value,
+            hash: key.clone(),
+            data: value.clone(),
         };
         let res = match update {
             true => diesel::insert_into(nodes)
                 .values(&new_pro)
-                .on_conflict(crate::database_model::nodes::hash)
+                .on_conflict(crate::schema::nodes::hash)
                 .do_update()
                 .set(&new_pro)
                 .execute(&mut self.connection)?,
@@ -106,8 +106,8 @@ impl Database {
     pub fn write_remote(
         &mut self,
         is_program: bool,
-        key: String,
-        value: String,
+        key: &String,
+        value: &String,
         update: bool,
     ) -> Result<usize> {
         match is_program {
@@ -122,7 +122,7 @@ impl Database {
         for v in value {
             value_str.push_str(&prepend_zeros(&to_hex(v), 16));
         }
-        self.write_remote(false, key, value_str, update)
+        self.write_remote(false, &key, &value_str, update)
     }
 
     pub fn read(&mut self, key: &String, level: i64) -> Result<Vec<Fr>> {
@@ -276,7 +276,7 @@ impl Database {
             s_data.push_str(&byte2string(*d));
         }
 
-        self.write_remote(true, key, s_data, update)
+        self.write_remote(true, &key, &s_data, update)
     }
 
     pub fn get_program(&mut self, key: &String) -> Result<Vec<u8>> {

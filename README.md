@@ -22,13 +22,10 @@ cargo run --example set
 
 ```
 # create
-bash -x create_db.sh create state root password
+bash -x statedb/create_db.sh create state root password
 
-# 
 export DATABASE_URL="postgresql://root:password@127.0.0.1:5432/state"
-
 sudo apt install libpq-dev
-
 cargo run --example nodes
 
 # delete

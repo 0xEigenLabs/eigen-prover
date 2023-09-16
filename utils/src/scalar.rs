@@ -1,9 +1,8 @@
-use log::{info, warn};
+use log::warn;
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use plonky::field_gl::Fr;
 use plonky::PrimeField;
-use std::str::FromStr;
 
 pub fn remove_0x(key: &String) -> String {
     key.trim_start_matches("0x").to_string()

@@ -1,3 +1,4 @@
 pub mod database;
-mod database_model;
+pub mod models;
+pub mod schema;
 pub mod smt;
