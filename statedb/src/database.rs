@@ -30,7 +30,7 @@ impl Database {
         }
     }
 
-    fn read_program(&mut self, key: &String) -> Result<String> {
+    pub fn read_program(&mut self, key: &String) -> Result<String> {
         let result = program
             .find(key)
             .select(Program::as_select())
@@ -43,7 +43,7 @@ impl Database {
         }
     }
 
-    fn read_nodes(&mut self, key: &String) -> Result<String> {
+    pub fn read_nodes(&mut self, key: &String) -> Result<String> {
         let result = nodes
             .find(key)
             .select(Nodes::as_select())
@@ -63,7 +63,7 @@ impl Database {
         }
     }
 
-    fn write_program(&mut self, key: String, value: String, update: bool) -> Result<usize> {
+    pub fn write_program(&mut self, key: String, value: String, update: bool) -> Result<usize> {
         let new_pro = Program {
             hash: key,
             data: value,
@@ -83,7 +83,7 @@ impl Database {
         Ok(res)
     }
 
-    fn write_nodes(&mut self, key: String, value: String, update: bool) -> Result<usize> {
+    pub fn write_nodes(&mut self, key: String, value: String, update: bool) -> Result<usize> {
         let new_pro = Nodes {
             hash: key,
             data: value,
