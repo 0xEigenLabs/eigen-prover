@@ -576,6 +576,7 @@ impl SMT {
         for i in 0..4 {
             ru[i] = key[i].as_int();
         }
+        log::debug!("ru: {:?}", ru);
         // Split the key in bits, taking one bit from a different scalar every time
         let mut result = vec![];
         for i in 0..64 {
@@ -707,7 +708,8 @@ mod tests {
         let mut smt = SMT::new(db);
         let key = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000".to_string(); // bn254::prime - 1
         let key = string2fea(&key);
+        log::debug!("key {:?}", key);
         let result = smt.split_key(&[key[0], key[1], key[2], key[3]]);
-        println!("{:?}", result);
+        log::debug!("result {:?}", result);
     }
 }
