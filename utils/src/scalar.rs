@@ -1,8 +1,9 @@
-use log::warn;
+use log::{warn, debug};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use plonky::field_gl::Fr;
 use plonky::PrimeField;
+use plonky::ff::from_hex;
 
 pub fn remove_0x(key: &String) -> String {
     key.trim_start_matches("0x").to_string()
@@ -202,13 +203,17 @@ pub fn string2ba(os: &String) -> Vec<u8> {
     result
 }
 
+/* Hexa string to/from field element (array) conversion */
 pub fn string2fea(os: &String) -> Vec<Fr> {
+    let os = remove_0x(os);
     let mut fea = vec![];
+    debug!("string2fe: {}", os.len());
     for i in (0..os.len()).step_by(16) {
         if i + 16 > os.len() {
             panic!("string2fea: invalid input: {}", os);
         }
         let fe = os.get(i..(i + 16)).unwrap();
+        debug!("string2fea fe: {}", fe);
         let cr = string2fe(&fe.to_string());
         fea.push(cr);
     }
@@ -216,7 +221,8 @@ pub fn string2fea(os: &String) -> Vec<Fr> {
 }
 
 pub fn string2fe(os: &String) -> Fr {
-    Fr::from_str(os).unwrap()
+    let os = remove_0x(os);
+    from_hex(&os).unwrap()
 }
 
 #[cfg(test)]

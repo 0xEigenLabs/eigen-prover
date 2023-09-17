@@ -34,11 +34,18 @@ pub struct SmtGetResult {
     proof_hash_counter: u64,
 }
 
+// https://github.com/iden3/circomlibjs/blob/main/src/smt.js#L12
+// https://github.com/0xPolygonHermez/zkevm-prover/blob/v1.1.6-RC2-fork.4/src/statedb/smt.cpp
 pub struct SMT {
     db: Database,
 }
 
 impl SMT {
+    pub fn new(db: Database) -> Self {
+        SMT {
+            db: db
+        }
+    }
     pub fn set(
         &mut self,
         old_root: &[Fr; 4],
@@ -564,12 +571,21 @@ impl SMT {
         !Fr::is_zero(&r[0]) || !Fr::is_zero(&r[1]) || !Fr::is_zero(&r[2]) || !Fr::is_zero(&r[3])
     }
 
-    fn split_key(&mut self, key: &[Fr; 4]) -> [u64; 4] {
+    fn split_key(&mut self, key: &[Fr; 4]) -> Vec<u64> {
         let mut ru = [0u64; 4];
         for i in 0..4 {
             ru[i] = key[i].as_int();
         }
-        ru
+        // Split the key in bits, taking one bit from a different scalar every time
+        let mut result = vec![];
+        for i in 0..64 {
+            for j in 0..4 {
+                let aux = ru[j] & 1;
+                result.push(aux);
+                ru[j] = ru[j] >> 1;
+            }
+        }
+        result
     }
 
     fn join_key(&mut self, bits: &Vec<u64>, rkey: &[Fr; 4], auxk: &mut [Fr; 4]) {
@@ -681,7 +697,17 @@ impl SMT {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::database::Database;
+    use utils::*;
 
     #[test]
-    fn it_works() {}
+    fn test_smt_split_key() {
+        env_logger::init();
+        let db = Database::new();
+        let mut smt = SMT::new(db);
+        let key = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000".to_string(); // bn254::prime - 1
+        let key = string2fea(&key);
+        let result = smt.split_key(&[key[0], key[1], key[2], key[3]]);
+        println!("{:?}", result);
+    }
 }
