@@ -2,7 +2,6 @@ use log::{warn, debug};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use plonky::field_gl::Fr;
-use plonky::PrimeField;
 use plonky::ff::from_hex;
 
 pub fn remove_0x(key: &String) -> String {

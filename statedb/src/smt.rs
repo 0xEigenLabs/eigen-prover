@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use utils::errors::Result;
 use utils::{fea2string, fea82scalar, scalar2fe, scalar2fea};
 
+#[derive(Debug)]
 pub struct SmtSetResult {
     old_root: [Fr; 4],
     new_root: [Fr; 4],
@@ -23,6 +24,7 @@ pub struct SmtSetResult {
     proof_hash_counter: u64,
 }
 
+#[derive(Debug)]
 pub struct SmtGetResult {
     root: [Fr; 4],
     key: [Fr; 4],
@@ -42,9 +44,7 @@ pub struct SMT {
 
 impl SMT {
     pub fn new(db: Database) -> Self {
-        SMT {
-            db: db
-        }
+        SMT { db: db }
     }
     pub fn set(
         &mut self,
@@ -98,6 +98,7 @@ impl SMT {
                 found_rkey[3] = siblings[&level][3];
                 self.join_key(&acc_key, &found_rkey, &mut found_key);
                 b_found_key = true;
+                log::debug!("Smt::set found at level:{}, found_val: {:?}, found_key: {:?}, found_rkey: {:?}", level, found_value, found_key, found_rkey);
             } else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
                 let _idx = keys[level as usize] as usize * 4;
@@ -107,12 +108,21 @@ impl SMT {
                 r[3] = siblings[&level][_idx + 3];
                 acc_key.push(keys[level as usize]);
 
+                log::debug!(
+                    "Smt::set down 1 from level:{}, key[level]: {:?}, root/hash: {:?}",
+                    level,
+                    keys[level as usize],
+                    fea2string(&r)
+                );
+
                 level += 1;
             }
         }
+        // one step back
         level -= 1;
         acc_key.pop();
 
+        // If value!=0, it means we want to update an existing leaf node value, or create a new leaf node with the new value, in case keys are different
         if Self::not_all_zero(old_root) {
             proof_hash_counter = std::cmp::min(siblings.len() as i64, level + 1);
             if found_value != BigUint::zero() {
@@ -122,7 +132,14 @@ impl SMT {
 
         let mut mode: String;
         // If value!=0, it means we want to update an existing leaf node value, or create a new leaf node with the new value, in case keys are different
-        if value != BigUint::zero() {
+        if !value.is_zero() {
+            log::debug!(
+                "Insert or update {:?} to {}, b_found_key: {}, found_key: {:?}",
+                key,
+                value,
+                b_found_key,
+                found_key
+            );
             if b_found_key {
                 if key[0] == found_key[0]
                     && key[1] == found_key[1]
@@ -130,6 +147,7 @@ impl SMT {
                     && key[3] == found_key[3]
                 {
                     mode = "update".to_string();
+                    log::debug!("Smt::set(): mode: {}", mode);
 
                     old_value = found_value;
                     // First, we create the db entry for the new VALUE, and store the calculated hash in newValH
@@ -144,30 +162,41 @@ impl SMT {
                     for i in 0..4 {
                         v[4 + i] = new_val_h[i].as_int();
                     }
+                    // Prepare the capacity = 1, 0, 0, 0
                     c[0] = Fr::ONE;
 
+                    // Save and get the hash
                     let mut new_leaf_hash = [Fr::ZERO; 4];
                     self.hash_save_u64(&v, &c, &mut new_leaf_hash)?;
                     proof_hash_counter += 2;
 
+                    // If we are not at the top, the new leaf hash will become part of the higher level content, based on the keys[level] bit
                     if level >= 0 {
                         for jj in 0..4 {
                             let cur_v = siblings.get_mut(&level).unwrap();
                             cur_v[keys[level as usize] as usize * 4 + jj] = new_leaf_hash[jj];
                         }
                     } else {
+                        // If this is the top, then this is the new root
                         new_root[0] = new_leaf_hash[0];
                         new_root[1] = new_leaf_hash[1];
                         new_root[2] = new_leaf_hash[2];
                         new_root[3] = new_leaf_hash[3];
                     }
+                    log::debug!("Smt::set() updated an existing node at level={level} leaf node hash={}, value hash = {}", fea2string(&new_leaf_hash), fea2string(&new_val_h));
                 } else {
                     mode = "insertFound".to_string();
+                    log::debug!("Smt::set() mode: {}", mode);
+
+                    // Increase the level since we need to create a new leaf node
                     let mut level2 = level + 1;
+                    // Split the found key in bits
                     let found_keys = self.split_key(&found_key);
+                    // While the key bits are the same, increase the level; we want to find the first bit when the keys differ
                     while keys[level2 as usize] == found_keys[level2 as usize] {
                         level2 += 1;
                     }
+                    // Store the key of the old value at the new level
                     let old_key = self.remove_key_bits(&found_key, level2 + 1);
 
                     // Insert a new leaf node for the old value, and store the hash in oldLeafHash
@@ -176,9 +205,13 @@ impl SMT {
                     let mut v = [Fr::ZERO; 8];
                     v[0..4].copy_from_slice(&old_key);
                     v[4..].copy_from_slice(&found_old_val_h);
-                    let mut c = [Fr::ZERO; 4];
+                    // Prepare the capacity = 1, 0, 0, 0
+                    let mut c = [Fr::ONE, Fr::ZERO, Fr::ZERO, Fr::ZERO];
+
+                    // Save and get the hash
                     let mut old_leaf_hash = [Fr::ZERO; 4];
                     self.hash_save(&v, &c, &mut old_leaf_hash)?;
+                    // Record the inserted key for the reallocated old value
                     ins_key[0] = found_key[0];
                     ins_key[1] = found_key[1];
                     ins_key[2] = found_key[2];
@@ -186,12 +219,28 @@ impl SMT {
                     ins_value = found_value;
                     is_old0 = false;
 
+                    log::debug!(
+                        "Smt::set() stored leaf node insValue={}, insKey={}",
+                        ins_value,
+                        fea2string(&ins_key)
+                    );
+
+                    // Insert a new value node for the new value, and store the calculated hash in newValH
+
+                    // Calculate the key of the new leaf node of the new value
                     let new_key = self.remove_key_bits(&key, level2 + 1);
+                    // Convert the value scalar to an array of field elements
                     let value_fea = scalar2fea(&value);
 
+                    // Capacity is marking the node as intermediate
                     c[0] = Fr::ZERO;
+                    // Create the intermediate node
                     let mut new_val_h = [Fr::ZERO; 4];
                     self.hash_save_u64(&value_fea, &c, &mut new_val_h)?;
+
+                    // Insert a new leaf node for the new key-value hash pair
+
+                    // Calculate the key-value hash content
                     v[0..4].copy_from_slice(&new_key);
                     v[4..].copy_from_slice(&new_val_h);
 
@@ -208,6 +257,7 @@ impl SMT {
                         node[found_keys[level2 as usize] as usize * 4 + j] = old_leaf_hash[j];
                     }
 
+                    // Capacity is marking the node as intermediate
                     c[0] = Fr::ZERO;
                     let mut r2 = [Fr::ZERO; 4];
                     self.hash_save(&node, &c, &mut r2)?;
@@ -245,6 +295,12 @@ impl SMT {
                 // Build the new remaining key
                 let new_key = self.remove_key_bits(&key, level + 1);
                 let value_fea = scalar2fea(&value);
+                log::debug!(
+                    "mode: {}, new_key: {:?}, value_fea: {:?}",
+                    mode,
+                    new_key,
+                    value_fea
+                );
 
                 let mut c = [Fr::ZERO; 4];
                 let mut new_val_h = [Fr::ZERO; 4];
@@ -273,7 +329,6 @@ impl SMT {
             }
         } else {
             // If value=0, we are possibly going to delete an existing node
-            //
             // Setting a value=0 in an existing key, i.e. deleting
             if b_found_key
                 && key[0] == found_key[0]
@@ -699,17 +754,40 @@ impl SMT {
 mod tests {
     use super::*;
     use crate::database::Database;
+    use num_bigint::BigUint;
+    use num_traits::identities::Zero;
+    use plonky::field_gl::*;
     use utils::*;
+
+    fn setup() -> SMT {
+        let db = Database::new();
+        SMT::new(db)
+    }
 
     #[test]
     fn test_smt_split_key() {
-        env_logger::init();
-        let db = Database::new();
-        let mut smt = SMT::new(db);
+        let mut smt = setup();
         let key = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000".to_string(); // bn254::prime - 1
         let key = string2fea(&key);
         log::debug!("key {:?}", key);
         let result = smt.split_key(&[key[0], key[1], key[2], key[3]]);
         log::debug!("result {:?}", result);
+    }
+
+    #[test]
+    fn test_smt_set_and_get() {
+        env_logger::init();
+        let mut smt = setup();
+        let old_root = [Fr::ZERO; 4];
+        let key = [Fr::ONE; 4];
+        let value = BigUint::from(12u64);
+        let sr = smt.set(&old_root, &key, value, true);
+        println!("sr: {:?}", sr);
+        assert_eq!(sr.is_ok(), true);
+        let sr = sr.unwrap();
+
+        let gr = smt.get(&sr.new_root, &key);
+        assert_eq!(gr.is_ok(), true);
+        println!("gr: {:?}", gr);
     }
 }

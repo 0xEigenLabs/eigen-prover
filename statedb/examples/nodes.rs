@@ -20,7 +20,6 @@ fn main() {
     let res = db.read_program(&key);
     println!("{:?}", res);
 
-
     let res = db.read_nodes(&key);
     println!("read nodes: {} {:?}", key, res);
 

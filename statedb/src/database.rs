@@ -13,7 +13,7 @@ use utils::{
 
 pub struct Database {
     connection: PgConnection,
-    in_use: bool,
+    _in_use: bool,
     pub db_state_root_key: String,
 }
 
@@ -24,7 +24,7 @@ impl Database {
             .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
         Database {
             connection: conn,
-            in_use: true,
+            _in_use: true,
             db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 .to_string(),
         }
