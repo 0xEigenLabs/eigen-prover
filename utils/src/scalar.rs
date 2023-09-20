@@ -1,8 +1,8 @@
-use log::{warn, debug};
+use log::{debug, warn};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
-use plonky::field_gl::Fr;
 use plonky::ff::from_hex;
+use plonky::field_gl::Fr;
 
 pub fn remove_0x(key: &String) -> String {
     key.trim_start_matches("0x").to_string()
