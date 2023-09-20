@@ -1,6 +1,6 @@
 use statedb_service::state_db_service_client::StateDbServiceClient;
 use statedb_service::Fea;
-use statedb_service::{SetRequest};
+use statedb_service::SetRequest;
 
 pub mod statedb_service {
     tonic::include_proto!("statedb.v1");

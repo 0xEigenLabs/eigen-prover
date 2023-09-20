@@ -76,7 +76,12 @@ impl SMT {
 
         let mut acc_key: Vec<u64> = Vec::new();
 
-        log::debug!("r: {:?}, not all zero: {}, !b_found_key: {}", r, Self::not_all_zero(&r), !b_found_key);
+        log::debug!(
+            "r: {:?}, not all zero: {}, !b_found_key: {}",
+            r,
+            Self::not_all_zero(&r),
+            !b_found_key
+        );
         while Self::not_all_zero(&r) && !b_found_key {
             let str_root = fea2string(&r);
             let db_value = self.db.read(&str_root, level)?;
@@ -352,7 +357,12 @@ impl SMT {
         } else {
             // If value=0, we are possibly going to delete an existing node
             // Setting a value=0 in an existing key, i.e. deleting
-            log::debug!("b_found_key: {}, key: {:?}, found_key: {:?}", b_found_key, key, found_key);
+            log::debug!(
+                "b_found_key: {}, key: {:?}, found_key: {:?}",
+                b_found_key,
+                key,
+                found_key
+            );
             if b_found_key
                 && key[0] == found_key[0]
                 && key[1] == found_key[1]
@@ -828,7 +838,8 @@ mod tests {
 
         let sr = sr.unwrap();
 
-        let mut key = [Fr::ONE; 4]; key[0] = Fr::from(10);
+        let mut key = [Fr::ONE; 4];
+        key[0] = Fr::from(10);
         let value = BigUint::from(13u64);
         // insert found
         let sr = smt.set(&sr.new_root, &key, value.clone(), true);
@@ -838,7 +849,8 @@ mod tests {
         let sr = sr.unwrap();
 
         // delete not found
-        let mut key = [Fr::ONE; 4]; key[0] = Fr::from(11);
+        let mut key = [Fr::ONE; 4];
+        key[0] = Fr::from(11);
         let value = BigUint::from(0u64);
         let sr = smt.set(&sr.new_root, &key, value.clone(), true);
         assert_eq!(sr.is_ok(), true);
@@ -846,16 +858,19 @@ mod tests {
         let sr = sr.unwrap();
 
         // get found
-        let mut key = [Fr::ONE; 4]; key[0] = Fr::from(10);
+        let mut key = [Fr::ONE; 4];
+        key[0] = Fr::from(10);
         let gr = smt.get(&sr.new_root, &key);
         assert_eq!(gr.is_ok(), true);
         let gr = gr.unwrap();
         let value = BigUint::from(13u64);
         log::debug!("get found, gr: {:?}", gr);
-        assert_eq!(gr.ins_value, value);
+        assert_eq!(gr.value, value);
+        assert_eq!(gr.is_old0, true);
 
         // delete found
-        let mut key = [Fr::ONE; 4]; key[0] = Fr::from(10);
+        let mut key = [Fr::ONE; 4];
+        key[0] = Fr::from(10);
         let value = BigUint::from(0u64);
         let sr = smt.set(&sr.new_root, &key, value.clone(), true);
         assert_eq!(sr.is_ok(), true);
@@ -869,13 +884,16 @@ mod tests {
         let gr = gr.unwrap();
         let value = BigUint::from(12u64);
         log::debug!("get found, gr: {:?}", gr);
-        assert_eq!(gr.ins_value, value);
+        assert_eq!(gr.value, value);
+        assert_eq!(gr.is_old0, true);
 
         // get not found
-        let mut key = [Fr::ONE; 4]; key[0] = Fr::from(10);
+        let mut key = [Fr::ONE; 4];
+        key[0] = Fr::from(10);
         let gr = smt.get(&sr.new_root, &key);
         assert_eq!(gr.is_ok(), true);
         let gr = gr.unwrap();
         log::debug!("get not found, gr: {:?}", gr);
+        assert_eq!(gr.is_old0, true);
     }
 }
