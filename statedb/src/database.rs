@@ -1,6 +1,6 @@
-use crate::database::nodes::dsl::nodes;
-use crate::database::program::dsl::program;
-use crate::database_model::*;
+use crate::models::{Nodes, Program};
+use crate::schema::state::nodes::dsl::nodes;
+use crate::schema::state::program::dsl::program;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use plonky::field_gl::Fr;
@@ -13,7 +13,7 @@ use utils::{
 
 pub struct Database {
     connection: PgConnection,
-    in_use: bool,
+    _in_use: bool,
     pub db_state_root_key: String,
 }
 
@@ -24,13 +24,13 @@ impl Database {
             .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
         Database {
             connection: conn,
-            in_use: true,
+            _in_use: true,
             db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 .to_string(),
         }
     }
 
-    fn read_program(&mut self, key: &String) -> Result<String> {
+    pub fn read_program(&mut self, key: &String) -> Result<String> {
         let result = program
             .find(key)
             .select(Program::as_select())
@@ -43,7 +43,7 @@ impl Database {
         }
     }
 
-    fn read_nodes(&mut self, key: &String) -> Result<String> {
+    pub fn read_nodes(&mut self, key: &String) -> Result<String> {
         let result = nodes
             .find(key)
             .select(Nodes::as_select())
@@ -63,15 +63,15 @@ impl Database {
         }
     }
 
-    fn write_program(&mut self, key: String, value: String, update: bool) -> Result<usize> {
+    pub fn write_program(&mut self, key: &String, value: &String, update: bool) -> Result<usize> {
         let new_pro = Program {
-            hash: key,
-            data: value,
+            hash: key.clone(),
+            data: value.clone(),
         };
         let res = match update {
             true => diesel::insert_into(program)
                 .values(&new_pro)
-                .on_conflict(crate::database_model::program::hash)
+                .on_conflict(crate::schema::state::program::hash)
                 .do_update()
                 .set(&new_pro)
                 .execute(&mut self.connection)?,
@@ -83,15 +83,15 @@ impl Database {
         Ok(res)
     }
 
-    fn write_nodes(&mut self, key: String, value: String, update: bool) -> Result<usize> {
+    pub fn write_nodes(&mut self, key: &String, value: &String, update: bool) -> Result<usize> {
         let new_pro = Nodes {
-            hash: key,
-            data: value,
+            hash: key.clone(),
+            data: value.clone(),
         };
         let res = match update {
             true => diesel::insert_into(nodes)
                 .values(&new_pro)
-                .on_conflict(crate::database_model::nodes::hash)
+                .on_conflict(crate::schema::state::nodes::hash)
                 .do_update()
                 .set(&new_pro)
                 .execute(&mut self.connection)?,
@@ -106,8 +106,8 @@ impl Database {
     pub fn write_remote(
         &mut self,
         is_program: bool,
-        key: String,
-        value: String,
+        key: &String,
+        value: &String,
         update: bool,
     ) -> Result<usize> {
         match is_program {
@@ -122,12 +122,14 @@ impl Database {
         for v in value {
             value_str.push_str(&prepend_zeros(&to_hex(v), 16));
         }
-        self.write_remote(false, key, value_str, update)
+        log::debug!("write: {} => {}", key, value_str);
+        self.write_remote(false, &key, &value_str, update)
     }
 
-    pub fn read(&mut self, key: &String, level: i64) -> Result<Vec<Fr>> {
+    pub fn read(&mut self, key: &String, _level: i64) -> Result<Vec<Fr>> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let s_data = self.read_remote(false, &key)?;
+        log::debug!("read: {} => {}", key, s_data);
         Ok(string2fea(&s_data))
     }
 
@@ -276,7 +278,7 @@ impl Database {
             s_data.push_str(&byte2string(*d));
         }
 
-        self.write_remote(true, key, s_data, update)
+        self.write_remote(true, &key, &s_data, update)
     }
 
     pub fn get_program(&mut self, key: &String) -> Result<Vec<u8>> {
