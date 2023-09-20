@@ -139,11 +139,6 @@ pub fn fea82scalar(fea: &[Fr; 8]) -> Option<BigUint> {
     Some(scalar)
 }
 
-pub fn fea2string(fea: &[Fr; 4]) -> String {
-    let f1 = fea42scalar(fea);
-    f1.to_str_radix(16)
-}
-
 pub fn scalar2fe(scalar: u64) -> Fr {
     Fr::from(scalar)
 }
@@ -217,6 +212,11 @@ pub fn string2fea(os: &String) -> Vec<Fr> {
         fea.push(cr);
     }
     fea
+}
+
+pub fn fea2string(fea: &[Fr; 4]) -> String {
+    let f1 = fea42scalar(fea);
+    f1.to_str_radix(16)
 }
 
 pub fn string2fe(os: &String) -> Fr {

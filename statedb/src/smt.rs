@@ -683,10 +683,10 @@ impl SMT {
         for i in 0..4 {
             auxk[i] = rkey[i];
         }
-        let mut aux = BigUint::zero();
         for i in 0..4 {
-            // BigUint = BigUint::from(auxk.as_int());
+            let mut aux = BigUint::from(auxk[i].as_int());
             aux = (aux << n[i]) | BigUint::from(accs[i]);
+            log::debug!("aux: {}", aux.to_string());
             auxk[i] = Fr::from(aux.to_u64().unwrap());
         }
     }
@@ -792,13 +792,25 @@ mod tests {
     }
 
     #[test]
-    fn test_smt_split_key() {
+    fn test_smt_join_and_split_key() {
         let mut smt = setup();
         let key = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000".to_string(); // bn254::prime - 1
+        log::debug!("key string {:?}", key);
+        let tmp_key = key.clone();
         let key = string2fea(&key);
         log::debug!("key {:?}", key);
-        let result = smt.split_key(&[key[0], key[1], key[2], key[3]]);
+        let kea = [key[0], key[1], key[2], key[3]];
+        let result = smt.split_key(&kea);
         log::debug!("result {:?}", result);
+
+        let mut kea_r = [Fr::ZERO; 4];
+        let t = [Fr::ZERO; 4];
+        smt.join_key(&result, &t, &mut kea_r);
+        let tmp = kea_r;
+        kea_r.reverse();
+        let key_r_str = fea2string(&kea_r);
+        log::debug!("result key {:?}, str: {}", tmp, key_r_str);
+        assert_eq!(key_r_str, remove_0x(&tmp_key));
     }
 
     #[test]
