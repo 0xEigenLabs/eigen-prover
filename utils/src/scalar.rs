@@ -1,8 +1,8 @@
-use log::{warn, debug};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
-use plonky::field_gl::Fr;
+use num_traits::Num;
 use plonky::ff::from_hex;
+use plonky::field_gl::Fr;
 
 pub fn remove_0x(key: &String) -> String {
     key.trim_start_matches("0x").to_string()
@@ -34,142 +34,75 @@ pub fn byte2string(b: u8) -> String {
     result
 }
 
-pub fn fea42scalar(fea: &[Fr; 4]) -> BigUint {
-    let mut f1: BigUint = BigUint::from(fea[3].as_int());
-    f1 <<= 64;
-    f1 |= BigUint::from(fea[2].as_int());
-    f1 <<= 64;
-    f1 |= BigUint::from(fea[1].as_int());
-    f1 <<= 64;
-    f1 |= BigUint::from(fea[0].as_int());
-    f1
+/// Convert array of 4 Scalars of 64 bits into a unique 256 bits scalar
+///
+/// # Arguments
+/// * fea: [Fr; 4] - Array of 4 Scalars of 64 bits
+///
+/// # Returns
+/// * {Scalar} 256 bit number representation
+///
+pub fn h4_to_scalar(fea: &[Fr; 4]) -> BigUint {
+    let biga = fea
+        .iter()
+        .map(|e| BigUint::from(e.as_int()))
+        .collect::<Vec<BigUint>>();
+    let mut scalar = BigUint::from(0u32);
+
+    for (k, shift) in biga.iter().zip(vec![0u32, 64, 128, 192]) {
+        scalar = scalar + (k << shift)
+    }
+    scalar
 }
 
-pub fn fea82scalar(fea: &[Fr; 8]) -> Option<BigUint> {
-    // Add field element 7
-    let aux_h = fea[7].as_int();
-    if aux_h >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 7 has a too high value={}",
-            fea[7]
-        );
-        return None;
+pub fn scalar_to_h4(sca: &BigUint) -> [Fr; 4] {
+    let mut h4 = [Fr::ZERO; 4];
+    let mask = BigUint::from_str_radix("FFFFFFFFFFFFFFFF", 16).unwrap();
+    for (k, shift) in h4.iter_mut().zip(vec![0u32, 64, 128, 192]) {
+        let tmp = (sca >> shift) & mask.clone();
+        *k = Fr::from(tmp.to_u64().unwrap());
     }
-
-    // Add field element 6
-    let aux_l = fea[6].as_int();
-    if aux_l >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 6 has a too high value={}",
-            fea[6]
-        );
-        return None;
-    }
-
-    let mut scalar: BigUint = (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
-    scalar <<= 64;
-
-    // Add field element 5
-    let aux_h = fea[5].as_int();
-    if aux_h >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 5 has a too high value={}",
-            fea[5]
-        );
-        return None;
-    }
-
-    // Add field element 4
-    let aux_l = fea[4].as_int();
-    if aux_l >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 4 has a too high value={}",
-            fea[4]
-        );
-        return None;
-    }
-
-    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
-    scalar <<= 64;
-
-    // Add field element 3
-    let aux_h = fea[3].as_int();
-    if aux_h >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 3 has a too high value={}",
-            fea[3]
-        );
-        return None;
-    }
-
-    // Add field element 2
-    let aux_l = fea[2].as_int();
-    if aux_l >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 2 has a too high value={}",
-            fea[2]
-        );
-        return None;
-    }
-
-    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
-    scalar <<= 64;
-
-    // Add field element 1
-    let aux_h = fea[1].as_int();
-    if aux_h >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 1 has a too high value={}",
-            fea[1]
-        );
-        return None;
-    }
-
-    // Add field element 0
-    let aux_l = fea[0].as_int();
-    if aux_l >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 0 has a too high value={}",
-            fea[0]
-        );
-        return None;
-    }
-
-    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
-    Some(scalar)
+    h4
 }
 
-pub fn fea2string(fea: &[Fr; 4]) -> String {
-    let f1 = fea42scalar(fea);
-    f1.to_str_radix(16)
+pub fn h4_to_string(h4: &[Fr; 4]) -> String {
+    let sc = h4_to_scalar(h4);
+    format!("0x{:0>64}", sc.to_str_radix(16))
+}
+
+/// Field element array to Scalar
+///
+/// result = arr[0] + arr[1]*(2^32) + arr[2]*(2^64) + arr[3]*(2^96) + arr[3]*(2^128) + arr[3]*(2^160) + arr[3]*(2^192) + arr[3]*(2^224)
+pub fn fea2scalar(fea: &[Fr; 8]) -> BigUint {
+    let biga = fea
+        .iter()
+        .map(|e| BigUint::from(e.as_int()))
+        .collect::<Vec<BigUint>>();
+    let mut scalar = BigUint::from(0u32);
+
+    for (k, shift) in biga.iter().zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224]) {
+        scalar = scalar + (k << shift)
+    }
+
+    scalar
+}
+
+#[inline(always)]
+pub fn scalar2fea(scalar: &BigUint) -> [Fr; 8] {
+    let mut res = [Fr::ZERO; 8];
+    let mask = BigUint::from(0xFFFFFFFFu64);
+    for (k, shift) in res
+        .iter_mut()
+        .zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224])
+    {
+        let aux = (scalar >> shift) & mask.clone();
+        *k = Fr::from(aux.to_u64().unwrap());
+    }
+    res
 }
 
 pub fn scalar2fe(scalar: u64) -> Fr {
     Fr::from(scalar)
-}
-
-#[inline(always)]
-pub fn scalar2fea(scalar: &BigUint) -> [u64; 8] {
-    let mut fea = [0u64; 8];
-    let mask = BigUint::from(0xFFFFFFFFu64);
-    // let scalar = BigUint::from_str(s).unwrap();
-    let mut aux: BigUint = scalar.clone() & mask.clone();
-    fea[0] = aux.to_u64().unwrap();
-    aux = (scalar.clone() >> 32) & mask.clone();
-    fea[1] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 64 & mask.clone();
-    fea[2] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 96 & mask.clone();
-    fea[3] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 128 & mask.clone();
-    fea[4] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 160 & mask.clone();
-    fea[5] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 192 & mask.clone();
-    fea[6] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 224 & mask.clone();
-    fea[7] = aux.to_u64().unwrap();
-    fea
 }
 
 /// Byte to/from char conversion
@@ -204,19 +137,14 @@ pub fn string2ba(os: &String) -> Vec<u8> {
 
 /* Hexa string to/from field element (array) conversion */
 pub fn string2fea(os: &String) -> Vec<Fr> {
-    let os = remove_0x(os);
-    let mut fea = vec![];
-    debug!("string2fe: {}", os.len());
-    for i in (0..os.len()).step_by(16) {
-        if i + 16 > os.len() {
-            panic!("string2fea: invalid input: {}", os);
-        }
-        let fe = os.get(i..(i + 16)).unwrap();
-        debug!("string2fea fe: {}", fe);
-        let cr = string2fe(&fe.to_string());
-        fea.push(cr);
-    }
-    fea
+    let scalar = BigUint::from_str_radix(&remove_0x(os), 16).unwrap();
+    scalar2fea(&scalar).to_vec()
+}
+
+// `0x${Scalar.toString(sc, 16).padStart(64, '0')}`;
+pub fn fea2string(fea: &[Fr; 8]) -> String {
+    let f1 = fea2scalar(fea);
+    format!("0x{:0>64}", f1.to_str_radix(16))
 }
 
 pub fn string2fe(os: &String) -> Fr {
@@ -226,12 +154,38 @@ pub fn string2fe(os: &String) -> Fr {
 
 #[cfg(test)]
 mod test {
-    use crate::scalar::prepend_zeros;
+    use crate::scalar::*;
+    use plonky::field_gl::Fr;
     #[test]
     fn test_prepend_zeros() {
         assert_eq!(
             prepend_zeros(&"abc".to_string(), 10),
             "0000000abc".to_string()
         );
+    }
+
+    #[test]
+    fn test_h4_to_scalar() {
+        let a = [Fr::from(32), Fr::from(3), Fr::from(2), Fr::from(1)];
+        let out = h4_to_scalar(&a);
+        let aa = scalar_to_h4(&out);
+        assert_eq!(a, aa);
+    }
+
+    #[test]
+    fn test_fea2scalar() {
+        let a = [
+            Fr::from(32),
+            Fr::from(3),
+            Fr::from(2),
+            Fr::from(1),
+            Fr::from(32),
+            Fr::from(3),
+            Fr::from(2),
+            Fr::from(1),
+        ];
+        let out = fea2scalar(&a);
+        let aa = scalar2fea(&out);
+        assert_eq!(a, aa);
     }
 }

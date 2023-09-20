@@ -8,7 +8,7 @@ use plonky::to_hex;
 use std::env;
 use utils::{
     errors::{EigenError, Result},
-    scalar::{byte2string, normalize_to_n_format, prepend_zeros, string2ba, string2fea},
+    scalar::{byte2string, h4_to_string, normalize_to_n_format, prepend_zeros, string2ba},
 };
 
 pub struct Database {
@@ -122,13 +122,24 @@ impl Database {
         for v in value {
             value_str.push_str(&prepend_zeros(&to_hex(v), 16));
         }
+        log::debug!("write: {} => {}", key, value_str);
         self.write_remote(false, &key, &value_str, update)
     }
 
-    pub fn read(&mut self, key: &String, level: i64) -> Result<Vec<Fr>> {
-        let key = normalize_to_n_format(key, 64).to_lowercase();
+    pub fn read(&mut self, key: &[Fr; 4]) -> Result<Vec<Fr>> {
+        let key = h4_to_string(key);
+        let key = normalize_to_n_format(&key, 64).to_lowercase();
         let s_data = self.read_remote(false, &key)?;
-        Ok(string2fea(&s_data))
+        log::debug!("read: {} => {}", key, s_data);
+
+        assert_eq!(s_data.len() % 16, 0);
+        let mut res = vec![];
+        for i in (0..s_data.len()).step_by(16) {
+            let aux = u64::from_str_radix(&s_data[i..(i + 16)].to_string(), 16).unwrap();
+            res.push(Fr::from(aux));
+        }
+
+        Ok(res)
     }
 
     /*
