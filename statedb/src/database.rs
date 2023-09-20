@@ -122,12 +122,14 @@ impl Database {
         for v in value {
             value_str.push_str(&prepend_zeros(&to_hex(v), 16));
         }
+        log::debug!("write: {} => {}", key, value_str);
         self.write_remote(false, &key, &value_str, update)
     }
 
     pub fn read(&mut self, key: &String, _level: i64) -> Result<Vec<Fr>> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let s_data = self.read_remote(false, &key)?;
+        log::debug!("read: {} => {}", key, s_data);
         Ok(string2fea(&s_data))
     }
 
