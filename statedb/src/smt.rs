@@ -77,22 +77,20 @@ impl SMT {
         let mut acc_key: Vec<u64> = Vec::new();
 
         log::debug!(
-            "r: {:?}, not all zero: {}, !b_found_key: {}",
+            "r: {:?}, node is zero: {}, !b_found_key: {}",
             r,
-            Self::not_all_zero(&r),
+            Self::node_is_zero(&r),
             !b_found_key
         );
-        while Self::not_all_zero(&r) && !b_found_key {
-            let str_root = fea2string(&r);
-            let db_value = self.db.read(&str_root, level)?;
+        while !Self::node_is_zero(&r) && !b_found_key {
+            let db_value = self.db.read(&r, level)?;
             siblings.insert(level, db_value.clone());
             if db_value.len() > 8 && db_value[8] == Fr::ONE {
                 found_old_val_h[0] = db_value[4];
                 found_old_val_h[1] = db_value[5];
                 found_old_val_h[2] = db_value[6];
                 found_old_val_h[3] = db_value[7];
-                let s_value_hash = fea2string(&found_old_val_h);
-                let db_value = self.db.read(&s_value_hash, 0)?;
+                let db_value = self.db.read(&found_old_val_h, 0)?;
                 let mut value_fea = [Fr::ZERO; 8];
                 for i in 0..8 {
                     value_fea[i] = db_value[i];
@@ -129,7 +127,7 @@ impl SMT {
         acc_key.pop();
 
         // If value!=0, it means we want to update an existing leaf node value, or create a new leaf node with the new value, in case keys are different
-        if Self::not_all_zero(old_root) {
+        if !Self::node_is_zero(old_root) {
             proof_hash_counter = std::cmp::min(siblings.len() as i64, level + 1);
             if found_value != BigUint::zero() {
                 proof_hash_counter += 2;
@@ -388,8 +386,7 @@ impl SMT {
                         for i in 0..4 {
                             aux_fea[i] = siblings[&level][ukey as usize * 4 + 1];
                         }
-                        let str_aux = fea2string(&aux_fea);
-                        let db_value = self.db.read(&str_aux, level)?;
+                        let db_value = self.db.read(&aux_fea, level)?;
                         siblings.insert(level + 1, db_value.clone());
 
                         if siblings[&(level + 1)].len() > 8 && siblings[&(level + 1)][8] == Fr::ONE
@@ -399,11 +396,7 @@ impl SMT {
                                 val_h[i] = siblings[&(level + 1)][4 + i];
                             }
 
-                            let str_val_h = fea2string(&val_h);
-                            if str_val_h.len() < 8 {
-                                panic!("Smt::set() dbValue.size()<8 root: {}", str_val_h);
-                            }
-                            let db_value = self.db.read(&str_val_h, 0)?;
+                            let db_value = self.db.read(&val_h, 0)?;
 
                             let mut val_a = [Fr::ZERO; 8];
                             for i in 0..8 {
@@ -552,10 +545,9 @@ impl SMT {
 
         // Start natigating the tree from the top: r = root
         // Go down while r!=0 (while there is branch) until we find the key
-        while Self::not_all_zero(&r) && !b_found_key {
+        while !Self::node_is_zero(&r) && !b_found_key {
             // Read the content of db for entry r: siblings[&level] = db.read(r)
-            let str_r = fea2string(&r);
-            let db_value = self.db.read(&str_r, level)?;
+            let db_value = self.db.read(&r, level)?;
             // Get a copy of the content of this database entry, at the corresponding level: 0, 1...
             siblings.insert(level, db_value.clone());
 
@@ -568,8 +560,7 @@ impl SMT {
                 value_hash_fea[2] = siblings[&level][6];
                 value_hash_fea[3] = siblings[&level][7];
 
-                let str_value_hash = fea2string(&value_hash_fea);
-                let db_value = self.db.read(&str_value_hash, 0)?;
+                let db_value = self.db.read(&value_hash_fea, 0)?;
                 // dbres = db.read(valueHashString, dbValue, dbReadLog);
 
                 // First 4 elements are the remaining key
@@ -647,7 +638,7 @@ impl SMT {
             siblings: siblings.clone(),
         };
 
-        if Self::not_all_zero(root) {
+        if !Self::node_is_zero(root) {
             ret.proof_hash_counter = siblings.len() as u64;
             if value != BigUint::zero() || !is_old0 {
                 ret.proof_hash_counter += 2;
@@ -659,8 +650,8 @@ impl SMT {
     }
 
     #[inline(always)]
-    fn not_all_zero(r: &[Fr; 4]) -> bool {
-        !Fr::is_zero(&r[0]) || !Fr::is_zero(&r[1]) || !Fr::is_zero(&r[2]) || !Fr::is_zero(&r[3])
+    fn node_is_zero(r: &[Fr; 4]) -> bool {
+        Fr::is_zero(&r[0]) && Fr::is_zero(&r[1]) && Fr::is_zero(&r[2]) && Fr::is_zero(&r[3])
     }
 
     fn split_key(&mut self, key: &[Fr; 4]) -> Vec<u64> {
@@ -705,7 +696,7 @@ impl SMT {
         let mut n_found = 0;
         let mut fnd: i32 = 0;
         for i in (0..a.len()).step_by(4) {
-            if Self::not_all_zero(&a[i..(i + 4)].try_into().unwrap()) {
+            if !Self::node_is_zero(&a[i..(i + 4)].try_into().unwrap()) {
                 n_found += 1;
                 fnd = (i as i32) / 4;
             }

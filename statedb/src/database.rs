@@ -8,7 +8,7 @@ use plonky::to_hex;
 use std::env;
 use utils::{
     errors::{EigenError, Result},
-    scalar::{byte2string, normalize_to_n_format, prepend_zeros, string2ba, string2fea},
+    scalar::{byte2string, normalize_to_n_format, prepend_zeros, string2ba, string2fea, fea2string},
 };
 
 pub struct Database {
@@ -126,8 +126,9 @@ impl Database {
         self.write_remote(false, &key, &value_str, update)
     }
 
-    pub fn read(&mut self, key: &String, _level: i64) -> Result<Vec<Fr>> {
-        let key = normalize_to_n_format(key, 64).to_lowercase();
+    pub fn read(&mut self, key: &[Fr; 4], _level: i64) -> Result<Vec<Fr>> {
+        let key = fea2string(key);
+        let key = normalize_to_n_format(&key, 64).to_lowercase();
         let s_data = self.read_remote(false, &key)?;
         log::debug!("read: {} => {}", key, s_data);
         Ok(string2fea(&s_data))

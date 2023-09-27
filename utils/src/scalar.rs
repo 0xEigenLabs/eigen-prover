@@ -211,12 +211,14 @@ pub fn string2fea(os: &String) -> Vec<Fr> {
         let cr = string2fe(&fe.to_string());
         fea.push(cr);
     }
+    fea.reverse();
     fea
 }
 
+// `0x${Scalar.toString(sc, 16).padStart(64, '0')}`;
 pub fn fea2string(fea: &[Fr; 4]) -> String {
     let f1 = fea42scalar(fea);
-    f1.to_str_radix(16)
+    format!("0x{:0>64}", f1.to_str_radix(16))
 }
 
 pub fn string2fe(os: &String) -> Fr {
@@ -227,11 +229,27 @@ pub fn string2fe(os: &String) -> Fr {
 #[cfg(test)]
 mod test {
     use crate::scalar::prepend_zeros;
+    use crate::scalar::{fea2string, string2fea};
+    use plonky::field_gl::Fr;
     #[test]
     fn test_prepend_zeros() {
         assert_eq!(
             prepend_zeros(&"abc".to_string(), 10),
             "0000000abc".to_string()
         );
+    }
+
+    #[test]
+    fn test_fea2string() {
+        let a = [
+            Fr::from(32),
+            Fr::from(3),
+            Fr::from(2),
+            Fr::from(1),
+        ];
+        let out = fea2string(&a);
+
+        let aa = string2fea(&out);
+        assert_eq!(a[0..4], aa);
     }
 }
