@@ -34,11 +34,20 @@ pub fn byte2string(b: u8) -> String {
     result
 }
 
+
+/// Convert array of 4 Scalars of 64 bits into a unique 256 bits scalar
+///
+/// # Arguments
+/// * fea: [Fr; 4] - Array of 4 Scalars of 64 bits
+///
+/// # Returns
+/// * {Scalar} 256 bit number representation
+///
 pub fn fea42scalar(fea: &[Fr; 4]) -> BigUint {
     let biga = fea.iter().map(|e|  BigUint::from(e.as_int())).collect::<Vec<BigUint>>();
     let mut scalar = BigUint::from(0u32);
 
-    for (k, shift) in biga.iter().zip(vec![0u32, 32, 64, 96]) {
+    for (k, shift) in biga.iter().zip(vec![0u32, 64, 128, 192]) {
         scalar = scalar + (k << shift)
     }
     scalar
@@ -63,10 +72,10 @@ pub fn scalar2fe(scalar: u64) -> Fr {
 }
 
 #[inline(always)]
-pub fn scalar2fea(scalar: &BigUint) -> [Fr; 8] {
-    let mut fea = [Fr::ZERO; 8];
-    let mask = BigUint::from(0xFFFFFFFFu64);
-    for (k, shift) in fea.iter_mut().zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224]) {
+pub fn scalar2fea(scalar: &BigUint) -> [Fr; 4] {
+    let mut fea = [Fr::ZERO; 4];
+    let mask = BigUint::from(0xFFFFFFFFFFFFFFFFu64);
+    for (k, shift) in fea.iter_mut().zip(vec![0u32, 64, 128, 192]) {
         let aux = (scalar >> shift) & mask.clone();
         *k = Fr::from(aux.to_u64().unwrap());
     }
@@ -105,17 +114,16 @@ pub fn string2ba(os: &String) -> Vec<u8> {
 
 /* Hexa string to/from field element (array) conversion */
 pub fn string2fea(os: &String) -> Vec<Fr> {
-    let os = remove_0x(os);
-    let mut fea = vec![];
-    for i in (0..os.len()).step_by(16) {
-        if i + 16 > os.len() {
-            panic!("string2fea: invalid input: {}", os);
-        }
-        let fe = os.get(i..(i + 16)).unwrap();
-        let cr = string2fe(&fe.to_string());
-        fea.push(cr);
+    assert_eq!(os.len(), 66);
+
+    let mut res = vec![0u64; 4];
+    let mut j = 3;
+    for i in vec![0usize, 16, 32, 48] {
+        res[j] = u64::from_str_radix(&os[(2+j*16)..(2+(j+1)*16)], 16).unwrap();
+        j -= 1;
     }
-    fea
+    res.reverse();
+    res.iter().map(|e| { Fr::from(*e) }).collect::<Vec<Fr>>()
 }
 
 // `0x${Scalar.toString(sc, 16).padStart(64, '0')}`;
@@ -150,7 +158,6 @@ mod test {
             Fr::from(1),
         ];
         let out = fea2string(&a);
-
         let aa = string2fea(&out);
         assert_eq!(a[0..4], aa);
     }
@@ -159,15 +166,11 @@ mod test {
     fn test_fea2scalar() {
         let a = [
             Fr::from(32),
-            Fr::from(32),
-            Fr::from(3),
-            Fr::from(2),
-            Fr::from(1),
             Fr::from(3),
             Fr::from(2),
             Fr::from(1),
         ];
-        let out = fea82scalar(&a).unwrap();
+        let out = fea42scalar(&a);
         let aa = scalar2fea(&out);
         assert_eq!(a, aa);
     }
