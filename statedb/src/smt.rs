@@ -7,7 +7,7 @@ use plonky::Field;
 use starky::linearhash::LinearHash;
 use std::collections::HashMap;
 use utils::errors::Result;
-use utils::{fea2string, fea82scalar, scalar2fe, scalar2fea};
+use utils::{h4_to_string, fea2scalar, scalar2fe, h4_to_scalar, scalar2fea};
 
 #[derive(Debug)]
 pub struct SmtSetResult {
@@ -29,7 +29,7 @@ pub struct SmtGetResult {
     root: [Fr; 4],
     key: [Fr; 4],
     siblings: HashMap<i64, Vec<Fr>>,
-    ins_key: [Fr; 4],
+    ins_key: [Fr; 4], // found key, not equal to key when is_old0 = false
     ins_value: BigUint,
     is_old0: bool,
     value: BigUint,
@@ -43,6 +43,7 @@ pub struct SMT {
 }
 
 impl SMT {
+    pub const EMPTY: [Fr; 4] = [Fr::ZERO, Fr::ZERO, Fr::ZERO, Fr::ZERO];
     pub fn new(db: Database) -> Self {
         SMT { db: db }
     }
@@ -95,7 +96,7 @@ impl SMT {
                 for i in 0..8 {
                     value_fea[i] = db_value[i];
                 }
-                found_value = fea82scalar(&value_fea);
+                found_value = fea2scalar(&value_fea);
                 found_rkey[0] = siblings[&level][0];
                 found_rkey[1] = siblings[&level][1];
                 found_rkey[2] = siblings[&level][2];
@@ -116,7 +117,7 @@ impl SMT {
                     "Smt::set down 1 from level:{}, key[level]: {:?}, root/hash: {:?}",
                     level,
                     keys[level as usize],
-                    fea2string(&r)
+                    h4_to_scalar(&r)
                 );
 
                 level += 1;
@@ -186,7 +187,7 @@ impl SMT {
                         new_root[2] = new_leaf_hash[2];
                         new_root[3] = new_leaf_hash[3];
                     }
-                    log::debug!("Smt::set() updated an existing node at level={level} leaf node hash={}, value hash = {}", fea2string(&new_leaf_hash), fea2string(&new_val_h));
+                    log::debug!("Smt::set() updated an existing node at level={level} leaf node hash={}, value hash = {}", h4_to_scalar(&new_leaf_hash), h4_to_scalar(&new_val_h));
                 } else {
                     mode = "insertFound".to_string();
                     log::debug!("Smt::set() mode: {}", mode);
@@ -224,7 +225,7 @@ impl SMT {
                     log::debug!(
                         "Smt::set() stored leaf node insValue={}, insKey={}",
                         ins_value,
-                        fea2string(&ins_key)
+                        h4_to_scalar(&ins_key)
                     );
 
                     // Insert a new value node for the new value, and store the calculated hash in newValH
@@ -266,7 +267,7 @@ impl SMT {
                     log::info!(
                         "Smt::set() inserted a new intermediate node level= {}, leaf node hash= {}",
                         level2,
-                        fea2string(&r2)
+                        h4_to_scalar(&r2)
                     );
 
                     while level2 != level {
@@ -284,7 +285,7 @@ impl SMT {
                         log::info!(
                             "Smt::set() inserted a new intermediate level= {}, leaf node hash={}",
                             level2,
-                            fea2string(&r2)
+                            h4_to_scalar(&r2)
                         );
                         // Climb the branch
                         level2 -= 1;
@@ -404,7 +405,7 @@ impl SMT {
                                 val_a[i] = db_value[i];
                             }
 
-                            let val = fea82scalar(&val_a);
+                            let val = fea2scalar(&val_a);
 
                             proof_hash_counter += 2;
 
@@ -577,7 +578,7 @@ impl SMT {
                 // We convert the 8 found value elements to a scalar called foundVal
                 let mut fea = [Fr::ZERO; 8];
                 fea.copy_from_slice(&db_value[0..8]);
-                found_val = fea82scalar(&fea);
+                found_val = fea2scalar(&fea);
 
                 // We construct the whole key of that value in the database, and we call it foundKey
                 self.join_key(&acc_key, &found_r_key, &mut found_key);
@@ -607,11 +608,7 @@ impl SMT {
         // if we found the key, then we reached a leaf node while going down the tree
         if b_found_key {
             // if foundKey==key, then foundVal is what we were looking for
-            if key[0] == found_key[0]
-                && key[1] == found_key[1]
-                && key[2] == found_key[2]
-                && key[3] == found_key[3]
-            {
+            if Self::node_is_eq(&key, &found_key) {
                 value = found_val;
             }
             // if foundKey!=key, then the requested value was not found
@@ -656,6 +653,11 @@ impl SMT {
     #[inline(always)]
     fn node_is_zero(r: &[Fr; 4]) -> bool {
         Fr::is_zero(&r[0]) && Fr::is_zero(&r[1]) && Fr::is_zero(&r[2]) && Fr::is_zero(&r[3])
+    }
+
+    #[inline(always)]
+    fn node_is_eq(r: &[Fr; 4], r2: &[Fr; 4]) -> bool {
+        Fr::eq(&r[0], &r2[0]) && Fr::eq(&r[1], &r2[1]) && Fr::eq(&r[2], &r2[2]) && Fr::eq(&r[3], &r2[3])
     }
 
     fn split_key(&mut self, key: &[Fr; 4]) -> Vec<u64> {
@@ -737,7 +739,7 @@ impl SMT {
         let digest = digest.as_elements();
         log::debug!("hash_save: {:?} => {:?}", db_value, digest);
 
-        let str_digest = fea2string(digest.try_into().unwrap());
+        let str_digest = h4_to_string(digest.try_into().unwrap());
 
         let mut db_value: Vec<Fr> = Vec::new();
         for i in 0..8 {
@@ -780,6 +782,7 @@ mod tests {
     use crate::database::Database;
     use num_bigint::BigUint;
     use utils::*;
+    use num_traits::Num;
 
     fn setup() -> SMT {
         let db = Database::new();
@@ -789,25 +792,99 @@ mod tests {
     #[test]
     fn test_smt_join_and_split_key() {
         let mut smt = setup();
-        let key = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000".to_string(); // bn254::prime - 1
+        let key = BigUint::from_str_radix("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000", 16).unwrap(); // bn254::prime - 1
         log::debug!("key string {:?}", key);
-        let tmp_key = key.clone();
-        let key = string2fea(&key);
-        log::debug!("key {:?}", key);
-        let kea = [key[0], key[1], key[2], key[3]];
-        let result = smt.split_key(&kea);
+        let h4key = scalar_to_h4(&key);
+        log::debug!("key {:?}", h4key);
+        let result = smt.split_key(&h4key);
         log::debug!("result {:?}", result);
 
         let mut kea_r = [Fr::ZERO; 4];
         let t = [Fr::ZERO; 4];
         smt.join_key(&result, &t, &mut kea_r);
-        let key_r_str = fea2string(&kea_r);
-        assert_eq!(key_r_str, tmp_key);
+        let key_r_str = h4_to_scalar(&kea_r);
+        assert_eq!(key, key_r_str);
+    }
+
+    #[test]
+    fn test_add_and_remove() {
+        let mut smt = setup();
+        let sca = scalar_to_h4(&BigUint::from(123u64));
+        let val = BigUint::from(123u64);
+        let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
+        let r_get = smt.get(&r1.new_root, &sca).unwrap();
+        assert_eq!(val, r_get.value);
+        let r0 = smt.set(&SMT::EMPTY, &sca, BigUint::from(0u64), true).unwrap();
+        assert!(SMT::node_is_zero(&r0.new_root));
+    }
+
+    #[test]
+    fn test_mult_update() {
+        let mut smt = setup();
+        let sca = scalar_to_h4(&BigUint::from(123u64));
+        let val = BigUint::from(123u64);
+        let val2 = BigUint::from(1234u64);
+        let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
+        let r2 = smt.set(&r1.new_root, &sca, val2.clone(), true).unwrap();
+        let r3 = smt.set(&r2.new_root, &sca, val.clone(), true).unwrap();
+        assert!(SMT::node_is_eq(&r1.new_root, &r3.new_root));
+    }
+
+    #[test]
+    fn test_shared_element_3() {
+        env_logger::init();
+        let mut smt = setup();
+        let sca = scalar_to_h4(&BigUint::from(123u64));
+        let val = BigUint::from(123u64);
+        let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
+
+        let sca2 = scalar_to_h4(&BigUint::from(1235u64));
+        let val2 = BigUint::from(1235u64);
+        let r2 = smt.set(&r1.new_root, &sca2, val2.clone(), true).unwrap();
+
+        let sca3 = scalar_to_h4(&BigUint::from(1236u64));
+        let val3 = BigUint::from(1236u64);
+        let r3 = smt.set(&r2.new_root, &sca3, val3.clone(), true).unwrap();
+
+        let r4 = smt.set(&r3.new_root, &sca, BigUint::from(0u64), true).unwrap();
+        let r5 = smt.set(&r4.new_root, &sca2, BigUint::from(0u64), true).unwrap();
+        let r6 = smt.set(&r5.new_root, &sca3, BigUint::from(0u64), true).unwrap();
+        assert!(SMT::node_is_zero(&r6.new_root));
+    }
+
+    #[test]
+    fn test_add_and_remove_n() {
+        let mut smt = setup();
+        let n = 128;
+        // dummy result
+        let mut r = SmtSetResult {
+            new_root: SMT::EMPTY.clone(),
+            siblings: HashMap::new(),
+            old_root: SMT::EMPTY.clone(),
+            key: SMT::EMPTY.clone(),
+            ins_value: BigUint::from(0u64),
+            ins_key: SMT::EMPTY.clone(),
+            is_old0: false,
+            old_value: BigUint::from(0u64),
+            new_value: BigUint::from(0u64),
+            mode: "".to_string(),
+            proof_hash_counter: 0,
+        };
+        let sca = scalar_to_h4(&BigUint::from(123u64));
+        let val = BigUint::from(123u64);
+        for i in 0..n {
+            r = smt.set(&r.new_root, &sca, val.clone(), true).unwrap();
+        }
+
+        for i in 0..n {
+            r = smt.set(&r.new_root, &sca, BigUint::from(0u64), true).unwrap();
+        }
+        assert!(SMT::node_is_zero(&r.new_root));
     }
 
     #[test]
     fn test_smt_set_and_get() {
-        env_logger::init();
+        // env_logger::init();
         let mut smt = setup();
 
         let old_root = [Fr::ZERO; 4];
