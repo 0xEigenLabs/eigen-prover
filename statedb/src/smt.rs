@@ -77,25 +77,25 @@ impl SMT {
         let mut acc_key: Vec<u64> = Vec::new();
 
         log::debug!(
-            "r: {:?}, node is zero: {}, !b_found_key: {}",
+            "Set check: root {:?}, node is zero: {}, !b_found_key: {}",
             r,
             Self::node_is_zero(&r),
             !b_found_key
         );
         while !Self::node_is_zero(&r) && !b_found_key {
-            let db_value = self.db.read(&r, level)?;
+            let db_value = self.db.read(&r)?;
             siblings.insert(level, db_value.clone());
             if db_value.len() > 8 && db_value[8] == Fr::ONE {
                 found_old_val_h[0] = db_value[4];
                 found_old_val_h[1] = db_value[5];
                 found_old_val_h[2] = db_value[6];
                 found_old_val_h[3] = db_value[7];
-                let db_value = self.db.read(&found_old_val_h, 0)?;
+                let db_value = self.db.read(&found_old_val_h)?;
                 let mut value_fea = [Fr::ZERO; 8];
                 for i in 0..8 {
                     value_fea[i] = db_value[i];
                 }
-                found_value = fea82scalar(&value_fea).unwrap();
+                found_value = fea82scalar(&value_fea);
                 found_rkey[0] = siblings[&level][0];
                 found_rkey[1] = siblings[&level][1];
                 found_rkey[2] = siblings[&level][2];
@@ -105,11 +105,11 @@ impl SMT {
                 log::debug!("Smt::set found at level:{}, found_val: {:?}, found_key: {:?}, found_rkey: {:?}", level, found_value, found_key, found_rkey);
             } else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
-                let _idx = keys[level as usize] as usize * 4;
-                r[0] = siblings[&level][_idx];
-                r[1] = siblings[&level][_idx + 1];
-                r[2] = siblings[&level][_idx + 2];
-                r[3] = siblings[&level][_idx + 3];
+                let idx = keys[level as usize] as usize * 4;
+                r[0] = siblings[&level][idx];
+                r[1] = siblings[&level][idx + 1];
+                r[2] = siblings[&level][idx + 2];
+                r[3] = siblings[&level][idx + 3];
                 acc_key.push(keys[level as usize]);
 
                 log::debug!(
@@ -122,6 +122,7 @@ impl SMT {
                 level += 1;
             }
         }
+        log::debug!("One stpe back: {level}");
         // one step back
         level -= 1;
         acc_key.pop();
@@ -157,19 +158,19 @@ impl SMT {
                     // First, we create the db entry for the new VALUE, and store the calculated hash in newValH
                     let mut v = scalar2fea(&value);
                     let mut c = [Fr::ZERO; 4];
-                    let new_val_h = self.hash_save_u64(&v, &c)?;
+                    let new_val_h = self.hash_save(&v, &c)?;
                     // Second, we create the db entry for the new leaf node = RKEY + HASH, and store the calculated hash in new_leaf_hash
                     for i in 0..4 {
-                        v[i] = found_key[i].as_int();
+                        v[i] = found_key[i];
                     }
                     for i in 0..4 {
-                        v[4 + i] = new_val_h[i].as_int();
+                        v[4 + i] = new_val_h[i];
                     }
                     // Prepare the capacity = 1, 0, 0, 0
                     c[0] = Fr::ONE;
 
                     // Save and get the hash
-                    let new_leaf_hash = self.hash_save_u64(&v, &c)?;
+                    let new_leaf_hash = self.hash_save(&v, &c)?;
                     proof_hash_counter += 2;
 
                     // If we are not at the top, the new leaf hash will become part of the higher level content, based on the keys[level] bit
@@ -236,7 +237,7 @@ impl SMT {
                     // Capacity is marking the node as intermediate
                     c[0] = Fr::ZERO;
                     // Create the intermediate node
-                    let new_val_h = self.hash_save_u64(&value_fea, &c)?;
+                    let new_val_h = self.hash_save(&value_fea, &c)?;
 
                     // Insert a new leaf node for the new key-value hash pair
 
@@ -318,13 +319,13 @@ impl SMT {
                     "mode: {}, new_key: {:?}, value_fea: {:?}",
                     mode,
                     new_key,
-                    value_fea
+                    value_fea.iter().map(|e| e.as_int()).collect::<Vec<u64>>()
                 );
 
                 // Capacity mars the node as intermediate/value
                 let mut c = [Fr::ZERO; 4];
                 // Create the node and store the calculated hash in newValH
-                let new_val_h = self.hash_save_u64(&value_fea, &c)?;
+                let new_val_h = self.hash_save(&value_fea, &c)?;
                 // Insert the new key-value hash leaf node
 
                 // Calculate the node content: key|hash
@@ -386,7 +387,7 @@ impl SMT {
                         for i in 0..4 {
                             aux_fea[i] = siblings[&level][ukey as usize * 4 + 1];
                         }
-                        let db_value = self.db.read(&aux_fea, level)?;
+                        let db_value = self.db.read(&aux_fea)?;
                         siblings.insert(level + 1, db_value.clone());
 
                         if siblings[&(level + 1)].len() > 8 && siblings[&(level + 1)][8] == Fr::ONE
@@ -396,14 +397,14 @@ impl SMT {
                                 val_h[i] = siblings[&(level + 1)][4 + i];
                             }
 
-                            let db_value = self.db.read(&val_h, 0)?;
+                            let db_value = self.db.read(&val_h)?;
 
                             let mut val_a = [Fr::ZERO; 8];
                             for i in 0..8 {
                                 val_a[i] = db_value[i];
                             }
 
-                            let val = fea82scalar(&val_a).unwrap();
+                            let val = fea82scalar(&val_a);
 
                             proof_hash_counter += 2;
 
@@ -547,12 +548,15 @@ impl SMT {
         // Go down while r!=0 (while there is branch) until we find the key
         while !Self::node_is_zero(&r) && !b_found_key {
             // Read the content of db for entry r: siblings[&level] = db.read(r)
-            let db_value = self.db.read(&r, level)?;
+            let db_value = self.db.read(&r);
             // Get a copy of the content of this database entry, at the corresponding level: 0, 1...
-            siblings.insert(level, db_value.clone());
+            if db_value.is_ok() {
+                siblings.insert(level, db_value.unwrap());
+            }
 
-            // if siblings[&level][8]=1 then this is a leaf
+            // if siblings[&level][8]=1 then this is a leaf: [X, X, X, X, X, X, X, X, 1, 0, 0, 0]
             if siblings[&level].len() > 8 && siblings[&level][8] == Fr::ONE {
+                log::info!("Node is a leaf");
                 // Second 4 elements are the hash of the value, so we can get value=db(valueHash)
                 let mut value_hash_fea = [Fr::ZERO; 4];
                 value_hash_fea[0] = siblings[&level][4];
@@ -560,7 +564,7 @@ impl SMT {
                 value_hash_fea[2] = siblings[&level][6];
                 value_hash_fea[3] = siblings[&level][7];
 
-                let db_value = self.db.read(&value_hash_fea, 0)?;
+                let db_value = self.db.read(&value_hash_fea)?;
                 // dbres = db.read(valueHashString, dbValue, dbReadLog);
 
                 // First 4 elements are the remaining key
@@ -573,7 +577,7 @@ impl SMT {
                 // We convert the 8 found value elements to a scalar called foundVal
                 let mut fea = [Fr::ZERO; 8];
                 fea.copy_from_slice(&db_value[0..8]);
-                found_val = fea82scalar(&fea).unwrap();
+                found_val = fea82scalar(&fea);
 
                 // We construct the whole key of that value in the database, and we call it foundKey
                 self.join_key(&acc_key, &found_r_key, &mut found_key);
@@ -582,11 +586,11 @@ impl SMT {
             // If this is an intermediate node
             else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
-                let _idx = (keys[level as usize] * 4) as usize;
-                r[0] = siblings[&level][_idx];
-                r[1] = siblings[&level][_idx + 1];
-                r[2] = siblings[&level][_idx + 2];
-                r[3] = siblings[&level][_idx + 3];
+                let idx = (keys[level as usize] * 4) as usize;
+                r[0] = siblings[&level][idx];
+                r[1] = siblings[&level][idx + 1];
+                r[2] = siblings[&level][idx + 2];
+                r[3] = siblings[&level][idx + 3];
 
                 // Store the used key bit in accKey
                 acc_key.push(keys[level as usize]);
@@ -719,16 +723,6 @@ impl SMT {
             .write(&self.db.db_state_root_key.to_string(), &db_value, true)
     }
 
-    fn hash_save_u64(&mut self, a: &[u64; 8], c: &[Fr; 4]) -> Result<[Fr; 4]> {
-        let fea: [Fr; 8] = a
-            .into_iter()
-            .map(|i| Fr::from(*i))
-            .collect::<Vec<Fr>>()
-            .try_into()
-            .unwrap();
-        self.hash_save(&fea, c)
-    }
-
     fn hash_save(&mut self, a: &[Fr; 8], c: &[Fr; 4]) -> Result<[Fr; 4]> {
         let mut db_value = [Fr::ZERO; 12];
         for i in 0..8 {
@@ -807,11 +801,8 @@ mod tests {
         let mut kea_r = [Fr::ZERO; 4];
         let t = [Fr::ZERO; 4];
         smt.join_key(&result, &t, &mut kea_r);
-        let tmp = kea_r;
-        kea_r.reverse();
         let key_r_str = fea2string(&kea_r);
-        log::debug!("result key {:?}, str: {}", tmp, key_r_str);
-        assert_eq!(key_r_str, remove_0x(&tmp_key));
+        assert_eq!(key_r_str, tmp_key);
     }
 
     #[test]
@@ -834,8 +825,8 @@ mod tests {
         let value = BigUint::from(13u64);
         // insert found
         let sr = smt.set(&sr.new_root, &key, value.clone(), true);
-        assert_eq!(sr.is_ok(), true);
         log::debug!("insert found, sr: {:?}", sr);
+        assert_eq!(sr.is_ok(), true);
 
         let sr = sr.unwrap();
 

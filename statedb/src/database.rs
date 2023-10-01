@@ -38,7 +38,8 @@ impl Database {
             .optional();
         match result {
             Ok(Some(pg)) => Ok(pg.data),
-            Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
+            // Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
+            Ok(None) => Ok(String::from("")),
             Err(e) => Err(EigenError::DatabaseError(e)),
         }
     }
@@ -51,7 +52,8 @@ impl Database {
             .optional();
         match result {
             Ok(Some(pg)) => Ok(pg.data),
-            Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
+            // Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
+            Ok(None) => Ok(String::from("")),
             Err(e) => Err(EigenError::DatabaseError(e)),
         }
     }
@@ -126,7 +128,7 @@ impl Database {
         self.write_remote(false, &key, &value_str, update)
     }
 
-    pub fn read(&mut self, key: &[Fr; 4], _level: i64) -> Result<Vec<Fr>> {
+    pub fn read(&mut self, key: &[Fr; 4]) -> Result<Vec<Fr>> {
         let key = fea2string(key);
         let key = normalize_to_n_format(&key, 64).to_lowercase();
         let s_data = self.read_remote(false, &key)?;

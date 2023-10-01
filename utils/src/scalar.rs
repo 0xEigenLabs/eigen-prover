@@ -35,108 +35,27 @@ pub fn byte2string(b: u8) -> String {
 }
 
 pub fn fea42scalar(fea: &[Fr; 4]) -> BigUint {
-    let mut f1: BigUint = BigUint::from(fea[3].as_int());
-    f1 <<= 64;
-    f1 |= BigUint::from(fea[2].as_int());
-    f1 <<= 64;
-    f1 |= BigUint::from(fea[1].as_int());
-    f1 <<= 64;
-    f1 |= BigUint::from(fea[0].as_int());
-    f1
+    let biga = fea.iter().map(|e|  BigUint::from(e.as_int())).collect::<Vec<BigUint>>();
+    let mut scalar = BigUint::from(0u32);
+
+    for (k, shift) in biga.iter().zip(vec![0u32, 32, 64, 96]) {
+        scalar = scalar + (k << shift)
+    }
+    scalar
 }
 
-pub fn fea82scalar(fea: &[Fr; 8]) -> Option<BigUint> {
-    // Add field element 7
-    let aux_h = fea[7].as_int();
-    if aux_h >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 7 has a too high value={}",
-            fea[7]
-        );
-        return None;
+/// Field element array to Scalar
+///
+/// result = arr[0] + arr[1]*(2^32) + arr[2]*(2^64) + arr[3]*(2^96) + arr[3]*(2^128) + arr[3]*(2^160) + arr[3]*(2^192) + arr[3]*(2^224)
+pub fn fea82scalar(fea: &[Fr; 8]) -> BigUint {
+    let biga = fea.iter().map(|e|  BigUint::from(e.as_int())).collect::<Vec<BigUint>>();
+    let mut scalar = BigUint::from(0u32);
+
+    for (k, shift) in biga.iter().zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224]) {
+        scalar = scalar + (k << shift)
     }
 
-    // Add field element 6
-    let aux_l = fea[6].as_int();
-    if aux_l >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 6 has a too high value={}",
-            fea[6]
-        );
-        return None;
-    }
-
-    let mut scalar: BigUint = (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
-    scalar <<= 64;
-
-    // Add field element 5
-    let aux_h = fea[5].as_int();
-    if aux_h >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 5 has a too high value={}",
-            fea[5]
-        );
-        return None;
-    }
-
-    // Add field element 4
-    let aux_l = fea[4].as_int();
-    if aux_l >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 4 has a too high value={}",
-            fea[4]
-        );
-        return None;
-    }
-
-    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
-    scalar <<= 64;
-
-    // Add field element 3
-    let aux_h = fea[3].as_int();
-    if aux_h >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 3 has a too high value={}",
-            fea[3]
-        );
-        return None;
-    }
-
-    // Add field element 2
-    let aux_l = fea[2].as_int();
-    if aux_l >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 2 has a too high value={}",
-            fea[2]
-        );
-        return None;
-    }
-
-    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
-    scalar <<= 64;
-
-    // Add field element 1
-    let aux_h = fea[1].as_int();
-    if aux_h >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 1 has a too high value={}",
-            fea[1]
-        );
-        return None;
-    }
-
-    // Add field element 0
-    let aux_l = fea[0].as_int();
-    if aux_l >= 0x100000000 {
-        warn!(
-            "fea2scalar() found element 0 has a too high value={}",
-            fea[0]
-        );
-        return None;
-    }
-
-    scalar += (BigUint::from(aux_h) << 32) + BigUint::from(aux_l);
-    Some(scalar)
+    scalar
 }
 
 pub fn scalar2fe(scalar: u64) -> Fr {
@@ -144,26 +63,13 @@ pub fn scalar2fe(scalar: u64) -> Fr {
 }
 
 #[inline(always)]
-pub fn scalar2fea(scalar: &BigUint) -> [u64; 8] {
-    let mut fea = [0u64; 8];
+pub fn scalar2fea(scalar: &BigUint) -> [Fr; 8] {
+    let mut fea = [Fr::ZERO; 8];
     let mask = BigUint::from(0xFFFFFFFFu64);
-    // let scalar = BigUint::from_str(s).unwrap();
-    let mut aux: BigUint = scalar.clone() & mask.clone();
-    fea[0] = aux.to_u64().unwrap();
-    aux = (scalar.clone() >> 32) & mask.clone();
-    fea[1] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 64 & mask.clone();
-    fea[2] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 96 & mask.clone();
-    fea[3] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 128 & mask.clone();
-    fea[4] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 160 & mask.clone();
-    fea[5] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 192 & mask.clone();
-    fea[6] = aux.to_u64().unwrap();
-    aux = scalar.clone() >> 224 & mask.clone();
-    fea[7] = aux.to_u64().unwrap();
+    for (k, shift) in fea.iter_mut().zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224]) {
+        let aux = (scalar >> shift) & mask.clone();
+        *k = Fr::from(aux.to_u64().unwrap());
+    }
     fea
 }
 
@@ -201,17 +107,14 @@ pub fn string2ba(os: &String) -> Vec<u8> {
 pub fn string2fea(os: &String) -> Vec<Fr> {
     let os = remove_0x(os);
     let mut fea = vec![];
-    debug!("string2fe: {}", os.len());
     for i in (0..os.len()).step_by(16) {
         if i + 16 > os.len() {
             panic!("string2fea: invalid input: {}", os);
         }
         let fe = os.get(i..(i + 16)).unwrap();
-        debug!("string2fea fe: {}", fe);
         let cr = string2fe(&fe.to_string());
         fea.push(cr);
     }
-    fea.reverse();
     fea
 }
 
@@ -228,8 +131,7 @@ pub fn string2fe(os: &String) -> Fr {
 
 #[cfg(test)]
 mod test {
-    use crate::scalar::prepend_zeros;
-    use crate::scalar::{fea2string, string2fea};
+    use crate::scalar::*;
     use plonky::field_gl::Fr;
     #[test]
     fn test_prepend_zeros() {
@@ -251,5 +153,22 @@ mod test {
 
         let aa = string2fea(&out);
         assert_eq!(a[0..4], aa);
+    }
+
+    #[test]
+    fn test_fea2scalar() {
+        let a = [
+            Fr::from(32),
+            Fr::from(32),
+            Fr::from(3),
+            Fr::from(2),
+            Fr::from(1),
+            Fr::from(3),
+            Fr::from(2),
+            Fr::from(1),
+        ];
+        let out = fea82scalar(&a).unwrap();
+        let aa = scalar2fea(&out);
+        assert_eq!(a, aa);
     }
 }
