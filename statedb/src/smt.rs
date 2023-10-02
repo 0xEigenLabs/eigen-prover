@@ -36,8 +36,7 @@ pub struct SmtGetResult {
     proof_hash_counter: u64,
 }
 
-// https://github.com/iden3/circomlibjs/blob/main/src/smt.js#L12
-// https://github.com/0xPolygonHermez/zkevm-prover/blob/v1.1.6-RC2-fork.4/src/statedb/smt.cpp
+// https://github.com/0xPolygonHermez/zkevm-commonjs/blob/v0.6.0.0/src/smt.js
 pub struct SMT {
     db: Database,
 }
@@ -88,30 +87,21 @@ impl SMT {
             let db_value = self.db.read(&r)?;
             siblings.insert(level, db_value.clone());
             if db_value.len() > 8 && db_value[8] == Fr::ONE {
-                found_old_val_h[0] = db_value[4];
-                found_old_val_h[1] = db_value[5];
-                found_old_val_h[2] = db_value[6];
-                found_old_val_h[3] = db_value[7];
+                found_old_val_h.copy_from_slice(&db_value[4..8]);
                 let db_value = self.db.read(&found_old_val_h)?;
                 let mut value_fea = [Fr::ZERO; 8];
                 for i in 0..8 {
                     value_fea[i] = db_value[i];
                 }
                 found_value = fea2scalar(&value_fea);
-                found_rkey[0] = siblings[&level][0];
-                found_rkey[1] = siblings[&level][1];
-                found_rkey[2] = siblings[&level][2];
-                found_rkey[3] = siblings[&level][3];
+                found_rkey.copy_from_slice(&siblings[&level][0..4]);
                 self.join_key(&acc_key, &found_rkey, &mut found_key);
                 b_found_key = true;
                 log::debug!("Smt::set found at level:{}, found_val: {:?}, found_key: {:?}, found_rkey: {:?}", level, found_value, found_key, found_rkey);
             } else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
                 let idx = keys[level as usize] as usize * 4;
-                r[0] = siblings[&level][idx];
-                r[1] = siblings[&level][idx + 1];
-                r[2] = siblings[&level][idx + 2];
-                r[3] = siblings[&level][idx + 3];
+                r.copy_from_slice(&siblings[&level][idx..(idx+4)]);
                 acc_key.push(keys[level as usize]);
 
                 log::debug!(
@@ -208,10 +198,7 @@ impl SMT {
                     // Save and get the hash
                     let old_leaf_hash = self.hash_save(&v, &Self::ONE.clone())?;
                     // Record the inserted key for the reallocated old value
-                    ins_key[0] = found_key[0];
-                    ins_key[1] = found_key[1];
-                    ins_key[2] = found_key[2];
-                    ins_key[3] = found_key[3];
+                    ins_key.copy_from_slice(&found_key);
                     ins_value = found_value;
                     is_old0 = false;
 
@@ -518,31 +505,21 @@ impl SMT {
         // Go down while r!=0 (while there is branch) until we find the key
         while !Self::node_is_zero(&r) && !b_found_key {
             // Read the content of db for entry r: siblings[&level] = db.read(r)
-            let db_value = self.db.read(&r);
+            let db_value = self.db.read(&r)?;
             // Get a copy of the content of this database entry, at the corresponding level: 0, 1...
-            if db_value.is_ok() {
-                siblings.insert(level, db_value.unwrap());
-            }
+            siblings.insert(level, db_value);
 
             // if siblings[&level][8]=1 then this is a leaf: [X, X, X, X, X, X, X, X, 1, 0, 0, 0]
             if siblings[&level].len() > 8 && siblings[&level][8] == Fr::ONE {
                 log::info!("Node is a leaf");
                 // Second 4 elements are the hash of the value, so we can get value=db(valueHash)
                 let mut value_hash_fea = [Fr::ZERO; 4];
-                value_hash_fea[0] = siblings[&level][4];
-                value_hash_fea[1] = siblings[&level][5];
-                value_hash_fea[2] = siblings[&level][6];
-                value_hash_fea[3] = siblings[&level][7];
-
+                value_hash_fea.copy_from_slice(&siblings[&level][4..8]);
                 let db_value = self.db.read(&value_hash_fea)?;
-                // dbres = db.read(valueHashString, dbValue, dbReadLog);
 
                 // First 4 elements are the remaining key
                 let mut found_r_key = [Fr::ZERO; 4];
-                found_r_key[0] = siblings[&level][0];
-                found_r_key[1] = siblings[&level][1];
-                found_r_key[2] = siblings[&level][2];
-                found_r_key[3] = siblings[&level][3];
+                found_r_key.copy_from_slice(&siblings[&level][..4]);
 
                 // We convert the 8 found value elements to a scalar called foundVal
                 let mut fea = [Fr::ZERO; 8];
@@ -557,10 +534,7 @@ impl SMT {
             else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
                 let idx = (keys[level as usize] * 4) as usize;
-                r[0] = siblings[&level][idx];
-                r[1] = siblings[&level][idx + 1];
-                r[2] = siblings[&level][idx + 2];
-                r[3] = siblings[&level][idx + 3];
+                r.copy_from_slice(&siblings[&level][idx..(idx+4)]);
 
                 // Store the used key bit in accKey
                 acc_key.push(keys[level as usize]);
@@ -582,20 +556,15 @@ impl SMT {
             }
             // if foundKey!=key, then the requested value was not found
             else {
-                ins_key[0] = found_key[0];
-                ins_key[1] = found_key[1];
-                ins_key[2] = found_key[2];
-                ins_key[3] = found_key[3];
+                ins_key.copy_from_slice(&found_key);
                 ins_value = found_val;
                 is_old0 = false;
             }
         }
 
-        // We leave the siblings only up to the leaf node level
-        // map< uint64_t, vector<Goldilocks::Element> >::iterator it;
-        // it = siblings.find(level+1);
-        // siblings.erase(it, siblings.end());
-        siblings.remove(&(level + 1));
+        // We leave the siblings only up to the leaf node level, deleting items where key equal or
+        // are bigger than level + 1, e.g. siblings = siblings.slice(0, level + 1);
+        siblings.retain(|k, _| *k > level);
 
         let mut ret = SmtGetResult {
             root: *root,
@@ -795,9 +764,7 @@ mod tests {
         assert!(SMT::node_is_eq(&r1.new_root, &r3.new_root));
     }
 
-    /// FIXME
     #[test]
-    #[ignore]
     fn test_shared_element_2() {
         // env_logger::init();
         let mut smt = setup();
