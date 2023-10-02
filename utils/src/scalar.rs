@@ -1,8 +1,8 @@
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
+use num_traits::Num;
 use plonky::ff::from_hex;
 use plonky::field_gl::Fr;
-use num_traits::Num;
 
 pub fn remove_0x(key: &String) -> String {
     key.trim_start_matches("0x").to_string()
@@ -43,7 +43,10 @@ pub fn byte2string(b: u8) -> String {
 /// * {Scalar} 256 bit number representation
 ///
 pub fn h4_to_scalar(fea: &[Fr; 4]) -> BigUint {
-    let biga = fea.iter().map(|e|  BigUint::from(e.as_int())).collect::<Vec<BigUint>>();
+    let biga = fea
+        .iter()
+        .map(|e| BigUint::from(e.as_int()))
+        .collect::<Vec<BigUint>>();
     let mut scalar = BigUint::from(0u32);
 
     for (k, shift) in biga.iter().zip(vec![0u32, 64, 128, 192]) {
@@ -67,12 +70,14 @@ pub fn h4_to_string(h4: &[Fr; 4]) -> String {
     format!("0x{:0>64}", sc.to_str_radix(16))
 }
 
-
 /// Field element array to Scalar
 ///
 /// result = arr[0] + arr[1]*(2^32) + arr[2]*(2^64) + arr[3]*(2^96) + arr[3]*(2^128) + arr[3]*(2^160) + arr[3]*(2^192) + arr[3]*(2^224)
 pub fn fea2scalar(fea: &[Fr; 8]) -> BigUint {
-    let biga = fea.iter().map(|e|  BigUint::from(e.as_int())).collect::<Vec<BigUint>>();
+    let biga = fea
+        .iter()
+        .map(|e| BigUint::from(e.as_int()))
+        .collect::<Vec<BigUint>>();
     let mut scalar = BigUint::from(0u32);
 
     for (k, shift) in biga.iter().zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224]) {
@@ -86,7 +91,10 @@ pub fn fea2scalar(fea: &[Fr; 8]) -> BigUint {
 pub fn scalar2fea(scalar: &BigUint) -> [Fr; 8] {
     let mut res = [Fr::ZERO; 8];
     let mask = BigUint::from(0xFFFFFFFFu64);
-    for (k, shift) in res.iter_mut().zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224]) {
+    for (k, shift) in res
+        .iter_mut()
+        .zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224])
+    {
         let aux = (scalar >> shift) & mask.clone();
         *k = Fr::from(aux.to_u64().unwrap());
     }
@@ -158,12 +166,7 @@ mod test {
 
     #[test]
     fn test_h4_to_scalar() {
-        let a = [
-            Fr::from(32),
-            Fr::from(3),
-            Fr::from(2),
-            Fr::from(1),
-        ];
+        let a = [Fr::from(32), Fr::from(3), Fr::from(2), Fr::from(1)];
         let out = h4_to_scalar(&a);
         let aa = scalar_to_h4(&out);
         assert_eq!(a, aa);

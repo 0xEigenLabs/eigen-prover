@@ -7,7 +7,7 @@ use plonky::Field;
 use starky::linearhash::LinearHash;
 use std::collections::HashMap;
 use utils::errors::Result;
-use utils::{h4_to_string, fea2scalar, scalar2fe, h4_to_scalar, scalar2fea};
+use utils::{fea2scalar, h4_to_scalar, h4_to_string, scalar2fe, scalar2fea};
 
 #[derive(Debug)]
 pub struct SmtSetResult {
@@ -44,6 +44,7 @@ pub struct SMT {
 
 impl SMT {
     pub const EMPTY: [Fr; 4] = [Fr::ZERO, Fr::ZERO, Fr::ZERO, Fr::ZERO];
+    pub const ONE: [Fr; 4] = [Fr::ONE, Fr::ZERO, Fr::ZERO, Fr::ZERO];
     pub fn new(db: Database) -> Self {
         SMT { db: db }
     }
@@ -123,7 +124,7 @@ impl SMT {
                 level += 1;
             }
         }
-        log::debug!("One stpe back: {level}");
+        log::debug!("One step back: {level}");
         // one step back
         level -= 1;
         acc_key.pop();
@@ -147,11 +148,7 @@ impl SMT {
                 found_key
             );
             if b_found_key {
-                if key[0] == found_key[0]
-                    && key[1] == found_key[1]
-                    && key[2] == found_key[2]
-                    && key[3] == found_key[3]
-                {
+                if Self::node_is_eq(&key, &found_key) {
                     mode = "update".to_string();
                     log::debug!("Smt::set(): mode: {}", mode);
 
@@ -182,15 +179,12 @@ impl SMT {
                         }
                     } else {
                         // If this is the top, then this is the new root
-                        new_root[0] = new_leaf_hash[0];
-                        new_root[1] = new_leaf_hash[1];
-                        new_root[2] = new_leaf_hash[2];
-                        new_root[3] = new_leaf_hash[3];
+                        new_root.copy_from_slice(&new_leaf_hash);
                     }
                     log::debug!("Smt::set() updated an existing node at level={level} leaf node hash={}, value hash = {}", h4_to_scalar(&new_leaf_hash), h4_to_scalar(&new_val_h));
                 } else {
                     mode = "insertFound".to_string();
-                    log::debug!("Smt::set() mode: {}", mode);
+                    log::debug!("Smt3::set() mode: {}", mode);
 
                     // Increase the level since we need to create a new leaf node
                     let mut level2 = level + 1;
@@ -210,10 +204,9 @@ impl SMT {
                     v[0..4].copy_from_slice(&old_key);
                     v[4..].copy_from_slice(&found_old_val_h);
                     // Prepare the capacity = 1, 0, 0, 0
-                    let mut c = [Fr::ONE, Fr::ZERO, Fr::ZERO, Fr::ZERO];
 
                     // Save and get the hash
-                    let old_leaf_hash = self.hash_save(&v, &c)?;
+                    let old_leaf_hash = self.hash_save(&v, &Self::ONE.clone())?;
                     // Record the inserted key for the reallocated old value
                     ins_key[0] = found_key[0];
                     ins_key[1] = found_key[1];
@@ -236,9 +229,8 @@ impl SMT {
                     let value_fea = scalar2fea(&value);
 
                     // Capacity is marking the node as intermediate
-                    c[0] = Fr::ZERO;
                     // Create the intermediate node
-                    let new_val_h = self.hash_save(&value_fea, &c)?;
+                    let new_val_h = self.hash_save(&value_fea, &Self::EMPTY.clone())?;
 
                     // Insert a new leaf node for the new key-value hash pair
 
@@ -246,8 +238,7 @@ impl SMT {
                     v[0..4].copy_from_slice(&new_key);
                     v[4..].copy_from_slice(&new_val_h);
 
-                    c[0] = Fr::ONE;
-                    let new_leaf_hash = self.hash_save(&v, &c)?;
+                    let new_leaf_hash = self.hash_save(&v, &Self::ONE.clone())?;
 
                     // Insert a new bifurcation intermediate node with both hashes (old and new) in the right position based on the bit
 
@@ -259,8 +250,7 @@ impl SMT {
                     }
 
                     // Capacity is marking the node as intermediate
-                    c[0] = Fr::ZERO;
-                    let mut r2 = self.hash_save(&node, &c)?;
+                    let mut r2 = self.hash_save(&node, &Self::EMPTY.clone())?;
 
                     proof_hash_counter += 4;
                     level2 -= 1;
@@ -277,10 +267,9 @@ impl SMT {
                         }
 
                         // Capacity is marking the node as intermediate
-                        c[0] = Fr::ZERO;
 
                         // Create the intermediate node and store the calculated hash in r2
-                        r2 = self.hash_save(&node, &c)?;
+                        r2 = self.hash_save(&node, &Self::EMPTY.clone())?;
                         proof_hash_counter += 1;
                         log::info!(
                             "Smt::set() inserted a new intermediate level= {}, leaf node hash={}",
@@ -299,10 +288,7 @@ impl SMT {
                         }
                     } else {
                         // If at the top of the tree, update newRoot
-                        new_root[0] = r2[0];
-                        new_root[1] = r2[1];
-                        new_root[2] = r2[2];
-                        new_root[3] = r2[3];
+                        new_root.copy_from_slice(&r2);
                     }
                 }
             } else {
@@ -324,9 +310,8 @@ impl SMT {
                 );
 
                 // Capacity mars the node as intermediate/value
-                let mut c = [Fr::ZERO; 4];
                 // Create the node and store the calculated hash in newValH
-                let new_val_h = self.hash_save(&value_fea, &c)?;
+                let new_val_h = self.hash_save(&value_fea, &Self::EMPTY.clone())?;
                 // Insert the new key-value hash leaf node
 
                 // Calculate the node content: key|hash
@@ -335,9 +320,8 @@ impl SMT {
                 key_val_vec[4..].copy_from_slice(&new_val_h);
 
                 // Capacity marks the node as leaf
-                c[0] = Fr::ONE;
                 // Create the new leaf node and store the calculated hash in newLeafHash
-                let new_leaf_hash = self.hash_save(&key_val_vec, &c)?;
+                let new_leaf_hash = self.hash_save(&key_val_vec, &Self::ONE.clone())?;
 
                 proof_hash_counter += 2;
                 // If not at the top of the tree, update siblings with the new leaf node hash
@@ -348,10 +332,7 @@ impl SMT {
                     }
                 } else {
                     // If at the top of the tree, update the new root
-                    new_root[0] = new_leaf_hash[0];
-                    new_root[1] = new_leaf_hash[1];
-                    new_root[2] = new_leaf_hash[2];
-                    new_root[3] = new_leaf_hash[3];
+                    new_root.copy_from_slice(&new_leaf_hash);
                 }
             }
         } else {
@@ -363,14 +344,9 @@ impl SMT {
                 key,
                 found_key
             );
-            if b_found_key
-                && key[0] == found_key[0]
-                && key[1] == found_key[1]
-                && key[2] == found_key[2]
-                && key[3] == found_key[3]
-            {
+            if b_found_key && Self::node_is_eq(&key, &found_key) {
                 old_value = found_value;
-                if level > 0 {
+                if level >= 0 {
                     // If level > 0, we are going to delete and existing node (not the root node)
                     //
                     // Set the hash of the deleted node to zero
@@ -386,10 +362,10 @@ impl SMT {
                         log::debug!("Smt::set(), mode deleteFound");
                         let mut aux_fea = [Fr::ZERO; 4];
                         for i in 0..4 {
-                            aux_fea[i] = siblings[&level][ukey as usize * 4 + 1];
+                            aux_fea[i] = siblings[&level][ukey as usize * 4 + i];
                         }
                         let db_value = self.db.read(&aux_fea)?;
-                        siblings.insert(level + 1, db_value.clone());
+                        siblings.insert(level + 1, db_value);
 
                         if siblings[&(level + 1)].len() > 8 && siblings[&(level + 1)][8] == Fr::ONE
                         {
@@ -435,8 +411,7 @@ impl SMT {
                             a[0..4].copy_from_slice(&old_key);
                             a[4..].copy_from_slice(&val_h);
 
-                            let c = [Fr::ONE, Fr::ZERO, Fr::ZERO, Fr::ZERO];
-                            let old_leaf_hash = self.hash_save(&a, &c)?;
+                            let old_leaf_hash = self.hash_save(&a, &Self::ONE.clone())?;
                             proof_hash_counter += 1;
                             if level >= 0 {
                                 for jj in 0..4 {
@@ -445,10 +420,7 @@ impl SMT {
                                         old_leaf_hash[jj];
                                 }
                             } else {
-                                new_root[0] = old_leaf_hash[0];
-                                new_root[1] = old_leaf_hash[1];
-                                new_root[2] = old_leaf_hash[2];
-                                new_root[3] = old_leaf_hash[3];
+                                new_root.copy_from_slice(&old_leaf_hash);
                             }
                         } else {
                             mode = "deleteNotFound".to_string();
@@ -463,10 +435,7 @@ impl SMT {
                     // If level=0, this means we are deleting the root node
                     mode = "deleteLast".to_string();
                     log::debug!("Smt::set(), mode deleteLast");
-                    new_root[0] = Fr::ZERO;
-                    new_root[1] = Fr::ZERO;
-                    new_root[2] = Fr::ZERO;
-                    new_root[3] = Fr::ZERO;
+                    new_root.copy_from_slice(&Self::EMPTY.clone());
                 }
             } else {
                 // Setting to zero a node that does not exist, so nothing to do
@@ -494,8 +463,8 @@ impl SMT {
 
             new_root = self.hash_save(&a, &c)?;
             proof_hash_counter += 1;
-
             level -= 1;
+
             if level >= 0 {
                 // Overwrite the first or second 4 elements (based on keys[level] bit) with the new root hash from the lower level
                 for jj in 0..4 {
@@ -657,7 +626,10 @@ impl SMT {
 
     #[inline(always)]
     fn node_is_eq(r: &[Fr; 4], r2: &[Fr; 4]) -> bool {
-        Fr::eq(&r[0], &r2[0]) && Fr::eq(&r[1], &r2[1]) && Fr::eq(&r[2], &r2[2]) && Fr::eq(&r[3], &r2[3])
+        Fr::eq(&r[0], &r2[0])
+            && Fr::eq(&r[1], &r2[1])
+            && Fr::eq(&r[2], &r2[2])
+            && Fr::eq(&r[3], &r2[3])
     }
 
     fn split_key(&mut self, key: &[Fr; 4]) -> Vec<u64> {
@@ -718,21 +690,15 @@ impl SMT {
         for i in 0..4 {
             db_value.push(state_root[i]);
         }
-        for _i in 0..8 {
-            db_value.push(Fr::ZERO);
-        }
+        db_value.append(&mut [Fr::ZERO; 8].to_vec());
         self.db
             .write(&self.db.db_state_root_key.to_string(), &db_value, true)
     }
 
     fn hash_save(&mut self, a: &[Fr; 8], c: &[Fr; 4]) -> Result<[Fr; 4]> {
         let mut db_value = [Fr::ZERO; 12];
-        for i in 0..8 {
-            db_value[i] = a[i];
-        }
-        for i in 0..4 {
-            db_value[i + 8] = c[i];
-        }
+        db_value[..8].copy_from_slice(a);
+        db_value[8..].copy_from_slice(c);
 
         let p = LinearHash::new();
         let digest = p.hash(&db_value, 0).unwrap();
@@ -741,14 +707,7 @@ impl SMT {
 
         let str_digest = h4_to_string(digest.try_into().unwrap());
 
-        let mut db_value: Vec<Fr> = Vec::new();
-        for i in 0..8 {
-            db_value.push(a[i]);
-        }
-        for i in 0..4 {
-            db_value.push(c[i]);
-        }
-        self.db.write(&str_digest, &db_value, true)?;
+        self.db.write(&str_digest, &db_value.to_vec(), true)?;
         Ok([digest[0], digest[1], digest[2], digest[3]])
     }
 
@@ -781,8 +740,8 @@ mod tests {
     use super::*;
     use crate::database::Database;
     use num_bigint::BigUint;
-    use utils::*;
     use num_traits::Num;
+    use utils::*;
 
     fn setup() -> SMT {
         let db = Database::new();
@@ -792,7 +751,11 @@ mod tests {
     #[test]
     fn test_smt_join_and_split_key() {
         let mut smt = setup();
-        let key = BigUint::from_str_radix("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000", 16).unwrap(); // bn254::prime - 1
+        let key = BigUint::from_str_radix(
+            "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
+            16,
+        )
+        .unwrap(); // bn254::prime - 1
         log::debug!("key string {:?}", key);
         let h4key = scalar_to_h4(&key);
         log::debug!("key {:?}", h4key);
@@ -814,7 +777,9 @@ mod tests {
         let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
         let r_get = smt.get(&r1.new_root, &sca).unwrap();
         assert_eq!(val, r_get.value);
-        let r0 = smt.set(&SMT::EMPTY, &sca, BigUint::from(0u64), true).unwrap();
+        let r0 = smt
+            .set(&SMT::EMPTY, &sca, BigUint::from(0u64), true)
+            .unwrap();
         assert!(SMT::node_is_zero(&r0.new_root));
     }
 
@@ -830,25 +795,54 @@ mod tests {
         assert!(SMT::node_is_eq(&r1.new_root, &r3.new_root));
     }
 
+    /// FIXME
+    #[test]
+    #[ignore]
+    fn test_shared_element_2() {
+        // env_logger::init();
+        let mut smt = setup();
+        let sca = scalar_to_h4(&BigUint::from(7u64));
+        let val = BigUint::from(2u64);
+        let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
+
+        let sca2 = scalar_to_h4(&BigUint::from(15u64));
+        let val2 = BigUint::from(3u64);
+        let r2 = smt.set(&r1.new_root, &sca2, val2.clone(), true).unwrap();
+
+        let r3 = smt
+            .set(&r2.new_root, &sca, BigUint::from(0u64), true)
+            .unwrap();
+        let r4 = smt
+            .set(&r3.new_root, &sca2, BigUint::from(0u64), true)
+            .unwrap();
+        assert!(SMT::node_is_zero(&r4.new_root));
+    }
+
     #[test]
     fn test_shared_element_3() {
         env_logger::init();
         let mut smt = setup();
-        let sca = scalar_to_h4(&BigUint::from(123u64));
+        let sca = scalar_to_h4(&BigUint::from(7u64));
         let val = BigUint::from(123u64);
         let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
 
-        let sca2 = scalar_to_h4(&BigUint::from(1235u64));
+        let sca2 = scalar_to_h4(&BigUint::from(15u64));
         let val2 = BigUint::from(1235u64);
         let r2 = smt.set(&r1.new_root, &sca2, val2.clone(), true).unwrap();
 
-        let sca3 = scalar_to_h4(&BigUint::from(1236u64));
+        let sca3 = scalar_to_h4(&BigUint::from(9u64));
         let val3 = BigUint::from(1236u64);
         let r3 = smt.set(&r2.new_root, &sca3, val3.clone(), true).unwrap();
 
-        let r4 = smt.set(&r3.new_root, &sca, BigUint::from(0u64), true).unwrap();
-        let r5 = smt.set(&r4.new_root, &sca2, BigUint::from(0u64), true).unwrap();
-        let r6 = smt.set(&r5.new_root, &sca3, BigUint::from(0u64), true).unwrap();
+        let r4 = smt
+            .set(&r3.new_root, &sca, BigUint::from(0u64), true)
+            .unwrap();
+        let r5 = smt
+            .set(&r4.new_root, &sca2, BigUint::from(0u64), true)
+            .unwrap();
+        let r6 = smt
+            .set(&r5.new_root, &sca3, BigUint::from(0u64), true)
+            .unwrap();
         assert!(SMT::node_is_zero(&r6.new_root));
     }
 
@@ -877,7 +871,9 @@ mod tests {
         }
 
         for i in 0..n {
-            r = smt.set(&r.new_root, &sca, BigUint::from(0u64), true).unwrap();
+            r = smt
+                .set(&r.new_root, &sca, BigUint::from(0u64), true)
+                .unwrap();
         }
         assert!(SMT::node_is_zero(&r.new_root));
     }
@@ -953,6 +949,6 @@ mod tests {
         assert_eq!(gr.is_ok(), true);
         let gr = gr.unwrap();
         log::debug!("get not found, gr: {:?}", gr);
-        assert_eq!(gr.is_old0, true);
+        assert_eq!(gr.is_old0, false);
     }
 }

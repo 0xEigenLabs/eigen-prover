@@ -8,7 +8,7 @@ use plonky::to_hex;
 use std::env;
 use utils::{
     errors::{EigenError, Result},
-    scalar::{byte2string, normalize_to_n_format, prepend_zeros, string2ba, h4_to_string},
+    scalar::{byte2string, h4_to_string, normalize_to_n_format, prepend_zeros, string2ba},
 };
 
 pub struct Database {
@@ -38,8 +38,7 @@ impl Database {
             .optional();
         match result {
             Ok(Some(pg)) => Ok(pg.data),
-            // Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
-            Ok(None) => Ok(String::from("")),
+            Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
             Err(e) => Err(EigenError::DatabaseError(e)),
         }
     }
@@ -52,8 +51,7 @@ impl Database {
             .optional();
         match result {
             Ok(Some(pg)) => Ok(pg.data),
-            // Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
-            Ok(None) => Ok(String::from("")),
+            Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
             Err(e) => Err(EigenError::DatabaseError(e)),
         }
     }
@@ -134,10 +132,10 @@ impl Database {
         let s_data = self.read_remote(false, &key)?;
         log::debug!("read: {} => {}", key, s_data);
 
-        assert_eq!(s_data.len()%16, 0);
+        assert_eq!(s_data.len() % 16, 0);
         let mut res = vec![];
         for i in (0..s_data.len()).step_by(16) {
-            let aux = u64::from_str_radix(&s_data[i..(i+16)].to_string(), 16).unwrap();
+            let aux = u64::from_str_radix(&s_data[i..(i + 16)].to_string(), 16).unwrap();
             res.push(Fr::from(aux));
         }
 
