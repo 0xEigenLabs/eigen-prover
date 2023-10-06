@@ -441,8 +441,9 @@ impl SMT {
         // map< uint64_t, vector<Goldilocks::Element> >::iterator it;
         // it = siblings.find(level+1);
         // siblings.erase(it, siblings.end());
-
-        siblings.remove(&(level + 1));
+        log::debug!("level: {}, {:?}", level, siblings);
+        siblings.retain(|k, _| *k <= level);
+        log::debug!("retain {:?}", siblings);
         while level >= 0 {
             let mut a = [Fr::ZERO; 8];
             let mut c = [Fr::ZERO; 4];
@@ -565,7 +566,7 @@ impl SMT {
 
         // We leave the siblings only up to the leaf node level, deleting items where key equal or
         // are bigger than level + 1, e.g. siblings = siblings.slice(0, level + 1);
-        siblings.retain(|k, _| *k > level);
+        siblings.retain(|k, _| *k <= level);
 
         let mut ret = SmtGetResult {
             root: *root,
@@ -835,11 +836,11 @@ mod tests {
         };
         let sca = scalar_to_h4(&BigUint::from(123u64));
         let val = BigUint::from(123u64);
-        for i in 0..n {
+        for _i in 0..n {
             r = smt.set(&r.new_root, &sca, val.clone(), true).unwrap();
         }
 
-        for i in 0..n {
+        for _i in 0..n {
             r = smt
                 .set(&r.new_root, &sca, BigUint::from(0u64), true)
                 .unwrap();
@@ -902,7 +903,7 @@ mod tests {
         let sr = sr.unwrap();
 
         // get found
-        let mut key = [Fr::ONE; 4];
+        let key = [Fr::ONE; 4];
         let gr = smt.get(&sr.new_root, &key);
         assert_eq!(gr.is_ok(), true);
         let gr = gr.unwrap();
