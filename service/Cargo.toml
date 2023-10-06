@@ -11,5 +11,20 @@ prost = "0.11.0"
 tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1" }
 
+# biz
+statedb = { path = "../statedb" }
+prover = { path = "../prover" }
+plonky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+
+# config
+serde = "1.0.92"
+serde_derive = "1.0.92"
+toml = "0.5.1"
+
+#log
+log = "0.4.0"
+env_logger = "0.10"
+
 [build-dependencies]
 tonic-build = "0.8.0"

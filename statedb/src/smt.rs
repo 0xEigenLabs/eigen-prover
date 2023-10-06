@@ -11,32 +11,33 @@ use utils::{fea2scalar, h4_to_scalar, h4_to_string, scalar2fe, scalar2fea};
 
 #[derive(Debug)]
 pub struct SmtSetResult {
-    old_root: [Fr; 4],
-    new_root: [Fr; 4],
-    key: [Fr; 4],
-    siblings: HashMap<i64, Vec<Fr>>,
-    ins_key: [Fr; 4],
-    ins_value: BigUint,
-    is_old0: bool,
-    old_value: BigUint,
-    new_value: BigUint,
-    mode: String,
-    proof_hash_counter: u64,
+    pub old_root: [Fr; 4],
+    pub new_root: [Fr; 4],
+    pub key: [Fr; 4],
+    pub siblings: HashMap<i64, Vec<Fr>>,
+    pub ins_key: [Fr; 4],
+    pub ins_value: BigUint,
+    pub is_old0: bool,
+    pub old_value: BigUint,
+    pub new_value: BigUint,
+    pub mode: String,
+    pub proof_hash_counter: u64,
 }
 
 #[derive(Debug)]
 pub struct SmtGetResult {
-    root: [Fr; 4],
-    key: [Fr; 4],
-    siblings: HashMap<i64, Vec<Fr>>,
-    ins_key: [Fr; 4], // found key, not equal to key when is_old0 = false
-    ins_value: BigUint,
-    is_old0: bool,
-    value: BigUint,
-    proof_hash_counter: u64,
+    pub root: [Fr; 4],
+    pub key: [Fr; 4],
+    pub siblings: HashMap<i64, Vec<Fr>>,
+    pub ins_key: [Fr; 4], // found key, not equal to key when is_old0 = false
+    pub ins_value: BigUint,
+    pub is_old0: bool,
+    pub value: BigUint,
+    pub proof_hash_counter: u64,
 }
 
 // https://github.com/0xPolygonHermez/zkevm-commonjs/blob/v0.6.0.0/src/smt.js
+#[derive(Default, Debug)]
 pub struct SMT {
     db: Database,
 }
@@ -101,7 +102,7 @@ impl SMT {
             } else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
                 let idx = keys[level as usize] as usize * 4;
-                r.copy_from_slice(&siblings[&level][idx..(idx+4)]);
+                r.copy_from_slice(&siblings[&level][idx..(idx + 4)]);
                 acc_key.push(keys[level as usize]);
 
                 log::debug!(
@@ -534,7 +535,7 @@ impl SMT {
             else {
                 // Take either the first 4 (keys[level]=0) or the second 4 (keys[level]=1) siblings as the hash of the next level
                 let idx = (keys[level as usize] * 4) as usize;
-                r.copy_from_slice(&siblings[&level][idx..(idx+4)]);
+                r.copy_from_slice(&siblings[&level][idx..(idx + 4)]);
 
                 // Store the used key bit in accKey
                 acc_key.push(keys[level as usize]);
@@ -713,7 +714,8 @@ mod tests {
     use utils::*;
 
     fn setup() -> SMT {
-        let db = Database::new();
+        // export DATABASE_URL="postgresql://root:password@127.0.0.1:5432/state"
+        let db = Database::new(None);
         SMT::new(db)
     }
 
