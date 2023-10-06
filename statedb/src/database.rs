@@ -3,6 +3,7 @@ use crate::schema::state::nodes::dsl::nodes;
 use crate::schema::state::program::dsl::program;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
+use diesel::r2d2::{ConnectionManager, Pool};
 use plonky::field_gl::Fr;
 use plonky::to_hex;
 use std::env;
@@ -12,18 +13,41 @@ use utils::{
 };
 
 pub struct Database {
-    connection: PgConnection,
+    pool: Pool<ConnectionManager<PgConnection>>,
+    database_url: String,
     _in_use: bool,
     pub db_state_root_key: String,
 }
 
+impl Default for Database {
+    fn default() -> Self {
+        Self::new(None)
+    }
+}
+
+impl std::fmt::Debug for Database {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Database:\n\turl: {}\n\tin_use: {}",
+            self.database_url, self._in_use
+        )
+    }
+}
+
 impl Database {
-    pub fn new() -> Self {
-        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-        let conn = PgConnection::establish(&database_url)
-            .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
+    pub fn new(url: Option<String>) -> Self {
+        let database_url = match url {
+            Some(x) => x,
+            _ => env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
+        };
+        let manager = ConnectionManager::<PgConnection>::new(database_url.clone());
         Database {
-            connection: conn,
+            pool: Pool::builder()
+                .test_on_check_out(true)
+                .build(manager)
+                .expect("Could not build connection pool"),
+            database_url: database_url,
             _in_use: true,
             db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 .to_string(),
@@ -34,7 +58,7 @@ impl Database {
         let result = program
             .find(key)
             .select(Program::as_select())
-            .first(&mut self.connection)
+            .first(&mut self.pool.get().unwrap())
             .optional();
         match result {
             Ok(Some(pg)) => Ok(pg.data),
@@ -47,7 +71,7 @@ impl Database {
         let result = nodes
             .find(key)
             .select(Nodes::as_select())
-            .first(&mut self.connection)
+            .first(&mut self.pool.get().unwrap())
             .optional();
         match result {
             Ok(Some(pg)) => Ok(pg.data),
@@ -74,11 +98,11 @@ impl Database {
                 .on_conflict(crate::schema::state::program::hash)
                 .do_update()
                 .set(&new_pro)
-                .execute(&mut self.connection)?,
+                .execute(&mut self.pool.get().unwrap())?,
             _ => diesel::insert_into(program)
                 .values(&new_pro)
                 .on_conflict_do_nothing()
-                .execute(&mut self.connection)?,
+                .execute(&mut self.pool.get().unwrap())?,
         };
         Ok(res)
     }
@@ -94,11 +118,11 @@ impl Database {
                 .on_conflict(crate::schema::state::nodes::hash)
                 .do_update()
                 .set(&new_pro)
-                .execute(&mut self.connection)?,
+                .execute(&mut self.pool.get().unwrap())?,
             _ => diesel::insert_into(nodes)
                 .values(&new_pro)
                 .on_conflict_do_nothing()
-                .execute(&mut self.connection)?,
+                .execute(&mut self.pool.get().unwrap())?,
         };
         Ok(res)
     }
@@ -273,7 +297,7 @@ impl Database {
     "	return;\n" +
     "end;$$\n"#,db_nodes_table_name, db_nodes_table_name, db_nodes_table_name);
 
-        let result = diesel::sql_query(query).execute(&mut self.connection);
+        let result = diesel::sql_query(query).execute(&mut self.pool.get().unwrap());
 
         log::info!("Database::writeGetTreeFunction() {} returns {:?}", query, result);
         Ok(result)

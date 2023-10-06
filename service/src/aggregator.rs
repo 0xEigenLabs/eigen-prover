@@ -3,7 +3,7 @@ use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{self, Request, Response, Status};
 
-use aggregator_service::aggregator_service_server::{AggregatorService};
+use aggregator_service::aggregator_service_server::AggregatorService;
 use aggregator_service::{AggregatorMessage, ProverMessage};
 
 pub mod aggregator_service {
