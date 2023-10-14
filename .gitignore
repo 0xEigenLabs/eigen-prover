@@ -1,2 +1,4 @@
 target
 Cargo.lock
+executor/node_modules
+executor/package-lock.json
