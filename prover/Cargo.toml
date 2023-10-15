@@ -6,9 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", package="plonky"}
+starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", package="starky"}
 plonky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" , package="plonky"}
-dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" , package="plonky"}
+dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
 
 tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1" }
+
+log = "0.4.0"

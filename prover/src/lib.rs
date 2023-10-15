@@ -1,20 +1,5 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-async fn run() {
-    // Goal:
-    // pipeline deal the  stark_prove, aggre_setup/exec
-    // might be parallel or distribute compute
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+mod aggregate_prove;
+mod batch_prove;
+mod c12_prove;
+mod final_stark_prove;
+mod snark;
