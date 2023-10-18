@@ -12,6 +12,7 @@
     "@grpc/grpc-js": "^1.9.5",
     "@grpc/proto-loader": "^0.7.10",
     "chai": "^4.3.10",
+    "dotenv": "^16.3.1",
     "fs": "^0.0.1-security",
     "google-protobuf": "^3.21.2",
     "minimist": "^1.2.8",

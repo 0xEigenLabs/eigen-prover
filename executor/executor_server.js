@@ -2,13 +2,17 @@ const { pil_verifier, utils } = require("../../eigen-zkvm/starkjs/index.js");
 const { FGL } = require("pil-stark");
 const fs = require("fs");
 const path = require("path");
-const pilFile = path.join(__dirname, "./fibonacci.pil");
 const proverAddr = "0x2FD31EB1BB3f0Ac8C4feBaF1114F42431c1F29E4";
 let PROTO_PATH =
   __dirname + "/../service/proto/src/proto/executor/v1/executor.proto";
 let grpc = require("@grpc/grpc-js");
 const { log } = require("@grpc/grpc-js/build/src/logging");
 let protoLoader = require("@grpc/proto-loader");
+
+const dotenv = require('dotenv');
+const env = dotenv.config({
+  path: path.join(__dirname, '.env')
+});
 
 let taskIdCounter = 1;
 
@@ -167,13 +171,12 @@ function ProcessBatch(call, callback) {
     read_write_addresses: read_write_addresses,
   };
 
-  let inputString = call.request.batch_l2_data;
-  let input = JSON.parse(inputString.toString());
-  generateOutputFile(input);
+  generateOutputFile()
   callback(null, processBatchResponse);
 }
-function generateOutputFile(input) {
-  const outputFilePath = `/tmp/fib/task_id_${taskIdCounter}/execute`;
+
+function generateOutputFile() {
+  const outputFilePath = process.env.outputFilePath + `/task_id_${taskIdCounter}/execute`;
   if (!fs.existsSync(outputFilePath)) {
     fs.mkdirSync(outputFilePath, { recursive: true });
   }
@@ -183,28 +186,27 @@ function generateOutputFile(input) {
     nBits: 10,
     nBitsExt: 11,
     nQueries: 8,
-    verificationHashType: "BN128",
+    verificationHashType: "GL",
     steps: [{ nBits: 11 }, { nBits: 7 }, { nBits: 3 }],
   };
   console.log("security level(bits)", utils.security_test(starkStruct, 1024));
 
-  const pilFile = path.join(__dirname, "./fibonacci.pil");
-  const proverAddr = "0x2FD31EB1BB3f0Ac8C4feBaF1114F42431c1F29E4";
+  const pilFile = path.join(__dirname, process.env.pilFile);
   let start = new Date().getTime();
   const pilConfig = {};
-  const pilCache = outputFilePath + "/fib";
+  const pilCache = outputFilePath + process.env.pilCache
 
-  workspace = "circuits";
+  // TODO: instantiate builder
   pil_verifier
     .generate(
-      workspace,
+      process.env.workspace,
       pilFile,
       pilConfig,
       pilCache,
-      new FibonacciJS(),
+      builder,
       starkStruct,
       proverAddr,
-      input
+      JSON.parse(process.env.input)
     )
     .then(() => {
       let end = new Date().getTime();
@@ -221,7 +223,6 @@ function main() {
     ProcessBatch: ProcessBatch,
   });
   console.log("executor service is running");
-  //generateOutputFile()
   server.bindAsync(
     "0.0.0.0:50051",
     grpc.ServerCredentials.createInsecure(),
