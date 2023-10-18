@@ -1,24 +1,24 @@
-const {pil_verifier, utils} = require("../../eigen-zkvm/starkjs/index.js");
+const { pil_verifier, utils } = require("../../eigen-zkvm/starkjs/index.js");
 const { FGL } = require("pil-stark");
 const fs = require("fs");
 const path = require("path");
 const pilFile = path.join(__dirname, "./fibonacci.pil");
 const proverAddr = "0x2FD31EB1BB3f0Ac8C4feBaF1114F42431c1F29E4";
-let PROTO_PATH = __dirname + '/../service/proto/src/proto/executor/v1/executor.proto';
-let grpc = require('@grpc/grpc-js');
-const { log } = require('@grpc/grpc-js/build/src/logging');
-let protoLoader = require('@grpc/proto-loader');
+let PROTO_PATH =
+  __dirname + "/../service/proto/src/proto/executor/v1/executor.proto";
+let grpc = require("@grpc/grpc-js");
+const { log } = require("@grpc/grpc-js/build/src/logging");
+let protoLoader = require("@grpc/proto-loader");
 
 let taskIdCounter = 1;
 
-let packageDefinition = protoLoader.loadSync(
-    PROTO_PATH,
-    {keepCase: true,
-     longs: String,
-     enums: String,
-     defaults: true,
-     oneofs: true
-    });
+let packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true,
+});
 let executor_proto = grpc.loadPackageDefinition(packageDefinition).executor.v1;
 
 class FibonacciJS {
@@ -26,8 +26,8 @@ class FibonacciJS {
     const pols = pols_.Fibonacci;
     const N = pols.L1.length;
     for (let i = 0; i < N; i++) {
-      pols.L1[i] = (i == 0) ? 1n : 0n;
-      pols.LLAST[i] = (i == N-1) ? 1n : 0n;
+      pols.L1[i] = i == 0 ? 1n : 0n;
+      pols.LLAST[i] = i == N - 1 ? 1n : 0n;
     }
   }
 
@@ -37,9 +37,12 @@ class FibonacciJS {
     pols.l2[0] = BigInt(input[0]);
     pols.l1[0] = BigInt(input[1]);
 
-    for (let i = 1; i < N; i ++) {
-      pols.l2[i] =pols.l1[i-1];
-      pols.l1[i] =FGL.add(FGL.square(pols.l2[i-1]), FGL.square(pols.l1[i-1]));
+    for (let i = 1; i < N; i++) {
+      pols.l2[i] = pols.l1[i - 1];
+      pols.l1[i] = FGL.add(
+        FGL.square(pols.l2[i - 1]),
+        FGL.square(pols.l1[i - 1])
+      );
     }
     return pols.l1[N - 1];
   }
@@ -49,9 +52,9 @@ class FibonacciJS {
  * Implements the ProcessBatch RPC method.
  */
 function ProcessBatch(call, callback) {
-  console.log("ProcessBatch request: ", call.request)
-  let ROM_ERROR_NO_ERROR = 1
-  let EXECUTOR_ERROR_NO_ERROR = 1
+  console.log("ProcessBatch request: ", call.request);
+  let ROM_ERROR_NO_ERROR = 1;
+  let EXECUTOR_ERROR_NO_ERROR = 1;
   let responses_logs = {
     address: "address",
     topics: [Buffer.from("topics")],
@@ -60,8 +63,8 @@ function ProcessBatch(call, callback) {
     tx_hash: Buffer.from("tx_hash"),
     tx_index: 0,
     batch_hash: Buffer.from("batch_hash"),
-    index: 0
-  }
+    index: 0,
+  };
 
   let executionTraceStep = {
     pc: 0,
@@ -74,12 +77,12 @@ function ProcessBatch(call, callback) {
     stack: ["stack"],
     return_data: Buffer.from("return_data"),
     storage: {
-      "storage": "storage"
+      storage: "storage",
     },
     depth: 0,
     gas_refund: 0,
-    error: ROM_ERROR_NO_ERROR
-  }
+    error: ROM_ERROR_NO_ERROR,
+  };
 
   let transactionContext = {
     type: "type",
@@ -93,16 +96,16 @@ function ProcessBatch(call, callback) {
     gas_used: 0,
     gas_price: "0",
     execution_time: 0,
-    old_state_root: Buffer.from("old_state_root")
-  }
+    old_state_root: Buffer.from("old_state_root"),
+  };
 
   let contract = {
     address: "address",
     caller: "caller",
     value: "value",
     data: Buffer.from("data"),
-    gas: 0
-  }
+    gas: 0,
+  };
   let transactionStep = {
     state_root: Buffer.from("state_root"),
     depth: 0,
@@ -117,13 +120,13 @@ function ProcessBatch(call, callback) {
     memory_offset: 0,
     return_data: Buffer.from("return_data"),
     contract: contract,
-    error: ROM_ERROR_NO_ERROR
-  }
+    error: ROM_ERROR_NO_ERROR,
+  };
 
   let call_trace = {
     context: transactionContext,
-    steps: [transactionStep]
-  }
+    steps: [transactionStep],
+  };
   let processTransactionResponse = {
     tx_hash: Buffer.from("tx_hash"),
     rlp_tx: Buffer.from("rlp_tx"),
@@ -137,19 +140,19 @@ function ProcessBatch(call, callback) {
     state_root: Buffer.from("state_root"),
     logs: [responses_logs],
     execution_trace: [executionTraceStep],
-    call_trace: call_trace
-  }
+    call_trace: call_trace,
+  };
 
   let read_write_addresses = {
-    "read_write_addresses": {
+    read_write_addresses: {
       nonce: 0,
-      balance: 0
-    }
-  }
+      balance: 0,
+    },
+  };
   processBatchResponse = {
-    new_state_root: Buffer.from('new_state_root'),
-    new_acc_input_hash: Buffer.from('new_acc_input_hash'),
-    new_local_exit_root: Buffer.from('new_local_exit_root'),
+    new_state_root: Buffer.from("new_state_root"),
+    new_acc_input_hash: Buffer.from("new_acc_input_hash"),
+    new_local_exit_root: Buffer.from("new_local_exit_root"),
     new_batch_num: 0,
     cnt_keccak_hashes: 0,
     cnt_poseidon_hashes: 0,
@@ -161,44 +164,52 @@ function ProcessBatch(call, callback) {
     cumulative_gas_used: 0,
     responses: [processTransactionResponse],
     error: EXECUTOR_ERROR_NO_ERROR,
-    read_write_addresses: read_write_addresses
-  }
+    read_write_addresses: read_write_addresses,
+  };
 
-  generateOutputFile()
+  let inputString = call.request.batch_l2_data;
+  let input = JSON.parse(inputString.toString());
+  generateOutputFile(input);
   callback(null, processBatchResponse);
 }
-function generateOutputFile() {
-  const outputFilePath = `/tmp/fib/task_id_${taskIdCounter}/execute`
+function generateOutputFile(input) {
+  const outputFilePath = `/tmp/fib/task_id_${taskIdCounter}/execute`;
   if (!fs.existsSync(outputFilePath)) {
     fs.mkdirSync(outputFilePath, { recursive: true });
   }
-  taskIdCounter++
-  
+  taskIdCounter++;
+
   const starkStruct = {
     nBits: 10,
     nBitsExt: 11,
     nQueries: 8,
     verificationHashType: "BN128",
-    steps: [
-      {nBits: 11},
-      {nBits: 7},
-      {nBits: 3}
-    ]
-  }
-  console.log("security level(bits)", utils.security_test(starkStruct, 1024))
-  
+    steps: [{ nBits: 11 }, { nBits: 7 }, { nBits: 3 }],
+  };
+  console.log("security level(bits)", utils.security_test(starkStruct, 1024));
+
   const pilFile = path.join(__dirname, "./fibonacci.pil");
   const proverAddr = "0x2FD31EB1BB3f0Ac8C4feBaF1114F42431c1F29E4";
-  let start = new Date().getTime()
+  let start = new Date().getTime();
   const pilConfig = {};
-  const pilCache = outputFilePath + "/fib"
-  
-  let input = [1, 2]
-  workspace = "circuits"
-  pil_verifier.generate(workspace, pilFile, pilConfig, pilCache, new FibonacciJS(), starkStruct, proverAddr, input).then(() => {
-    let end = new Date().getTime()
-    console.log('cost is', `${end - start}ms`)
-  })
+  const pilCache = outputFilePath + "/fib";
+
+  workspace = "circuits";
+  pil_verifier
+    .generate(
+      workspace,
+      pilFile,
+      pilConfig,
+      pilCache,
+      new FibonacciJS(),
+      starkStruct,
+      proverAddr,
+      input
+    )
+    .then(() => {
+      let end = new Date().getTime();
+      console.log("cost is", `${end - start}ms`);
+    });
 }
 /**
  * Starts an RPC server that receives requests for the Executor service at the
@@ -206,12 +217,18 @@ function generateOutputFile() {
  */
 function main() {
   let server = new grpc.Server();
-  server.addService(executor_proto.ExecutorService.service, {ProcessBatch: ProcessBatch});
-  console.log("executor service is running")
-  //generateOutputFile()
-  server.bindAsync('0.0.0.0:50051', grpc.ServerCredentials.createInsecure(), () => {
-    server.start();
+  server.addService(executor_proto.ExecutorService.service, {
+    ProcessBatch: ProcessBatch,
   });
+  console.log("executor service is running");
+  //generateOutputFile()
+  server.bindAsync(
+    "0.0.0.0:50051",
+    grpc.ServerCredentials.createInsecure(),
+    () => {
+      server.start();
+    }
+  );
 }
 
 main();
