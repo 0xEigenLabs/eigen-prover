@@ -4,10 +4,11 @@
   "description": "",
   "main": "executor_client.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "killServer": "pkill -f 'node executor_server.js'",
+    "test": "nohup node executor_server.js & sleep 5s && node executor_client.js"
   },
   "author": "",
-  "license": "ISC",
+  "license": "Apache 2.0",
   "dependencies": {
     "@grpc/grpc-js": "^1.9.5",
     "@grpc/proto-loader": "^0.7.10",
