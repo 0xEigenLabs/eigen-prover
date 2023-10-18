@@ -1,9 +1,9 @@
-var PROTO_PATH = __dirname + '/../service/proto/src/proto/executor/v1/executor.proto';
+let PROTO_PATH = __dirname + '/../service/proto/src/proto/executor/v1/executor.proto';
 
-var parseArgs = require('minimist');
-var grpc = require('@grpc/grpc-js');
-var protoLoader = require('@grpc/proto-loader');
-var packageDefinition = protoLoader.loadSync(
+let parseArgs = require('minimist');
+let grpc = require('@grpc/grpc-js');
+let protoLoader = require('@grpc/proto-loader');
+let packageDefinition = protoLoader.loadSync(
   PROTO_PATH,
   {
     keepCase: true,
@@ -13,20 +13,20 @@ var packageDefinition = protoLoader.loadSync(
     oneofs: true
   });
 
-var executor_proto = grpc.loadPackageDefinition(packageDefinition).executor.v1;
+let executor_proto = grpc.loadPackageDefinition(packageDefinition).executor.v1;
 
 function main() {
-  var argv = parseArgs(process.argv.slice(2), {
+  let argv = parseArgs(process.argv.slice(2), {
     string: 'target'
   });
-  var target;
+  let target;
   if (argv.target) {
     target = argv.target;
   } else {
     target = 'localhost:50051';
   }
-  var client = new executor_proto.ExecutorService(target, grpc.credentials.createInsecure());
-  var user;
+  let client = new executor_proto.ExecutorService(target, grpc.credentials.createInsecure());
+  let user;
   if (argv._.length > 0) {
     user = argv._[0];
   } else {

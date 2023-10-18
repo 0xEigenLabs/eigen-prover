@@ -1,9 +1,17 @@
-var PROTO_PATH = __dirname + '/../service/proto/src/proto/executor/v1/executor.proto';
-
-var grpc = require('@grpc/grpc-js');
+const {pil_verifier, utils} = require("../../eigen-zkvm/starkjs/index.js");
+const { FGL } = require("pil-stark");
+const fs = require("fs");
+const path = require("path");
+const pilFile = path.join(__dirname, "./fibonacci.pil");
+const proverAddr = "0x2FD31EB1BB3f0Ac8C4feBaF1114F42431c1F29E4";
+let PROTO_PATH = __dirname + '/../service/proto/src/proto/executor/v1/executor.proto';
+let grpc = require('@grpc/grpc-js');
 const { log } = require('@grpc/grpc-js/build/src/logging');
-var protoLoader = require('@grpc/proto-loader');
-var packageDefinition = protoLoader.loadSync(
+let protoLoader = require('@grpc/proto-loader');
+
+let taskIdCounter = 1;
+
+let packageDefinition = protoLoader.loadSync(
     PROTO_PATH,
     {keepCase: true,
      longs: String,
@@ -11,7 +19,31 @@ var packageDefinition = protoLoader.loadSync(
      defaults: true,
      oneofs: true
     });
-var executor_proto = grpc.loadPackageDefinition(packageDefinition).executor.v1;
+let executor_proto = grpc.loadPackageDefinition(packageDefinition).executor.v1;
+
+class FibonacciJS {
+  async buildConstants(pols_) {
+    const pols = pols_.Fibonacci;
+    const N = pols.L1.length;
+    for (let i = 0; i < N; i++) {
+      pols.L1[i] = (i == 0) ? 1n : 0n;
+      pols.LLAST[i] = (i == N-1) ? 1n : 0n;
+    }
+  }
+
+  async execute(pols_, input) {
+    const pols = pols_.Fibonacci;
+    const N = pols.l1.length;
+    pols.l2[0] = BigInt(input[0]);
+    pols.l1[0] = BigInt(input[1]);
+
+    for (let i = 1; i < N; i ++) {
+      pols.l2[i] =pols.l1[i-1];
+      pols.l1[i] =FGL.add(FGL.square(pols.l2[i-1]), FGL.square(pols.l1[i-1]));
+    }
+    return pols.l1[N - 1];
+  }
+}
 
 /**
  * Implements the ProcessBatch RPC method.
@@ -131,17 +163,52 @@ function ProcessBatch(call, callback) {
     error: EXECUTOR_ERROR_NO_ERROR,
     read_write_addresses: read_write_addresses
   }
+
+  generateOutputFile()
   callback(null, processBatchResponse);
 }
-
+function generateOutputFile() {
+  const outputFilePath = `/tmp/fib/task_id_${taskIdCounter}/execute`
+  if (!fs.existsSync(outputFilePath)) {
+    fs.mkdirSync(outputFilePath, { recursive: true });
+  }
+  taskIdCounter++
+  
+  const starkStruct = {
+    nBits: 10,
+    nBitsExt: 11,
+    nQueries: 8,
+    verificationHashType: "BN128",
+    steps: [
+      {nBits: 11},
+      {nBits: 7},
+      {nBits: 3}
+    ]
+  }
+  console.log("security level(bits)", utils.security_test(starkStruct, 1024))
+  
+  const pilFile = path.join(__dirname, "./fibonacci.pil");
+  const proverAddr = "0x2FD31EB1BB3f0Ac8C4feBaF1114F42431c1F29E4";
+  let start = new Date().getTime()
+  const pilConfig = {};
+  const pilCache = outputFilePath + "/fib"
+  
+  let input = [1, 2]
+  workspace = "circuits"
+  pil_verifier.generate(workspace, pilFile, pilConfig, pilCache, new FibonacciJS(), starkStruct, proverAddr, input).then(() => {
+    let end = new Date().getTime()
+    console.log('cost is', `${end - start}ms`)
+  })
+}
 /**
  * Starts an RPC server that receives requests for the Executor service at the
  * sample server port
  */
 function main() {
-  var server = new grpc.Server();
+  let server = new grpc.Server();
   server.addService(executor_proto.ExecutorService.service, {ProcessBatch: ProcessBatch});
   console.log("executor service is running")
+  //generateOutputFile()
   server.bindAsync('0.0.0.0:50051', grpc.ServerCredentials.createInsecure(), () => {
     server.start();
   });
