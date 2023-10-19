@@ -25,6 +25,7 @@ bash -x install_db.sh create state root password
 
 sudo apt install libpq-dev
 export DATABASE_URL="postgresql://root:password@127.0.0.1:5432/state"
+#export DATABASE_URL=/tmp/database.sql
 
 diesel migration run
 cargo run --example nodes

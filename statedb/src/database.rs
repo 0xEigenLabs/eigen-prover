@@ -1,22 +1,28 @@
 use crate::models::{Nodes, Program};
 use crate::schema::state::nodes::dsl::nodes;
 use crate::schema::state::program::dsl::program;
+
+#[cfg(not(feature = "sqlite"))]
 use diesel::pg::PgConnection;
+
+#[cfg(feature = "sqlite")]
 use diesel::sqlite::SqliteConnection;
+
 use diesel::prelude::*;
-use diesel::connection::SimpleConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
 use plonky::field_gl::Fr;
 use plonky::to_hex;
 use std::env;
-use std::any::Any;
 use utils::{
     errors::{EigenError, Result},
     scalar::{byte2string, h4_to_string, normalize_to_n_format, prepend_zeros, string2ba},
 };
 
 pub struct Database {
-    pool: Pool<ConnectionManager<SimpleConnection>>,
+    #[cfg(not(feature = "sqlite"))]
+    pool: Pool<ConnectionManager<PgConnection>>,
+    #[cfg(feature = "sqlite")]
+    pool: Pool<ConnectionManager<SqliteConnection>>,
     database_url: String,
     _in_use: bool,
     pub db_state_root_key: String,
@@ -44,14 +50,10 @@ impl Database {
             Some(x) => x,
             _ => env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
         };
-        let manager: Box<dyn diesel::r2d2::ManageConnection<Connection = dyn SimpleConnection>> =
-            if database_url.starts_with("postgres://") {
-                Box::new(ConnectionManager::<PgConnection>::new(database_url.clone()))
-            } else if database_url.starts_with("sqlite://") {
-                Box::new(ConnectionManager::<SqliteConnection>::new(database_url.clone()))
-            } else {
-                panic!("Unsupported database URL")
-            };
+        #[cfg(not(feature = "sqlite"))]
+        let manager = ConnectionManager::<PgConnection>::new(database_url.clone());
+        #[cfg(feature = "sqlite")]
+        let manager = ConnectionManager::<SqliteConnection>::new(database_url.clone());
         Database {
             pool: Pool::builder()
                 .test_on_check_out(true)
