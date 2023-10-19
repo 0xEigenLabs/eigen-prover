@@ -5,6 +5,7 @@ use num_traits::ToPrimitive;
 use plonky::field_gl::Fr;
 use plonky::Field;
 use starky::linearhash::LinearHash;
+use starky::traits::MTNodeType;
 use std::collections::HashMap;
 use utils::errors::Result;
 use utils::{fea2scalar, h4_to_scalar, h4_to_string, scalar2fe, scalar2fea};
