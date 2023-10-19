@@ -1,13 +1,7 @@
 use crate::models::{Nodes, Program};
 use crate::schema::state::nodes::dsl::nodes;
 use crate::schema::state::program::dsl::program;
-
-#[cfg(not(feature = "sqlite"))]
 use diesel::pg::PgConnection;
-
-#[cfg(feature = "sqlite")]
-use diesel::sqlite::SqliteConnection;
-
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use plonky::field_gl::Fr;
@@ -19,10 +13,7 @@ use utils::{
 };
 
 pub struct Database {
-    #[cfg(not(feature = "sqlite"))]
     pool: Pool<ConnectionManager<PgConnection>>,
-    #[cfg(feature = "sqlite")]
-    pool: Pool<ConnectionManager<SqliteConnection>>,
     database_url: String,
     _in_use: bool,
     pub db_state_root_key: String,
@@ -50,10 +41,7 @@ impl Database {
             Some(x) => x,
             _ => env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
         };
-        #[cfg(not(feature = "sqlite"))]
         let manager = ConnectionManager::<PgConnection>::new(database_url.clone());
-        #[cfg(feature = "sqlite")]
-        let manager = ConnectionManager::<SqliteConnection>::new(database_url.clone());
         Database {
             pool: Pool::builder()
                 .test_on_check_out(true)

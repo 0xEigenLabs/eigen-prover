@@ -2,6 +2,7 @@ use crate::database::Database;
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 use num_traits::ToPrimitive;
+use starky::traits::MTNodeType;
 use plonky::field_gl::Fr;
 use plonky::Field;
 use starky::linearhash::LinearHash;
