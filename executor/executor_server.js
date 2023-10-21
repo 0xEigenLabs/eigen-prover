@@ -8,6 +8,7 @@ let PROTO_PATH =
 let grpc = require("@grpc/grpc-js");
 const { log } = require("@grpc/grpc-js/build/src/logging");
 let protoLoader = require("@grpc/proto-loader");
+const FibonacciJS = require('./fibonacci/fibonacci.js');
 
 const dotenv = require('dotenv');
 const env = dotenv.config({
@@ -24,33 +25,6 @@ let packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   oneofs: true,
 });
 let executor_proto = grpc.loadPackageDefinition(packageDefinition).executor.v1;
-
-class FibonacciJS {
-  async buildConstants(pols_) {
-    const pols = pols_.Fibonacci;
-    const N = pols.L1.length;
-    for (let i = 0; i < N; i++) {
-      pols.L1[i] = i == 0 ? 1n : 0n;
-      pols.LLAST[i] = i == N - 1 ? 1n : 0n;
-    }
-  }
-
-  async execute(pols_, input) {
-    const pols = pols_.Fibonacci;
-    const N = pols.l1.length;
-    pols.l2[0] = BigInt(input[0]);
-    pols.l1[0] = BigInt(input[1]);
-
-    for (let i = 1; i < N; i++) {
-      pols.l2[i] = pols.l1[i - 1];
-      pols.l1[i] = FGL.add(
-        FGL.square(pols.l2[i - 1]),
-        FGL.square(pols.l1[i - 1])
-      );
-    }
-    return pols.l1[N - 1];
-  }
-}
 
 /**
  * Implements the ProcessBatch RPC method.
@@ -171,12 +145,13 @@ function ProcessBatch(call, callback) {
     read_write_addresses: read_write_addresses,
   };
 
-  generateOutputFile()
+  let testName = call.request.batch_l2_data.toString();
+  generateOutputFile(testName)
   callback(null, processBatchResponse);
 }
 
-function generateOutputFile() {
-  const outputFilePath = process.env.outputFilePath + `/task_id_${taskIdCounter}/execute`;
+function generateOutputFile(testName) {
+  const outputFilePath = process.env.outputPath + `/${testName}/task_id_${taskIdCounter}/execute`;
   if (!fs.existsSync(outputFilePath)) {
     fs.mkdirSync(outputFilePath, { recursive: true });
   }
@@ -191,12 +166,16 @@ function generateOutputFile() {
   };
   console.log("security level(bits)", utils.security_test(starkStruct, 1024));
 
-  const pilFile = path.join(__dirname, process.env.pilFile);
+  const pilFile = __dirname + `/${testName}/${testName}.pil`
   let start = new Date().getTime();
   const pilConfig = {};
-  const pilCache = outputFilePath + process.env.pilCache
+  const pilCache = outputFilePath + `/${testName}`
+  const input = JSON.parse(process.env.input)
+  let builder
+  if (testName == "fibonacci") {
+    builder = new FibonacciJS()
+  }
 
-  // TODO: instantiate builder
   pil_verifier
     .generate(
       process.env.workspace,
@@ -206,7 +185,7 @@ function generateOutputFile() {
       builder,
       starkStruct,
       proverAddr,
-      JSON.parse(process.env.input)
+      input
     )
     .then(() => {
       let end = new Date().getTime();
