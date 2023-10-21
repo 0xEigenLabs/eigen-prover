@@ -145,12 +145,13 @@ function ProcessBatch(call, callback) {
     read_write_addresses: read_write_addresses,
   };
 
-  let testName = call.request.batch_l2_data.toString();
-  generateOutputFile(testName)
+  let inputStr = call.request.batch_l2_data.toString();
+  generateOutputFile(JSON.parse(inputStr))
   callback(null, processBatchResponse);
 }
 
-function generateOutputFile(testName) {
+function generateOutputFile(input) {
+  let testName = process.env.testName
   const outputFilePath = process.env.outputPath + `/${testName}/task_id_${taskIdCounter}/execute`;
   if (!fs.existsSync(outputFilePath)) {
     fs.mkdirSync(outputFilePath, { recursive: true });
@@ -170,7 +171,6 @@ function generateOutputFile(testName) {
   let start = new Date().getTime();
   const pilConfig = {};
   const pilCache = outputFilePath + `/${testName}`
-  const input = JSON.parse(process.env.input)
   let builder
   if (testName == "fibonacci") {
     builder = new FibonacciJS()
@@ -201,6 +201,7 @@ function main() {
   server.addService(executor_proto.ExecutorService.service, {
     ProcessBatch: ProcessBatch,
   });
+
   console.log("executor service is running");
   server.bindAsync(
     "0.0.0.0:50051",

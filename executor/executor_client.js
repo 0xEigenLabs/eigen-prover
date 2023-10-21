@@ -61,7 +61,7 @@ function main() {
     old_batch_num: 0,
     chain_id: 0,
     fork_id: 0,
-    batch_l2_data: Buffer.from("fibonacci"),
+    batch_l2_data: Buffer.from("[1, 2]"),
     global_exit_root: Buffer.from("global_exit_root"),
     eth_timestamp: 0,
     coinbase: "coinbase",
