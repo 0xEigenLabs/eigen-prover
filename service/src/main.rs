@@ -1,3 +1,6 @@
+#![allow(clippy::large_enum_variant)]
+#![allow(dead_code)]
+
 use tonic::transport::Server;
 mod aggregator;
 mod config;
