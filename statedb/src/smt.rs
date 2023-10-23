@@ -345,8 +345,8 @@ impl SMT {
                         mode = "deleteFound".to_string();
                         log::debug!("Smt::set(), mode deleteFound");
                         let mut aux_fea = [Fr::ZERO; 4];
-                        for i in 0..4 {
-                            aux_fea[i] = siblings[&level][ukey as usize * 4 + i];
+                        for (i, aux) in aux_fea.iter_mut().enumerate()
+                            *aux = siblings[&level][ukey as usize * 4 + i];
                         }
                         let db_value = self.db.read(&aux_fea)?;
                         siblings.insert(level + 1, db_value);
@@ -359,18 +359,14 @@ impl SMT {
                             let db_value = self.db.read(&val_h)?;
 
                             let mut val_a = [Fr::ZERO; 8];
-                            for i in 0..8 {
-                                val_a[i] = db_value[i];
-                            }
+                            val_a[..8].copy_from_slice(&db_value[..8]);
 
                             let val = fea2scalar(&val_a);
 
                             proof_hash_counter += 2;
 
                             let mut rkey = [Fr::ZERO; 4];
-                            for i in 0..4 {
-                                rkey[i] = siblings[&(level + 1)][i];
-                            }
+                            rkey[..4].copy_from_slice(&siblings[&(level + 1)][..4]);
 
                             // Calculate the insKey
                             let mut aux_bits = acc_key.clone();
