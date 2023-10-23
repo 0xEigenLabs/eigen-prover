@@ -148,7 +148,7 @@ impl SMT {
                     let mut c = [Fr::ZERO; 4];
                     let new_val_h = self.hash_save(&v, &c)?;
                     // Second, we create the db entry for the new leaf node = RKEY + HASH, and store the calculated hash in new_leaf_hash
-                    v[..4].copy_from_slice(&found_key[..4])
+                    v[..4].copy_from_slice(&found_key[..4]);
                     v[4..(4 + 4)].copy_from_slice(&new_val_h[..4]);
 
                     // Prepare the capacity = 1, 0, 0, 0
