@@ -92,9 +92,7 @@ impl SMT {
                 found_old_val_h.copy_from_slice(&db_value[4..8]);
                 let db_value = self.db.read(&found_old_val_h)?;
                 let mut value_fea = [Fr::ZERO; 8];
-                for i in 0..8 {
-                    value_fea[i] = db_value[i];
-                }
+                value_fea[..8].copy_from_slice(&db_value[..8]);
                 found_value = fea2scalar(&value_fea);
                 found_rkey.copy_from_slice(&siblings[&level][0..4]);
                 self.join_key(&acc_key, &found_rkey, &mut found_key);
@@ -150,12 +148,9 @@ impl SMT {
                     let mut c = [Fr::ZERO; 4];
                     let new_val_h = self.hash_save(&v, &c)?;
                     // Second, we create the db entry for the new leaf node = RKEY + HASH, and store the calculated hash in new_leaf_hash
-                    for i in 0..4 {
-                        v[i] = found_key[i];
-                    }
-                    for i in 0..4 {
-                        v[4 + i] = new_val_h[i];
-                    }
+                    v[..4].copy_from_slice(&found_key[..4])
+                    v[4..(4 + 4)].copy_from_slice(&new_val_h[..4]);
+
                     // Prepare the capacity = 1, 0, 0, 0
                     c[0] = Fr::ONE;
 
@@ -359,9 +354,7 @@ impl SMT {
                         if siblings[&(level + 1)].len() > 8 && siblings[&(level + 1)][8] == Fr::ONE
                         {
                             let mut val_h = [Fr::ZERO; 4];
-                            for i in 0..4 {
-                                val_h[i] = siblings[&(level + 1)][4 + i];
-                            }
+                            val_h[..4].copy_from_slice(&siblings[&(level + 1)][4..(4 + 4)]);
 
                             let db_value = self.db.read(&val_h)?;
 

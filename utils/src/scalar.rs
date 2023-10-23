@@ -159,7 +159,7 @@ mod test {
     #[test]
     fn test_prepend_zeros() {
         assert_eq!(
-            prepend_zeros(&"abc".to_string(), 10),
+            prepend_zeros("abc", 10),
             "0000000abc".to_string()
         );
     }
