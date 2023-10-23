@@ -2,7 +2,6 @@ use log::error;
 use serde_derive::Deserialize;
 use std::fs;
 use std::path::Path;
-use toml;
 
 #[derive(Debug, Deserialize)]
 pub struct RuntimeConfig {

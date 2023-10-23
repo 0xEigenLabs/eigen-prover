@@ -2,10 +2,15 @@ name: Cargo Build & Test
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
+  DATABASE_URL: postgresql://root:password@localhost:5432/state
 
 jobs:
   build_and_test:
@@ -17,12 +22,37 @@ jobs:
           - stable
           - beta
           - nightly
+
+    services:
+      postgres:
+        image: postgres
+
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: root
+          POSTGRES_DB: state
+
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - uses: actions/checkout@v2
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo build --verbose --release
-      - run: 
-      - run: cargo test --release --verbose
+      - name: Install Dependencies
+        run: sudo apt install protobuf-compiler
+      - name: Install diesel
+        run: cargo install diesel_cli
+      - name: DB Migration
+        run: cd statedb && diesel migration run && cd ..
+      - name: Cargo build
+        run: cargo build --verbose --release
+      - name: Cargo test
+        run: cargo test --release --verbose
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
@@ -38,3 +68,16 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup component add clippy
+      - run: cargo clippy --all-targets -- -D warnings
