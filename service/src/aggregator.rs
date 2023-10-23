@@ -1,3 +1,5 @@
+#![allow(clippy::all)]
+#![allow(unknown_lints)]
 use std::pin::Pin;
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};

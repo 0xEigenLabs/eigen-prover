@@ -79,5 +79,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - name: Install Dependencies
+        run: sudo apt install protobuf-compiler
       - run: rustup component add clippy
       - run: cargo clippy --all-targets -- -D warnings
