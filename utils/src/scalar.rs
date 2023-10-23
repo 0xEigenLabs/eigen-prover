@@ -9,14 +9,14 @@ pub fn remove_0x(key: &String) -> String {
 }
 
 pub fn prepend_zeros(s: &String, n: usize) -> String {
-    assert_eq!(n <= 64, true);
+    assert!(n <= 64);
     let sz = s.len();
-    assert_eq!(sz <= n && sz <= 64, true);
+    assert!(sz <= n && sz <= 64);
     format!("{:0>n$}", s)
 }
 
 pub fn normalize_to_n_format(s: &String, n: usize) -> String {
-    format!("{}", prepend_zeros(&remove_0x(s), n))
+    prepend_zeros(&remove_0x(s), n).to_string()
 }
 
 pub fn normalize_to_0xn_format(s: &String, n: usize) -> String {
@@ -50,7 +50,7 @@ pub fn h4_to_scalar(fea: &[Fr; 4]) -> BigUint {
     let mut scalar = BigUint::from(0u32);
 
     for (k, shift) in biga.iter().zip(vec![0u32, 64, 128, 192]) {
-        scalar = scalar + (k << shift)
+        scalar += k << shift
     }
     scalar
 }
@@ -81,7 +81,7 @@ pub fn fea2scalar(fea: &[Fr; 8]) -> BigUint {
     let mut scalar = BigUint::from(0u32);
 
     for (k, shift) in biga.iter().zip(vec![0u32, 32, 64, 96, 128, 160, 192, 224]) {
-        scalar = scalar + (k << shift)
+        scalar += k << shift
     }
 
     scalar
@@ -108,9 +108,9 @@ pub fn scalar2fe(scalar: u64) -> Fr {
 /// Byte to/from char conversion
 pub fn char2byte(c: char) -> u8 {
     match c {
-        '0'..='9' => c as u8 - '0' as u8,
-        'A'..='F' => c as u8 - 'A' as u8 + 10,
-        'a'..='f' => c as u8 - 'a' as u8 + 10,
+        '0'..='9' => c as u8 - b'0',
+        'A'..='F' => c as u8 - b'A' + 10,
+        'a'..='f' => c as u8 - b'a' + 10,
         _ => panic!("Invalud conversion, non-hex char: {}", c),
     }
 }

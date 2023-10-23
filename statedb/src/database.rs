@@ -47,7 +47,7 @@ impl Database {
                 .test_on_check_out(true)
                 .build(manager)
                 .expect("Could not build connection pool"),
-            database_url: database_url,
+            database_url,
             _in_use: true,
             db_state_root_key: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 .to_string(),
@@ -159,7 +159,7 @@ impl Database {
         assert_eq!(s_data.len() % 16, 0);
         let mut res = vec![];
         for i in (0..s_data.len()).step_by(16) {
-            let aux = u64::from_str_radix(&s_data[i..(i + 16)].to_string(), 16).unwrap();
+            let aux = u64::from_str_radix(&s_data[i..(i + 16)], 16).unwrap();
             res.push(Fr::from(aux));
         }
 
