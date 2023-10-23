@@ -17,14 +17,15 @@ pub enum ProveStage {
 impl ProveStage {
     fn to_path(&self, task_id: usize) -> String {
         let prefix = "/tmp";
-
-        let stage_name = match self {
-            Self::AggProve => "agg_proof",
-            Self::BatchProve => "batch_proof",
-            Self::C12Prove => "c12_proof",
-            Self::FinalStarkProve => "final_stark_proof",
-            Self::SnarkProve => "snark_proof",
-        };
-        format!("{prefix}/{task_id}/{stage_name}")
+        // let stage_name = match self {
+        //     Self::AggProve => "agg_proof",
+        //     Self::BatchProve => "batch_proof",
+        //     Self::C12Prove => "c12_proof",
+        //     Self::FinalStarkProve => "final_stark_proof",
+        //     Self::SnarkProve => "snark_proof",
+        // };
+        format!("{prefix}/{task_id}")
     }
 }
+
+fn crate_proof() {}
