@@ -345,7 +345,7 @@ impl SMT {
                         mode = "deleteFound".to_string();
                         log::debug!("Smt::set(), mode deleteFound");
                         let mut aux_fea = [Fr::ZERO; 4];
-                        for (i, aux) in aux_fea.iter_mut().enumerate()
+                        for (i, aux) in aux_fea.iter_mut().enumerate() {
                             *aux = siblings[&level][ukey as usize * 4 + i];
                         }
                         let db_value = self.db.read(&aux_fea)?;
