@@ -54,7 +54,7 @@ impl Database {
         }
     }
 
-    pub fn read_program(&mut self, key: &String) -> Result<String> {
+    pub fn read_program(&mut self, key: &str) -> Result<String> {
         let result = program
             .find(key)
             .select(Program::as_select())
@@ -67,7 +67,7 @@ impl Database {
         }
     }
 
-    pub fn read_nodes(&mut self, key: &String) -> Result<String> {
+    pub fn read_nodes(&mut self, key: &str) -> Result<String> {
         let result = nodes
             .find(key)
             .select(Nodes::as_select())
@@ -80,17 +80,17 @@ impl Database {
         }
     }
 
-    pub fn read_remote(&mut self, is_program: bool, key: &String) -> Result<String> {
+    pub fn read_remote(&mut self, is_program: bool, key: &str) -> Result<String> {
         match is_program {
             true => self.read_program(key),
             _ => self.read_nodes(key),
         }
     }
 
-    pub fn write_program(&mut self, key: &String, value: &String, update: bool) -> Result<usize> {
+    pub fn write_program(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
         let new_pro = Program {
-            hash: key.clone(),
-            data: value.clone(),
+            hash: key.to_string(),
+            data: value.to_string(),
         };
         let res = match update {
             true => diesel::insert_into(program)
@@ -107,10 +107,10 @@ impl Database {
         Ok(res)
     }
 
-    pub fn write_nodes(&mut self, key: &String, value: &String, update: bool) -> Result<usize> {
+    pub fn write_nodes(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
         let new_pro = Nodes {
-            hash: key.clone(),
-            data: value.clone(),
+            hash: key.to_string(),
+            data: value.to_string(),
         };
         let res = match update {
             true => diesel::insert_into(nodes)
@@ -130,8 +130,8 @@ impl Database {
     pub fn write_remote(
         &mut self,
         is_program: bool,
-        key: &String,
-        value: &String,
+        key: &str,
+        value: &str,
         update: bool,
     ) -> Result<usize> {
         match is_program {
@@ -140,7 +140,7 @@ impl Database {
         }
     }
 
-    pub fn write(&mut self, key: &String, value: &Vec<Fr>, update: bool) -> Result<usize> {
+    pub fn write(&mut self, key: &str, value: &Vec<Fr>, update: bool) -> Result<usize> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let mut value_str = String::from("");
         for v in value {
@@ -304,7 +304,7 @@ impl Database {
     }
     */
 
-    pub fn set_program(&mut self, key: &String, data: &Vec<u8>, update: bool) -> Result<usize> {
+    pub fn set_program(&mut self, key: &str, data: &Vec<u8>, update: bool) -> Result<usize> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let mut s_data = String::from("");
         for d in data {
@@ -314,14 +314,14 @@ impl Database {
         self.write_remote(true, &key, &s_data, update)
     }
 
-    pub fn get_program(&mut self, key: &String) -> Result<Vec<u8>> {
+    pub fn get_program(&mut self, key: &str) -> Result<Vec<u8>> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let s_data = self.read_remote(true, &key)?;
         Ok(string2ba(&s_data))
     }
 
     /*
-    pub fn read_tree_remote(key: &String, keys: Vec<u64>, level: u64) -> Result<u64> {
+    pub fn read_tree_remote(key: &str, keys: Vec<u64>, level: u64) -> Result<u64> {
         let mut rkey = String::from("");
         for i in (level as usize)..keys.len() {
             let aux = (keys[i] & 0xFF) as u8;

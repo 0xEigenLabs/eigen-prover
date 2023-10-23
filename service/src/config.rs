@@ -3,7 +3,6 @@ use serde_derive::Deserialize;
 use std::fs;
 use std::path::Path;
 
-
 #[derive(Debug, Deserialize)]
 pub struct RuntimeConfig {
     pub addr: String,
