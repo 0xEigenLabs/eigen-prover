@@ -602,10 +602,10 @@ impl SMT {
         // Split the key in bits, taking one bit from a different scalar every time
         let mut result = vec![];
         for _i in 0..64 {
-            for j in 0..4 {
-                let aux = ru[j] & 1;
+            for ruj in &mut ru {
+                let aux = *ruj & 1;
                 result.push(aux);
-                ru[j] >>= 1;
+                *ruj >>= 1;
             }
         }
         result
@@ -620,9 +620,7 @@ impl SMT {
             }
             n[i % 4] += 1;
         }
-        for i in 0..4 {
-            auxk[i] = rkey[i];
-        }
+        auxk[..4].copy_from_slice(&rkey[..4]);
         for i in 0..4 {
             let mut aux = BigUint::from(auxk[i].as_int());
             aux = (aux << n[i]) | BigUint::from(accs[i]);
@@ -648,8 +646,8 @@ impl SMT {
 
     fn save_state_root(&mut self, state_root: &[Fr; 4]) -> Result<usize> {
         let mut db_value: Vec<Fr> = Vec::new();
-        for i in 0..4 {
-            db_value.push(state_root[i]);
+        for sr in state_root.iter().take(4) {
+            db_value.push(*sr);
         }
         db_value.append(&mut [Fr::ZERO; 8].to_vec());
         self.db
