@@ -1,3 +1,5 @@
+#![allow(clippy::all)]
+#![allow(unknown_lints)]
 use log::{debug, error};
 use plonky::field_gl::Fr;
 use statedb::{
