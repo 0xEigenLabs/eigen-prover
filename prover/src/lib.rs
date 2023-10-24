@@ -1,8 +1,9 @@
-mod aggregate_prove;
-mod batch_prove;
-mod c12_prove;
-mod final_stark_prove;
-mod snark;
+#![allow(dead_code)]
+// mod aggregate_prove;
+// mod batch_prove;
+// mod c12_prove;
+// mod final_stark_prove;
+// mod snark;
 
 #[derive(Clone, Debug)]
 pub enum ProveStage {
@@ -13,7 +14,6 @@ pub enum ProveStage {
     SnarkProve,
 }
 
-// impl
 impl ProveStage {
     fn to_path(&self, task_id: usize) -> String {
         let prefix = "/tmp";
@@ -28,4 +28,3 @@ impl ProveStage {
     }
 }
 
-fn crate_proof() {}
