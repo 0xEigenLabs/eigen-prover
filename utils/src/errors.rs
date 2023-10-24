@@ -31,7 +31,7 @@ pub enum EigenError {
     InvalidOperator(String),
 
     #[error("verify FRI proof failed")]
-    FRIVerifierFailed,
+    FriVerifierFailed,
 
     #[error("database failure")]
     DatabaseError(#[from] diesel::result::Error),

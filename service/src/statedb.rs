@@ -1,8 +1,10 @@
-use log::{debug, error, info, warn};
+#![allow(clippy::all)]
+#![allow(unknown_lints)]
+use log::{debug, error};
 use plonky::field_gl::Fr;
 use statedb::{
     database::Database,
-    smt::{SmtGetResult, SmtSetResult, SMT},
+    smt::{SmtGetResult, SMT},
 };
 use statedb_service::state_db_service_server::StateDbService;
 use statedb_service::{
