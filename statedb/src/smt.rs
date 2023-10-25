@@ -49,6 +49,9 @@ impl SMT {
     pub fn new(db: Database) -> Self {
         SMT { db }
     }
+    pub fn db_mut(&mut self) -> &mut Database {
+        &mut self.db
+    }
     pub fn set(
         &mut self,
         old_root: &[Fr; 4],

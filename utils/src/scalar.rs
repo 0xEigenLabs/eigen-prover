@@ -8,6 +8,10 @@ pub fn remove_0x(key: &str) -> String {
     key.trim_start_matches("0x").to_string()
 }
 
+pub fn str_to_biguint(val: &str) -> BigUint {
+    BigUint::from_str_radix(&remove_0x(val), 16).unwrap()
+}
+
 pub fn prepend_zeros(s: &str, n: usize) -> String {
     assert!(n <= 64);
     let sz = s.len();

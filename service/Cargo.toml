@@ -14,8 +14,9 @@ tokio-stream = { version = "0.1" }
 # biz
 statedb = { path = "../statedb" }
 prover = { path = "../prover" }
-
-plonky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" , package="plonky"}
+plonky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+utils =  { path = "../utils" }
 
 # config
 serde = "1.0.92"
