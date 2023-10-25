@@ -16,6 +16,5 @@ Cargo.lock
 # IDE
 .idea
 .vscode
-
 executor/node_modules
 executor/package-lock.json
