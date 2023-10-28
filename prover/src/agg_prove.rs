@@ -1,5 +1,5 @@
-use crate::traits::Executor;
-use crate::Context;
+use crate::traits::StageProver;
+use crate::AggContext;
 use algebraic::errors::Result;
 use dsl_compile::circom_compiler;
 use starky::{
@@ -13,13 +13,13 @@ impl AggProver {
     }
 }
 
-impl Executor for AggProver {
-    fn execute(&self, ctx: &Context) -> Result<()> {
+impl StageProver for AggProver {
+    fn agg_prove(&self, ctx: &AggContext) -> Result<()> {
         log::info!("start aggregate prove");
 
         // 1. Compile circom circuit to r1cs, and generate witness
         let sp = &ctx.agg_stark;
-        let sp_next = &ctx.final_stark;
+        let sp_next = &ctx.agg_stark.clone();
         let cc = &ctx.agg_circom;
         circom_compiler(
             cc.circom_file.clone(),
@@ -33,7 +33,7 @@ impl Executor for AggProver {
         .unwrap();
 
         // 2. compress inputs
-        join_zkin(&sp.zkin, &sp.zkin2, &sp_next.zkin).unwrap();
+        join_zkin(&ctx.input, &ctx.input2, &sp_next.zkin).unwrap();
 
         // 3. compress setup
         setup(
@@ -47,7 +47,7 @@ impl Executor for AggProver {
         // 4. compress exec
         exec(
             &sp.zkin,
-            &cc.wasm_file,
+            &format!("{}/{}_js/{}.wasm", cc.output, ctx.task_name, ctx.task_name),
             &sp.pil_file,
             &sp.exec_file,
             &sp.commit_file,
@@ -55,7 +55,7 @@ impl Executor for AggProver {
 
         // 5. stark prove
         stark_prove(
-            &ctx.final_stark_struct,
+            &ctx.agg_struct,
             &sp.piljson,
             true,
             false,
@@ -67,6 +67,7 @@ impl Executor for AggProver {
         )?;
 
         log::info!("end aggregate prove");
+
         Ok(())
     }
 }
