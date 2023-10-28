@@ -1,3 +1,6 @@
+use crate::Context;
+use algebraic::errors::Result;
+
 pub trait Executor {
-    fn execute(&self, basedir: &str, task_id: &str) -> algebraic::errors::Result<()>;
+    fn execute(&self, ctx: &Context) -> Result<()>;
 }
