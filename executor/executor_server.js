@@ -1,4 +1,4 @@
-const { pil_verifier, utils } = require("../../eigen-zkvm/starkjs/index.js");
+const { pil_verifier, utils } = require("starkjs/index.js");
 const { FGL } = require("pil-stark");
 const fs = require("fs");
 const path = require("path");
@@ -9,6 +9,7 @@ let grpc = require("@grpc/grpc-js");
 const { log } = require("@grpc/grpc-js/build/src/logging");
 let protoLoader = require("@grpc/proto-loader");
 const FibonacciJS = require('./fibonacci/fibonacci.js');
+const VM = require("sm/src/vm.js")
 
 const dotenv = require('dotenv');
 const env = dotenv.config({
@@ -167,13 +168,17 @@ function generateOutputFile(input) {
   };
   console.log("security level(bits)", utils.security_test(starkStruct, 1024));
 
-  const pilFile = __dirname + `/${testName}/${testName}.pil`
+  let pilFile
   let start = new Date().getTime();
   const pilConfig = {};
   const pilCache = outputFilePath + `/${testName}`
   let builder
   if (testName == "fibonacci") {
     builder = new FibonacciJS()
+    pilFile = __dirname + `/${testName}/${testName}.pil`
+  } else if (testName == "vm") {
+    builder = new VM()
+    pilFile = __dirname + `/../../eigen-zkvm/SM/pil/main.pil`
   }
 
   pil_verifier
