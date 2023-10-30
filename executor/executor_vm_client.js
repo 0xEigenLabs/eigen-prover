@@ -56,7 +56,7 @@ function main() {
     old_batch_num: executorInput.oldNumBatch,
     chain_id: executorInput.chainID,
     fork_id: 0,
-    batch_l2_data: Buffer.from("[1, 2]"),
+    batch_l2_data: Buffer.from(executorInput.batchL2Data),
     global_exit_root: Buffer.from("global_exit_root"),
     eth_timestamp: executorInput.timestamp,
     coinbase: "coinbase",
@@ -67,8 +67,7 @@ function main() {
     contracts_bytecode: executorInput.contractsBytecode,
     trace_config: trace_config,
   };
-
-
+  
   // console.log("processBatchRequest:", processBatchRequest)
   client.ProcessBatch(processBatchRequest, function (err, response) {
     console.log("res:", response);

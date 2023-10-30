@@ -147,11 +147,11 @@ function ProcessBatch(call, callback) {
   };
 
   let inputStr = call.request.batch_l2_data.toString();
-  generateOutputFile(JSON.parse(inputStr))
+  generateOutputFile(inputStr)
   callback(null, processBatchResponse);
 }
 
-function generateOutputFile(input) {
+function generateOutputFile(inputStr) {
   let testName = process.env.testName
   const outputFilePath = process.env.outputPath + `/${testName}/task_id_${taskIdCounter}/execute`;
   if (!fs.existsSync(outputFilePath)) {
@@ -173,12 +173,15 @@ function generateOutputFile(input) {
   const pilConfig = {};
   const pilCache = outputFilePath + `/${testName}`
   let builder
+  let input
   if (testName == "fibonacci") {
     builder = new FibonacciJS()
     pilFile = __dirname + `/${testName}/${testName}.pil`
+    input = JSON.parse(inputStr)
   } else if (testName == "vm") {
     builder = new VM()
     pilFile = __dirname + `/../../eigen-zkvm/SM/pil/main.pil`
+    input = inputStr
   }
 
   pil_verifier
