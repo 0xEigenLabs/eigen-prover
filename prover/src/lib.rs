@@ -5,16 +5,18 @@ mod traits;
 
 //use async_channel::{bounded, Receiver, Sender};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::collections::VecDeque;
 //use std::fs::File;
 //use std::io::Write;
-use std::sync::Mutex;
-//use std::thread;
 use crate::agg_prove::AggProver;
 use crate::batch_prove::BatchProver;
 use crate::final_prove::FinalProver;
 use crate::traits::StageProver;
 use algebraic::errors::{EigenError, Result};
+use std::path::Path;
+use std::sync::Mutex;
+use std::thread;
 
 fn load_link(curve_type: &str) -> Vec<String> {
     let mut links: Vec<String> = vec![];
@@ -46,7 +48,7 @@ fn load_link(curve_type: &str) -> Vec<String> {
 #[serde(untagged)]
 pub enum ProveStage {
     BatchProve(String),
-    AggProve(String, String, String, String),
+    AggProve(String, String, String),
     FinalProve(String, String, String),
 }
 
@@ -217,17 +219,10 @@ impl AggContext {
         basedir: String,
         task_id: String,
         task_name: String,
-        curve: String,
         input: String,
         input2: String,
     ) -> Self {
-        let task_path = ProveStage::AggProve(
-            task_id.clone(),
-            curve.clone(),
-            input.clone(),
-            input2.clone(),
-        )
-        .path();
+        let task_path = ProveStage::AggProve(task_id.clone(), input.clone(), input2.clone()).path();
         AggContext {
             basedir: basedir.clone(),
             task_name: task_name.clone(),
@@ -244,14 +239,14 @@ impl ProveStage {
     fn path(&self) -> String {
         let stage = match self {
             Self::BatchProve(task_id) => format!("proof/{task_id}/agg_proof"),
-            Self::AggProve(task_id, _, _, _) => format!("proof/{task_id}/batch_proof"),
+            Self::AggProve(task_id, _, _) => format!("proof/{task_id}/batch_proof"),
             Self::FinalProve(task_id, _, _) => format!("proof/{task_id}/snark_proof"),
         };
         stage.to_string()
     }
 
     /// keep track of task status
-    pub fn checkpoint(&self) -> Result<String> {
+    pub fn to_string(&self) -> Result<String> {
         Ok(serde_json::to_string(self)?)
     }
 }
@@ -259,10 +254,9 @@ impl ProveStage {
 pub struct Pipeline {
     basedir: String,
     task_name: String,
-    queue: Mutex<VecDeque<ProveStage>>,
+    queue: VecDeque<String>,
+    task_map: Mutex<HashMap<String, ProveStage>>,
 }
-
-const INIT_QUEUE_SIZE: usize = 32;
 
 impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
@@ -270,16 +264,30 @@ impl Pipeline {
         Pipeline {
             basedir,
             task_name,
-            queue: Mutex::new(VecDeque::with_capacity(INIT_QUEUE_SIZE)),
+            queue: VecDeque::new(),
+            task_map: Mutex::new(HashMap::new()),
         }
+    }
+
+    fn save_checkpoint(&self, task_id: &str) -> Result<()> {
+        let binding = self.task_map.lock().unwrap();
+        let task = binding.get(task_id);
+
+        if task.is_some() {
+            let status = task.unwrap();
+            let p = Path::new(&self.basedir).join(status.path());
+            std::fs::write(p, status.to_string().unwrap()).unwrap();
+        }
+        Ok(())
     }
 
     /// Add a new task into task queue
     pub fn batch_prove(&mut self, task_id: String) -> Result<()> {
-        match self.queue.get_mut() {
+        match self.task_map.get_mut() {
             Ok(w) => {
-                w.push_back(ProveStage::BatchProve(task_id));
-                Ok(())
+                self.queue.push_back(task_id.clone());
+                w.insert(task_id.clone(), ProveStage::BatchProve(task_id.clone()));
+                self.save_checkpoint(&task_id)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
@@ -289,14 +297,17 @@ impl Pipeline {
     pub fn aggregate_prove(
         &mut self,
         task_id: String,
-        curve_name: String,
         input: String,
         input2: String,
     ) -> Result<()> {
-        match self.queue.get_mut() {
+        match self.task_map.get_mut() {
             Ok(w) => {
-                w.push_back(ProveStage::AggProve(task_id, curve_name, input, input2));
-                Ok(())
+                self.queue.push_back(task_id.clone());
+                w.insert(
+                    task_id.clone(),
+                    ProveStage::AggProve(task_id.clone(), input, input2),
+                );
+                self.save_checkpoint(&task_id)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
@@ -309,52 +320,73 @@ impl Pipeline {
         curve_name: String,
         prover_addr: String,
     ) -> Result<()> {
-        match self.queue.get_mut() {
+        match self.task_map.get_mut() {
             Ok(w) => {
-                w.push_back(ProveStage::FinalProve(task_id, curve_name, prover_addr));
-                Ok(())
+                self.queue.push_back(task_id.clone());
+                w.insert(
+                    task_id.clone(),
+                    ProveStage::FinalProve(task_id.clone(), curve_name, prover_addr),
+                );
+                self.save_checkpoint(&task_id)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
     }
 
-    pub fn prove(&self) -> Result<()> {
-        let mut inner = self.queue.lock().unwrap();
+    pub fn cancel(&mut self, task_id: String) -> Result<()> {
+        if let Ok(w) = self.task_map.get_mut() {
+            w.remove(&task_id).unwrap(); //(Err(EigenError::InvalidValue("Remove task id from HashMap failed".to_string())))?;
+        }
+        Ok(())
+    }
+
+    pub fn get_status(&mut self, task_id: String) -> Result<String> {
+        match self.task_map.lock() {
+            Ok(w) => match w.get(&task_id) {
+                Some(y) => y.to_string(),
+                _ => Err(EigenError::InvalidValue("Invalid task id".to_string())),
+            },
+            _ => Err(EigenError::InvalidValue("Invalud task id".to_string())), // TODO: recover task from file
+        }
+    }
+
+    pub fn prove(&mut self) -> Result<()> {
         loop {
-            match inner.pop_front() {
-                Some(v) => match v {
-                    ProveStage::BatchProve(task_id) => {
-                        let ctx = BatchContext::new(
-                            self.basedir.clone(),
-                            task_id.clone(),
-                            self.task_name.clone(),
-                        );
-                        BatchProver::new().batch_prove(&ctx)?;
+            if let Some(task_id) = self.queue.pop_front() {
+                match self.task_map.get_mut().unwrap().get(&task_id) {
+                    Some(v) => match v {
+                        ProveStage::BatchProve(task_id) => {
+                            let ctx = BatchContext::new(
+                                self.basedir.clone(),
+                                task_id.clone(),
+                                self.task_name.clone(),
+                            );
+                            BatchProver::new().batch_prove(&ctx)?;
+                        }
+                        ProveStage::AggProve(task_id, input, input2) => {
+                            let ctx = AggContext::new(
+                                self.basedir.clone(),
+                                task_id.clone(),
+                                self.task_name.clone(),
+                                input.clone(),
+                                input2.clone(),
+                            );
+                            AggProver::new().agg_prove(&ctx)?;
+                        }
+                        ProveStage::FinalProve(task_id, curve_name, prover_addr) => {
+                            let ctx = FinalContext::new(
+                                self.basedir.clone(),
+                                task_id.clone(),
+                                self.task_name.clone(),
+                                curve_name.clone(),
+                                prover_addr.clone(),
+                            );
+                            FinalProver::new().final_prove(&ctx)?;
+                        }
+                    },
+                    _ => {
+                        thread::sleep(std::time::Duration::from_millis(1000));
                     }
-                    ProveStage::AggProve(task_id, curve, input, input2) => {
-                        let ctx = AggContext::new(
-                            self.basedir.clone(),
-                            task_id.clone(),
-                            self.task_name.clone(),
-                            curve,
-                            input,
-                            input2,
-                        );
-                        AggProver::new().agg_prove(&ctx)?;
-                    }
-                    ProveStage::FinalProve(task_id, curve_name, prover_addr) => {
-                        let ctx = FinalContext::new(
-                            self.basedir.clone(),
-                            task_id.clone(),
-                            self.task_name.clone(),
-                            curve_name,
-                            prover_addr,
-                        );
-                        FinalProver::new().final_prove(&ctx)?;
-                    }
-                },
-                _ => {
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
                 }
             }
         }

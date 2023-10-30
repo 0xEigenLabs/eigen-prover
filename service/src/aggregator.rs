@@ -6,7 +6,11 @@ use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{self, Request, Response, Status};
 
 use aggregator_service::aggregator_service_server::AggregatorService;
-use aggregator_service::{AggregatorMessage, ProverMessage, aggregator_message, prover_message, GetStatusRequest};
+use aggregator_service::{
+    aggregator_message, prover_message, AggregatorMessage, CancelRequest,
+    GenAggregatedProofRequest, GenBatchProofRequest, GenFinalProofRequest, GetProofRequest,
+    GetStatusRequest, ProverMessage,
+};
 use prover::Pipeline;
 
 pub mod aggregator_service {
@@ -61,29 +65,54 @@ impl AggregatorService for AggregatorServiceSVC {
                 match item {
                     Ok(v) => {
                         let resp = match v.response {
-                            Some(resp) => {
-                                match resp {
-                                    prover_message::Response::GetStatusResponse(resp) => {
-                                        Some(aggregator_message::Request::GetStatusRequest(GetStatusRequest::default()))
-                                    },
-                                    prover_message::Response::GenBatchProofResponse(resp) => {},
-                                    prover_message::Response::GenAggregatedProofResponse(resp) => {},
-                                    prover_message::Response::GenFinalProofResponse(resp) => {},
-                                    prover_message::Response::CancelResponse(resp) => {},
-                                    prover_message::Response::GetProofResponse(resp) => {},
+                            Some(resp) => match resp {
+                                prover_message::Response::GetStatusResponse(resp) => {
+                                    //let id = resp.current_computing_request_id;
+                                    Some(aggregator_message::Request::GetStatusRequest(
+                                        GetStatusRequest::default(),
+                                    ))
+                                }
+                                prover_message::Response::GenBatchProofResponse(resp) => {
+                                    //let id = resp.current_computing_request_id;
+                                    Some(aggregator_message::Request::GenBatchProofRequest(
+                                        GenBatchProofRequest::default(),
+                                    ))
+                                }
+                                prover_message::Response::GenAggregatedProofResponse(resp) => {
+                                    //let id = resp.current_computing_request_id;
+                                    Some(aggregator_message::Request::GenAggregatedProofRequest(
+                                        GenAggregatedProofRequest::default(),
+                                    ))
+                                }
+                                prover_message::Response::GenFinalProofResponse(resp) => {
+                                    //let id = resp.current_computing_request_id;
+                                    Some(aggregator_message::Request::GenFinalProofRequest(
+                                        GenFinalProofRequest::default(),
+                                    ))
+                                }
+                                prover_message::Response::CancelResponse(resp) => {
+                                    //let id = resp.current_computing_request_id;
+                                    Some(aggregator_message::Request::CancelRequest(
+                                        CancelRequest::default(),
+                                    ))
+                                }
+                                prover_message::Response::GetProofResponse(resp) => {
+                                    //let id = resp.current_computing_request_id;
+                                    Some(aggregator_message::Request::GetProofRequest(
+                                        GetProofRequest::default(),
+                                    ))
                                 }
                             },
                             None => None,
                         };
 
-                        tx
-                            .send(Ok(AggregatorMessage {
-                                id: v.id,
-                                request: None,
-                            }))
+                        tx.send(Ok(AggregatorMessage {
+                            id: v.id,
+                            request: None,
+                        }))
                         .await
-                            .expect("working rx")
-                    },
+                        .expect("working rx")
+                    }
                     Err(err) => {
                         if let Some(io_err) = match_for_io_error(&err) {
                             if io_err.kind() == std::io::ErrorKind::BrokenPipe {
