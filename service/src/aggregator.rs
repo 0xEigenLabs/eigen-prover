@@ -6,7 +6,8 @@ use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{self, Request, Response, Status};
 
 use aggregator_service::aggregator_service_server::AggregatorService;
-use aggregator_service::{AggregatorMessage, ProverMessage};
+use aggregator_service::{AggregatorMessage, ProverMessage, aggregator_message, prover_message, GetStatusRequest};
+use prover::Pipeline;
 
 pub mod aggregator_service {
     tonic::include_proto!("aggregator.v1"); // The string specified here must match the proto package name
@@ -58,13 +59,31 @@ impl AggregatorService for AggregatorServiceSVC {
         tokio::spawn(async move {
             while let Some(item) = in_stream.next().await {
                 match item {
-                    Ok(v) => tx
-                        .send(Ok(AggregatorMessage {
-                            id: v.id,
-                            request: None,
-                        }))
+                    Ok(v) => {
+                        let resp = match v.response {
+                            Some(resp) => {
+                                match resp {
+                                    prover_message::Response::GetStatusResponse(resp) => {
+                                        Some(aggregator_message::Request::GetStatusRequest(GetStatusRequest::default()))
+                                    },
+                                    prover_message::Response::GenBatchProofResponse(resp) => {},
+                                    prover_message::Response::GenAggregatedProofResponse(resp) => {},
+                                    prover_message::Response::GenFinalProofResponse(resp) => {},
+                                    prover_message::Response::CancelResponse(resp) => {},
+                                    prover_message::Response::GetProofResponse(resp) => {},
+                                }
+                            },
+                            None => None,
+                        };
+
+                        tx
+                            .send(Ok(AggregatorMessage {
+                                id: v.id,
+                                request: None,
+                            }))
                         .await
-                        .expect("working rx"),
+                            .expect("working rx")
+                    },
                     Err(err) => {
                         if let Some(io_err) = match_for_io_error(&err) {
                             if io_err.kind() == std::io::ErrorKind::BrokenPipe {
