@@ -5,12 +5,11 @@ use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{self, Request, Response, Status};
 
-use crate::aggregator::aggregator_service::GetStatusResponse;
 use aggregator_service::aggregator_service_server::AggregatorService;
 use aggregator_service::{
-    aggregator_message, prover_message, AggregatorMessage, CancelRequest,
-    GenAggregatedProofRequest, GenBatchProofRequest, GenFinalProofRequest, GetProofRequest,
-    GetStatusRequest, ProverMessage,
+    aggregator_message, prover_message, AggregatorMessage, CancelResponse,
+    GenAggregatedProofResponse, GenBatchProofResponse, GenFinalProofResponse, GetProofResponse,
+    GetStatusResponse, ProverMessage,
 };
 use prover::Pipeline;
 
@@ -71,42 +70,42 @@ impl AggregatorService for AggregatorServiceSVC {
                                 aggregator_message::Request::GetStatusRequest(req) => {
                                     let result = pipeline.get_status(v.id.clone());
                                     Some(prover_message::Response::GetStatusResponse(
-                                        GetStatusResponse::default(),
+                                        GetStatusResponse {
+                                            status: 1,
+                                            ..Default::default()
+                                        },
                                     ))
                                 }
-                                /*
-                                prover_message::Response::GenBatchProofResponse(resp) => {
+                                aggregator_message::Request::GenBatchProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    Some(aggregator_message::Request::GenBatchProofRequest(
-                                        GenBatchProofRequest::default(),
+                                    Some(prover_message::Response::GenBatchProofResponse(
+                                        GenBatchProofResponse::default(),
                                     ))
                                 }
-                                prover_message::Response::GenAggregatedProofResponse(resp) => {
+                                aggregator_message::Request::GenAggregatedProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    Some(aggregator_message::Request::GenAggregatedProofRequest(
-                                        GenAggregatedProofRequest::default(),
+                                    Some(prover_message::Response::GenAggregatedProofResponse(
+                                        GenAggregatedProofResponse::default(),
                                     ))
                                 }
-                                prover_message::Response::GenFinalProofResponse(resp) => {
+                                aggregator_message::Request::GenFinalProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    Some(aggregator_message::Request::GenFinalProofRequest(
-                                        GenFinalProofRequest::default(),
+                                    Some(prover_message::Response::GenFinalProofResponse(
+                                        GenFinalProofResponse::default(),
                                     ))
                                 }
-                                prover_message::Response::CancelResponse(resp) => {
+                                aggregator_message::Request::CancelRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    Some(aggregator_message::Request::CancelRequest(
-                                        CancelRequest::default(),
+                                    Some(prover_message::Response::CancelResponse(
+                                        CancelResponse::default(),
                                     ))
                                 }
-                                prover_message::Response::GetProofResponse(resp) => {
+                                aggregator_message::Request::GetProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    Some(aggregator_message::Request::GetProofRequest(
-                                        GetProofRequest::default(),
+                                    Some(prover_message::Response::GetProofResponse(
+                                        GetProofResponse::default(),
                                     ))
                                 }
-                                */
-                                _ => todo!(),
                             },
                             None => None,
                         };
