@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{self, Request, Response, Status};
 
+use crate::aggregator::aggregator_service::GetStatusResponse;
 use aggregator_service::aggregator_service_server::AggregatorService;
 use aggregator_service::{
     aggregator_message, prover_message, AggregatorMessage, CancelRequest,
@@ -47,11 +48,11 @@ fn match_for_io_error(err_status: &Status) -> Option<&std::io::Error> {
 
 #[tonic::async_trait]
 impl AggregatorService for AggregatorServiceSVC {
-    type ChannelStream = Pin<Box<dyn Stream<Item = Result<AggregatorMessage, Status>> + Send>>;
+    type ChannelStream = Pin<Box<dyn Stream<Item = Result<ProverMessage, Status>> + Send>>;
 
     async fn channel(
         &self,
-        request: Request<tonic::Streaming<ProverMessage>>, // Accept request of type HelloRequest
+        request: Request<tonic::Streaming<AggregatorMessage>>, // Accept request of type HelloRequest
     ) -> Result<Response<Self::ChannelStream>, Status> {
         // Return an instance of type HelloReply
         println!("Got a request: {:?}", request);
@@ -60,20 +61,20 @@ impl AggregatorService for AggregatorServiceSVC {
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
         let (tx, rx) = mpsc::channel(128);
-        let pipeline = Pipeline::new("/tmp/prover".to_string(), "fib".to_string());
+        let mut pipeline = Pipeline::new("/tmp/prover".to_string(), "fib".to_string());
         tokio::spawn(async move {
             while let Some(item) = in_stream.next().await {
                 match item {
                     Ok(v) => {
-                        let resp = match v.response {
-                            Some(resp) => match resp {
-                                prover_message::Response::GetStatusResponse(resp) => {
-                                    let id = resp.current_computing_request_id;
-                                    let result = pipeline.get_status(id);
-                                    Some(aggregator_message::Request::GetStatusRequest(
-                                        GetStatusRequest::default(),
+                        let resp = match v.request {
+                            Some(req) => match req {
+                                aggregator_message::Request::GetStatusRequest(req) => {
+                                    let result = pipeline.get_status(v.id.clone());
+                                    Some(prover_message::Response::GetStatusResponse(
+                                        GetStatusResponse::default(),
                                     ))
                                 }
+                                /*
                                 prover_message::Response::GenBatchProofResponse(resp) => {
                                     //let id = resp.current_computing_request_id;
                                     Some(aggregator_message::Request::GenBatchProofRequest(
@@ -104,13 +105,15 @@ impl AggregatorService for AggregatorServiceSVC {
                                         GetProofRequest::default(),
                                     ))
                                 }
+                                */
+                                _ => todo!(),
                             },
                             None => None,
                         };
 
-                        tx.send(Ok(AggregatorMessage {
+                        tx.send(Ok(ProverMessage {
                             id: v.id,
-                            request: None,
+                            response: None,
                         }))
                         .await
                         .expect("working rx")
