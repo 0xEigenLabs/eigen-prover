@@ -274,9 +274,8 @@ impl Pipeline {
         let binding = self.task_map.lock().unwrap();
         let task = binding.get(&task_id);
 
-        if task.is_some() {
+        if let Some(status) = task {
             // mkdir
-            let status = task.unwrap();
             let workdir = Path::new(&self.basedir).join(status.path());
             let _ = std::fs::create_dir_all(workdir);
 
