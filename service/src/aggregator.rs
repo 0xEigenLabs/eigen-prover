@@ -68,7 +68,8 @@ impl AggregatorService for AggregatorServiceSVC {
                         let resp = match v.request {
                             Some(req) => match req {
                                 aggregator_message::Request::GetStatusRequest(req) => {
-                                    let result = pipeline.get_status(v.id.clone());
+                                    // TODO: return prover info
+                                    let _result = pipeline.get_status();
                                     Some(prover_message::Response::GetStatusResponse(
                                         GetStatusResponse {
                                             status: 1,
@@ -77,31 +78,56 @@ impl AggregatorService for AggregatorServiceSVC {
                                     ))
                                 }
                                 aggregator_message::Request::GenBatchProofRequest(req) => {
-                                    //let id = resp.current_computing_request_id;
+                                    let result = pipeline.batch_prove(req.input.unwrap().public_inputs.unwrap().batch_l2_data.clone());
+                                    let (id, res) = match result {
+                                        Ok(i) => (i, 1),
+                                        _ => ("".to_string(), 2),
+                                    };
                                     Some(prover_message::Response::GenBatchProofResponse(
-                                        GenBatchProofResponse::default(),
+                                        GenBatchProofResponse{
+                                            id: id,
+                                            result: res, 
+                                        },
                                     ))
                                 }
                                 aggregator_message::Request::GenAggregatedProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
+                                    let result = pipeline.aggregate_prove(req.recursive_proof_1.clone(), req.recursive_proof_2.clone());
+                                    let (id, res) = match result {
+                                        Ok(i) => (i, 1),
+                                        _ => ("".to_string(), 2),
+                                    };
                                     Some(prover_message::Response::GenAggregatedProofResponse(
-                                        GenAggregatedProofResponse::default(),
+                                        GenAggregatedProofResponse {
+                                            id: id,
+                                            result: res, 
+                                        },
                                     ))
                                 }
                                 aggregator_message::Request::GenFinalProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
+                                    let result = pipeline.final_prove(req.recursive_proof.clone(), req.aggregator_addr.clone());
+                                    let (id, res) = match result {
+                                        Ok(i) => (i, 1),
+                                        _ => ("".to_string(), 2),
+                                    };
                                     Some(prover_message::Response::GenFinalProofResponse(
-                                        GenFinalProofResponse::default(),
+                                        GenFinalProofResponse {
+                                            id: id,
+                                            result: res, 
+                                        },
                                     ))
                                 }
                                 aggregator_message::Request::CancelRequest(req) => {
-                                    //let id = resp.current_computing_request_id;
+                                    let result = pipeline.cancel(req.id.clone());
                                     Some(prover_message::Response::CancelResponse(
-                                        CancelResponse::default(),
+                                        CancelResponse {
+                                            result: 1,
+                                        },
                                     ))
                                 }
                                 aggregator_message::Request::GetProofRequest(req) => {
-                                    //let id = resp.current_computing_request_id;
+                                    let result = pipeline.get_proof(req.id.clone(), req.timeout);
                                     Some(prover_message::Response::GetProofResponse(
                                         GetProofResponse::default(),
                                     ))

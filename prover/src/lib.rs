@@ -17,6 +17,7 @@ use algebraic::errors::{EigenError, Result};
 use std::path::Path;
 use std::sync::Mutex;
 use std::thread;
+use uuid::{uuid, Uuid};
 
 fn load_link(curve_type: &str) -> Vec<String> {
     let mut links: Vec<String> = vec![];
@@ -269,25 +270,26 @@ impl Pipeline {
         }
     }
 
-    fn save_checkpoint(&self, task_id: &str) -> Result<()> {
+    fn save_checkpoint(&self, task_id: String) -> Result<String> {
         let binding = self.task_map.lock().unwrap();
-        let task = binding.get(task_id);
+        let task = binding.get(&task_id);
 
         if task.is_some() {
             let status = task.unwrap();
             let p = Path::new(&self.basedir).join(status.path());
             std::fs::write(p, status.to_string().unwrap()).unwrap();
         }
-        Ok(())
+        Ok(task_id)
     }
 
-    /// Add a new task into task queue
-    pub fn batch_prove(&mut self, task_id: String) -> Result<()> {
+    /// FIXME: receive input data
+    pub fn batch_prove(&mut self, _batch_l2_data: Vec<u8>) -> Result<String> {
+        let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(task_id.clone());
                 w.insert(task_id.clone(), ProveStage::BatchProve(task_id.clone()));
-                self.save_checkpoint(&task_id)
+                self.save_checkpoint(task_id)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
@@ -296,10 +298,10 @@ impl Pipeline {
     /// Add a new task into task queue
     pub fn aggregate_prove(
         &mut self,
-        task_id: String,
         input: String,
         input2: String,
-    ) -> Result<()> {
+    ) -> Result<String> {
+        let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(task_id.clone());
@@ -307,19 +309,19 @@ impl Pipeline {
                     task_id.clone(),
                     ProveStage::AggProve(task_id.clone(), input, input2),
                 );
-                self.save_checkpoint(&task_id)
+                self.save_checkpoint(task_id)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
     }
 
     /// Add a new task into task queue
-    pub fn snark_prove(
+    pub fn final_prove(
         &mut self,
-        task_id: String,
         curve_name: String,
         prover_addr: String,
-    ) -> Result<()> {
+    ) -> Result<String> {
+        let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(task_id.clone());
@@ -327,7 +329,7 @@ impl Pipeline {
                     task_id.clone(),
                     ProveStage::FinalProve(task_id.clone(), curve_name, prover_addr),
                 );
-                self.save_checkpoint(&task_id)
+                self.save_checkpoint(task_id)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
@@ -340,14 +342,14 @@ impl Pipeline {
         Ok(())
     }
 
-    pub fn get_status(&mut self, task_id: String) -> Result<String> {
-        match self.task_map.lock() {
-            Ok(w) => match w.get(&task_id) {
-                Some(y) => y.to_string(),
-                _ => Err(EigenError::InvalidValue("Invalid task id".to_string())),
-            },
-            _ => Err(EigenError::InvalidValue("Invalud task id".to_string())), // TODO: recover task from file
-        }
+    /// Return prover status
+    pub fn get_status(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Return proof 
+    pub fn get_proof(&mut self, task_id: String, timeout: u64) -> Result<()> {
+        Ok(())
     }
 
     pub fn prove(&mut self) -> Result<()> {
