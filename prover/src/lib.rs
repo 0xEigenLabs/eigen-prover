@@ -17,7 +17,7 @@ use algebraic::errors::{EigenError, Result};
 use std::path::Path;
 use std::sync::Mutex;
 use std::thread;
-use uuid::{uuid, Uuid};
+use uuid::Uuid;
 
 fn load_link(curve_type: &str) -> Vec<String> {
     let mut links: Vec<String> = vec![];
@@ -270,16 +270,44 @@ impl Pipeline {
         }
     }
 
-    fn save_checkpoint(&self, task_id: String) -> Result<String> {
+    fn save_checkpoint(&self, task_id: String, finished: bool) -> Result<String> {
         let binding = self.task_map.lock().unwrap();
         let task = binding.get(&task_id);
 
         if task.is_some() {
+            // mkdir
             let status = task.unwrap();
-            let p = Path::new(&self.basedir).join(status.path());
-            std::fs::write(p, status.to_string().unwrap()).unwrap();
+            let workdir = Path::new(&self.basedir).join(status.path());
+            let _ = std::fs::create_dir_all(workdir);
+
+            let p = Path::new(&self.basedir)
+                .join("proof")
+                .join(task_id.clone())
+                .join("status");
+            std::fs::write(p, status.to_string()?)?;
+
+            let p = Path::new(&self.basedir)
+                .join("proof")
+                .join(task_id.clone())
+                .join("status.finished");
+            std::fs::write(p, if finished { "1" } else { "0" })?;
         }
         Ok(task_id)
+    }
+
+    fn load_checkpoint(&self, task_id: String) -> Result<bool> {
+        //let p = Path::new(&self.basedir).join(status.path()).join("status");
+        //std::fs::read(p, status.to_string()?)?;
+
+        let p = Path::new(&self.basedir)
+            .join("proof")
+            .join(task_id.clone())
+            .join("status.finished");
+        let status: bool = std::fs::read_to_string(p)?.parse().map_err(|e| {
+            log::error!("load_checkpoint: {:?}", e);
+            EigenError::InvalidValue("load checkpoint failed".to_string())
+        })?;
+        Ok(status)
     }
 
     /// FIXME: receive input data
@@ -289,18 +317,14 @@ impl Pipeline {
             Ok(w) => {
                 self.queue.push_back(task_id.clone());
                 w.insert(task_id.clone(), ProveStage::BatchProve(task_id.clone()));
-                self.save_checkpoint(task_id)
+                self.save_checkpoint(task_id, false)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
     }
 
     /// Add a new task into task queue
-    pub fn aggregate_prove(
-        &mut self,
-        input: String,
-        input2: String,
-    ) -> Result<String> {
+    pub fn aggregate_prove(&mut self, input: String, input2: String) -> Result<String> {
         let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
@@ -309,18 +333,14 @@ impl Pipeline {
                     task_id.clone(),
                     ProveStage::AggProve(task_id.clone(), input, input2),
                 );
-                self.save_checkpoint(task_id)
+                self.save_checkpoint(task_id, false)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
     }
 
     /// Add a new task into task queue
-    pub fn final_prove(
-        &mut self,
-        curve_name: String,
-        prover_addr: String,
-    ) -> Result<String> {
+    pub fn final_prove(&mut self, curve_name: String, prover_addr: String) -> Result<String> {
         let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
@@ -329,7 +349,7 @@ impl Pipeline {
                     task_id.clone(),
                     ProveStage::FinalProve(task_id.clone(), curve_name, prover_addr),
                 );
-                self.save_checkpoint(task_id)
+                self.save_checkpoint(task_id, false)
             }
             _ => Err(EigenError::Unknown("Task queue is full".to_string())),
         }
@@ -337,7 +357,7 @@ impl Pipeline {
 
     pub fn cancel(&mut self, task_id: String) -> Result<()> {
         if let Ok(w) = self.task_map.get_mut() {
-            w.remove(&task_id).unwrap(); //(Err(EigenError::InvalidValue("Remove task id from HashMap failed".to_string())))?;
+            let _ = w.remove(&task_id);
         }
         Ok(())
     }
@@ -347,9 +367,12 @@ impl Pipeline {
         Ok(())
     }
 
-    /// Return proof 
-    pub fn get_proof(&mut self, task_id: String, timeout: u64) -> Result<()> {
-        Ok(())
+    /// TODO: Return proof
+    pub fn get_proof(&mut self, task_id: String, _timeout: u64) -> Result<(i32, String)> {
+        match self.load_checkpoint(task_id) {
+            Ok(true) => Ok((1, "".to_string())),
+            _ => Err(EigenError::InvalidValue("get_proof failed".to_string())),
+        }
     }
 
     pub fn prove(&mut self) -> Result<()> {
@@ -389,7 +412,8 @@ impl Pipeline {
                     _ => {
                         thread::sleep(std::time::Duration::from_millis(1000));
                     }
-                }
+                };
+                self.save_checkpoint(task_id, true)?;
             }
         }
     }

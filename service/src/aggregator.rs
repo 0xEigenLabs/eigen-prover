@@ -67,32 +67,45 @@ impl AggregatorService for AggregatorServiceSVC {
                     Ok(v) => {
                         let resp = match v.request {
                             Some(req) => match req {
-                                aggregator_message::Request::GetStatusRequest(req) => {
+                                aggregator_message::Request::GetStatusRequest(_req) => {
                                     // TODO: return prover info
-                                    let _result = pipeline.get_status();
+                                    let status = match pipeline.get_status() {
+                                        Ok(_) => 1,
+                                        _ => 2,
+                                    };
                                     Some(prover_message::Response::GetStatusResponse(
                                         GetStatusResponse {
-                                            status: 1,
+                                            status,
                                             ..Default::default()
                                         },
                                     ))
                                 }
                                 aggregator_message::Request::GenBatchProofRequest(req) => {
-                                    let result = pipeline.batch_prove(req.input.unwrap().public_inputs.unwrap().batch_l2_data.clone());
+                                    let result = pipeline.batch_prove(
+                                        req.input
+                                            .unwrap()
+                                            .public_inputs
+                                            .unwrap()
+                                            .batch_l2_data
+                                            .clone(),
+                                    );
                                     let (id, res) = match result {
                                         Ok(i) => (i, 1),
                                         _ => ("".to_string(), 2),
                                     };
                                     Some(prover_message::Response::GenBatchProofResponse(
-                                        GenBatchProofResponse{
+                                        GenBatchProofResponse {
                                             id: id,
-                                            result: res, 
+                                            result: res,
                                         },
                                     ))
                                 }
                                 aggregator_message::Request::GenAggregatedProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    let result = pipeline.aggregate_prove(req.recursive_proof_1.clone(), req.recursive_proof_2.clone());
+                                    let result = pipeline.aggregate_prove(
+                                        req.recursive_proof_1.clone(),
+                                        req.recursive_proof_2.clone(),
+                                    );
                                     let (id, res) = match result {
                                         Ok(i) => (i, 1),
                                         _ => ("".to_string(), 2),
@@ -100,13 +113,16 @@ impl AggregatorService for AggregatorServiceSVC {
                                     Some(prover_message::Response::GenAggregatedProofResponse(
                                         GenAggregatedProofResponse {
                                             id: id,
-                                            result: res, 
+                                            result: res,
                                         },
                                     ))
                                 }
                                 aggregator_message::Request::GenFinalProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    let result = pipeline.final_prove(req.recursive_proof.clone(), req.aggregator_addr.clone());
+                                    let result = pipeline.final_prove(
+                                        req.recursive_proof.clone(),
+                                        req.aggregator_addr.clone(),
+                                    );
                                     let (id, res) = match result {
                                         Ok(i) => (i, 1),
                                         _ => ("".to_string(), 2),
@@ -114,22 +130,32 @@ impl AggregatorService for AggregatorServiceSVC {
                                     Some(prover_message::Response::GenFinalProofResponse(
                                         GenFinalProofResponse {
                                             id: id,
-                                            result: res, 
+                                            result: res,
                                         },
                                     ))
                                 }
                                 aggregator_message::Request::CancelRequest(req) => {
-                                    let result = pipeline.cancel(req.id.clone());
-                                    Some(prover_message::Response::CancelResponse(
-                                        CancelResponse {
-                                            result: 1,
-                                        },
-                                    ))
+                                    let result = match pipeline.cancel(req.id.clone()) {
+                                        Ok(_) => 1,
+                                        _ => 2,
+                                    };
+                                    Some(prover_message::Response::CancelResponse(CancelResponse {
+                                        result,
+                                    }))
                                 }
                                 aggregator_message::Request::GetProofRequest(req) => {
-                                    let result = pipeline.get_proof(req.id.clone(), req.timeout);
+                                    let (res, str_res) =
+                                        match pipeline.get_proof(req.id.clone(), req.timeout) {
+                                            Ok((res, str_res)) => (res, str_res),
+                                            _ => (2, "".to_string()),
+                                        };
                                     Some(prover_message::Response::GetProofResponse(
-                                        GetProofResponse::default(),
+                                        GetProofResponse {
+                                            id: req.id.clone(),
+                                            result: res,
+                                            result_string: str_res,
+                                            proof: Default::default(), //FIXME
+                                        },
                                     ))
                                 }
                             },
@@ -138,7 +164,7 @@ impl AggregatorService for AggregatorServiceSVC {
 
                         tx.send(Ok(ProverMessage {
                             id: v.id,
-                            response: None,
+                            response: resp,
                         }))
                         .await
                         .expect("working rx")
