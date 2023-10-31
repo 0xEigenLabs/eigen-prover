@@ -60,6 +60,7 @@ impl AggregatorService for AggregatorServiceSVC {
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
         let (tx, rx) = mpsc::channel(128);
+        let pipeline = Pipeline::new("/tmp/prover".to_string(), "fib".to_string());
         tokio::spawn(async move {
             while let Some(item) = in_stream.next().await {
                 match item {
@@ -67,7 +68,8 @@ impl AggregatorService for AggregatorServiceSVC {
                         let resp = match v.response {
                             Some(resp) => match resp {
                                 prover_message::Response::GetStatusResponse(resp) => {
-                                    //let id = resp.current_computing_request_id;
+                                    let id = resp.current_computing_request_id;
+                                    let result = pipeline.get_status(id);
                                     Some(aggregator_message::Request::GetStatusRequest(
                                         GetStatusRequest::default(),
                                     ))
