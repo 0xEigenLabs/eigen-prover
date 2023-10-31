@@ -1,56 +1,84 @@
-use crate::ProveStage;
+use crate::traits::StageProver;
+use crate::BatchContext;
+use algebraic::errors::Result;
 use dsl_compile::circom_compiler;
 use starky::prove::stark_prove;
-use std::io::Read;
+use starky::{compressor12_exec::exec, compressor12_setup::setup};
 
-struct BatchProveParam {
-    // stark prove params
-    stark_struct: String, // stark_struct.json
-    pil_json: String,     // .pil.json file
-    // norm_stage: bool,// default: true
-    // agg_stage: bool,// default: true
-    const_pols: String,
-    cm_pols: String,
-    zkin: String,
-    prover_addr: String,
+#[derive(Default)]
+pub struct BatchProver {}
 
-    // compile params
-    link_directories: Vec<String>, // setup the library path
+impl BatchProver {
+    pub fn new() -> Self {
+        BatchProver {}
+    }
 }
 
-/// Generate stark proof and generate its verifier circuit in circom
-async fn batch_proof(
-    task_id: usize,
-    param: &BatchProveParam,
-    link_directories: &String,
-) -> Result<(), ()> {
-    log::info!("start batch prove");
+impl StageProver for BatchProver {
+    /// Generate stark proof and generate its verifier circuit in circom
+    fn batch_prove(&self, ctx: &BatchContext) -> Result<()> {
+        log::info!("start batch prove");
+        // 1. stark prove: generate `.circom` file.
+        let sp = &ctx.batch_stark;
+        let cc = &ctx.batch_circom;
+        let sp_next = &ctx.batch_stark.clone(); // output
+        stark_prove(
+            &ctx.batch_struct,
+            &sp.piljson,
+            true,
+            true,
+            &sp.const_file,
+            &sp.commit_file,
+            &cc.circom_file,
+            &sp_next.zkin,
+            "", // prover address
+        )?;
 
-    let output_dir = ProveStage::BatchProve::to_path(task_id);
-    let circom_file = format!("{}/C12_VERIFIER.circom", output_dir);
+        // 2. Compile circom circuit to r1cs, and generate witness
+        circom_compiler(
+            cc.circom_file.clone(),
+            "goldilocks".to_string(), // prime
+            "full".to_string(),       // full_simplification
+            cc.link_directories.clone(),
+            cc.output.clone(),
+            true, // no_simplification
+            true, // reduced_simplification
+        )
+        .unwrap();
+        log::info!("end batch prove");
 
-    // 1. stark prove: generate `.circom` file.
-    stark_prove(
-        &param.stark_struct,
-        &param.pil_json,
-        true,
-        true,
-        &param.const_pols,
-        &param.cm_pols,
-        &circom_file,
-        &param.zkin,
-        &param.prover_addr,
-    )?;
+        log::info!("start c12 prove");
+        // 1. compress setup
+        setup(
+            &sp.r1cs_file,
+            &sp.pil_file,
+            &sp.const_file,
+            &sp.exec_file,
+            0,
+        )?;
 
-    // 2. Compile circom circuit to r1cs, and generate witness
-    circom_compiler(
-        circom_file,
-        "goldilocks".to_string(), // prime
-        "full".to_string(),       // full_simplification
-        param.link_directories,
-        output_dir,
-        true, // no_simplification
-        true, // reduced_simplification
-    )?;
-    log::info!("end batch prove");
+        // 2. compress exec
+        exec(
+            &sp_next.zkin,
+            &format!("{}/{}_js/{}.wasm", cc.output, ctx.task_name, ctx.task_name),
+            &sp.pil_file,
+            &sp.exec_file,
+            &sp.commit_file,
+        )?;
+
+        // 3. stark prove
+        stark_prove(
+            &ctx.c12_struct,
+            &sp.piljson,
+            true,
+            false,
+            &sp.const_file,
+            &sp.commit_file,
+            &cc.circom_file,
+            &sp_next.zkin,
+            "",
+        )?;
+        log::info!("end c12 prove");
+        Ok(())
+    }
 }
