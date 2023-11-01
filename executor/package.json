@@ -5,11 +5,13 @@
   "main": "executor_client.js",
   "scripts": {
     "killServer": "pkill -f 'node executor_server.js'",
-    "test": "nohup node executor_server.js & sleep 5s && node executor_client.js"
+    "testFib": "nohup node executor_server.js & sleep 5s && node executor_fibonacci_client.js",
+    "testVM": "nohup node executor_server.js & sleep 5s && node executor_vm_client.js"
   },
   "author": "",
   "license": "Apache 2.0",
   "dependencies": {
+    "@0xpolygonhermez/zkevm-commonjs": "https://github.com/0xpolygonhermez/zkevm-commonjs.git#v0.6.0.0-rc.1",
     "@grpc/grpc-js": "^1.9.5",
     "@grpc/proto-loader": "^0.7.10",
     "chai": "^4.3.10",
@@ -20,6 +22,8 @@
     "path": "^0.12.7",
     "pil-stark": "^0.0.56",
     "protobufjs": "^7.2.5",
-    "protobufjs-cli": "^1.1.2"
+    "protobufjs-cli": "^1.1.2",
+    "sm": "file:../../eigen-zkvm/SM",
+    "starkjs": "file:../../eigen-zkvm/starkjs"
   }
 }

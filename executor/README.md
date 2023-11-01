@@ -2,7 +2,7 @@
 
 ```bash
 cp .example .env
-npm run test
+npm run testFib
 ```
 
 When the test is completed, kill the server

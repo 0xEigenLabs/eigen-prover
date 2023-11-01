@@ -1,4 +1,4 @@
-const { pil_verifier, utils } = require("../../eigen-zkvm/starkjs/index.js");
+const { pil_verifier, utils } = require("starkjs/index.js");
 const { FGL } = require("pil-stark");
 const fs = require("fs");
 const path = require("path");
@@ -9,6 +9,7 @@ let grpc = require("@grpc/grpc-js");
 const { log } = require("@grpc/grpc-js/build/src/logging");
 let protoLoader = require("@grpc/proto-loader");
 const FibonacciJS = require('./fibonacci/fibonacci.js');
+const VM = require("sm/src/vm.js")
 
 const dotenv = require('dotenv');
 const env = dotenv.config({
@@ -146,13 +147,13 @@ function ProcessBatch(call, callback) {
   };
 
   let inputStr = call.request.batch_l2_data.toString();
-  generateOutputFile(JSON.parse(inputStr))
+  generateOutputFile(inputStr)
   callback(null, processBatchResponse);
 }
 
-function generateOutputFile(input) {
+function generateOutputFile(inputStr) {
   let testName = process.env.testName
-  const outputFilePath = process.env.outputPath + `/${testName}/task_id_${taskIdCounter}/execute`;
+  const outputFilePath = process.env.workspace + `/executor/task_id_${taskIdCounter}/status`;
   if (!fs.existsSync(outputFilePath)) {
     fs.mkdirSync(outputFilePath, { recursive: true });
   }
@@ -167,15 +168,25 @@ function generateOutputFile(input) {
   };
   console.log("security level(bits)", utils.security_test(starkStruct, 1024));
 
-  const pilFile = __dirname + `/${testName}/${testName}.pil`
+  let pilFile
   let start = new Date().getTime();
-  const pilConfig = {};
+  let pilConfig = {};
   const pilCache = outputFilePath + `/${testName}`
   let builder
+  let input = JSON.parse(inputStr)
   if (testName == "fibonacci") {
     builder = new FibonacciJS()
+    pilFile = __dirname + `/${testName}/${testName}.pil`
+  } else if (testName == "vm") {
+    builder = new VM()
+    pilFile = __dirname + `/../../eigen-zkvm/SM/pil/main.pil`
+    pilConfig = {
+      defines: { N: 2 ** 23 },
+      namespaces: ['Global', 'Main', 'Rom', 'MemAlign'],
+      verbose: true,
+      color: true
+    }
   }
-
   pil_verifier
     .generate(
       process.env.workspace,
