@@ -153,7 +153,7 @@ function ProcessBatch(call, callback) {
 
 function generateOutputFile(inputStr) {
   let testName = process.env.testName
-  const outputFilePath = process.env.outputPath + `/${testName}/task_id_${taskIdCounter}/execute`;
+  const outputFilePath = process.env.outputPath + `/executor/task_id_${taskIdCounter}/status`;
   if (!fs.existsSync(outputFilePath)) {
     fs.mkdirSync(outputFilePath, { recursive: true });
   }
