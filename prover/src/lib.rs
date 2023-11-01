@@ -3,43 +3,40 @@ mod batch_prove;
 mod final_prove;
 mod traits;
 
-//use async_channel::{bounded, Receiver, Sender};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::collections::VecDeque;
-//use std::fs::File;
-//use std::io::Write;
 use crate::agg_prove::AggProver;
 use crate::batch_prove::BatchProver;
 use crate::final_prove::FinalProver;
 use crate::traits::StageProver;
 use algebraic::errors::{EigenError, Result};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::env::var;
 use std::path::Path;
 use std::sync::Mutex;
-use std::thread;
 use uuid::Uuid;
 
 fn load_link(curve_type: &str) -> Vec<String> {
     let mut links: Vec<String> = vec![];
     match curve_type {
         "GL" => {
-            if let Ok(pilstark) = std::env::var("STARK_VERIFIER_GL") {
+            if let Ok(pilstark) = var("STARK_VERIFIER_GL") {
                 links.push(pilstark);
             }
         }
         "BN128" => {
-            if let Ok(pilstark) = std::env::var("STARK_VERIFIER_BN128") {
+            if let Ok(pilstark) = var("STARK_VERIFIER_BN128") {
                 links.push(pilstark);
             }
         }
         "BLS12381" => {
-            if let Ok(pilstark) = std::env::var("STARK_VERIFIER_BLS12381") {
+            if let Ok(pilstark) = var("STARK_VERIFIER_BLS12381") {
                 links.push(pilstark);
             }
         }
         &_ => todo!(),
     }
-    if let Ok(circomlib) = std::env::var("CIRCOMLIB") {
+    if let Ok(circomlib) = var("CIRCOMLIB") {
         links.push(circomlib);
     }
     links
@@ -279,11 +276,13 @@ impl Pipeline {
             let workdir = Path::new(&self.basedir).join(status.path());
             let _ = std::fs::create_dir_all(workdir);
 
-            let p = Path::new(&self.basedir)
-                .join("proof")
-                .join(task_id.clone())
-                .join("status");
-            std::fs::write(p, status.to_string()?)?;
+            if !finished {
+                let p = Path::new(&self.basedir)
+                    .join("proof")
+                    .join(task_id.clone())
+                    .join("status");
+                std::fs::write(p, status.to_string()?)?;
+            }
 
             let p = Path::new(&self.basedir)
                 .join("proof")
@@ -375,45 +374,44 @@ impl Pipeline {
     }
 
     pub fn prove(&mut self) -> Result<()> {
-        loop {
-            if let Some(task_id) = self.queue.pop_front() {
-                match self.task_map.get_mut().unwrap().get(&task_id) {
-                    Some(v) => match v {
-                        ProveStage::BatchProve(task_id) => {
-                            let ctx = BatchContext::new(
-                                self.basedir.clone(),
-                                task_id.clone(),
-                                self.task_name.clone(),
-                            );
-                            BatchProver::new().batch_prove(&ctx)?;
-                        }
-                        ProveStage::AggProve(task_id, input, input2) => {
-                            let ctx = AggContext::new(
-                                self.basedir.clone(),
-                                task_id.clone(),
-                                self.task_name.clone(),
-                                input.clone(),
-                                input2.clone(),
-                            );
-                            AggProver::new().agg_prove(&ctx)?;
-                        }
-                        ProveStage::FinalProve(task_id, curve_name, prover_addr) => {
-                            let ctx = FinalContext::new(
-                                self.basedir.clone(),
-                                task_id.clone(),
-                                self.task_name.clone(),
-                                curve_name.clone(),
-                                prover_addr.clone(),
-                            );
-                            FinalProver::new().final_prove(&ctx)?;
-                        }
-                    },
-                    _ => {
-                        thread::sleep(std::time::Duration::from_millis(1000));
+        if let Some(task_id) = self.queue.pop_front() {
+            match self.task_map.get_mut().unwrap().get(&task_id) {
+                Some(v) => match v {
+                    ProveStage::BatchProve(task_id) => {
+                        let ctx = BatchContext::new(
+                            self.basedir.clone(),
+                            task_id.clone(),
+                            self.task_name.clone(),
+                        );
+                        BatchProver::new().batch_prove(&ctx)?;
                     }
-                };
-                self.save_checkpoint(task_id, true)?;
-            }
+                    ProveStage::AggProve(task_id, input, input2) => {
+                        let ctx = AggContext::new(
+                            self.basedir.clone(),
+                            task_id.clone(),
+                            self.task_name.clone(),
+                            input.clone(),
+                            input2.clone(),
+                        );
+                        AggProver::new().agg_prove(&ctx)?;
+                    }
+                    ProveStage::FinalProve(task_id, curve_name, prover_addr) => {
+                        let ctx = FinalContext::new(
+                            self.basedir.clone(),
+                            task_id.clone(),
+                            self.task_name.clone(),
+                            curve_name.clone(),
+                            prover_addr.clone(),
+                        );
+                        FinalProver::new().final_prove(&ctx)?;
+                    }
+                },
+                _ => {
+                    log::info!("Task queue is empty...");
+                }
+            };
+            self.save_checkpoint(task_id, true)?;
         }
+        Ok(())
     }
 }
