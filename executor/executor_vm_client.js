@@ -1,3 +1,4 @@
+const path = require("path")
 let PROTO_PATH =
   __dirname + "/../service/proto/src/proto/executor/v1/executor.proto";
 
@@ -15,6 +16,17 @@ let packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 let executor_proto = grpc.loadPackageDefinition(packageDefinition).executor.v1;
 
 let executorInput = require("sm/tools/gen-input-executor/input_executor.json")
+
+const input = {
+  inputFile: path.join(__dirname, "../../eigen-zkvm/SM/tools/build-genesis/input_executor.json"),
+  romFile: path.join(__dirname, "../../eigen-zkvm/SM/build/proof/rom.json"),
+  debug: false,
+  debugInfo: { inputName: 'input_executor' },
+  unsigned: false,
+  execute: true,
+  tracer: false,
+  stats: false,
+}
 
 function main() {
   let argv = parseArgs(process.argv.slice(2), {
@@ -56,7 +68,7 @@ function main() {
     old_batch_num: executorInput.oldNumBatch,
     chain_id: executorInput.chainID,
     fork_id: 0,
-    batch_l2_data: Buffer.from(executorInput.batchL2Data),
+    batch_l2_data: Buffer.from(JSON.stringify(input)),
     global_exit_root: Buffer.from("global_exit_root"),
     eth_timestamp: executorInput.timestamp,
     coinbase: "coinbase",
@@ -67,7 +79,7 @@ function main() {
     contracts_bytecode: executorInput.contractsBytecode,
     trace_config: trace_config,
   };
-  
+
   // console.log("processBatchRequest:", processBatchRequest)
   client.ProcessBatch(processBatchRequest, function (err, response) {
     console.log("res:", response);

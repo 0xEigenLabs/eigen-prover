@@ -170,20 +170,23 @@ function generateOutputFile(inputStr) {
 
   let pilFile
   let start = new Date().getTime();
-  const pilConfig = {};
+  let pilConfig = {};
   const pilCache = outputFilePath + `/${testName}`
   let builder
-  let input
+  let input = JSON.parse(inputStr)
   if (testName == "fibonacci") {
     builder = new FibonacciJS()
     pilFile = __dirname + `/${testName}/${testName}.pil`
-    input = JSON.parse(inputStr)
   } else if (testName == "vm") {
     builder = new VM()
     pilFile = __dirname + `/../../eigen-zkvm/SM/pil/main.pil`
-    input = inputStr
+    pilConfig = {
+      defines: { N: 2 ** 23 },
+      namespaces: ['Global', 'Main', 'Rom', 'MemAlign'],
+      verbose: true,
+      color: true
+    }
   }
-
   pil_verifier
     .generate(
       process.env.workspace,
