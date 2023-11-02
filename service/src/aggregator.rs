@@ -1,6 +1,8 @@
 #![allow(clippy::all)]
 #![allow(unknown_lints)]
+use std::env::var;
 use std::pin::Pin;
+use std::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{self, Request, Response, Status};
@@ -45,6 +47,17 @@ fn match_for_io_error(err_status: &Status) -> Option<&std::io::Error> {
     }
 }
 
+lazy_static! {
+    static ref PIPELINE: Mutex<Pipeline> = Mutex::new(Pipeline::new(
+        var("WORKSPACE").unwrap_or("/tmp/prover".to_string()),
+        var("TASK_NAME").unwrap_or("fib".to_string())
+    ));
+}
+
+pub fn prove() -> algebraic::errors::Result<()> {
+    PIPELINE.lock().unwrap().prove()
+}
+
 #[tonic::async_trait]
 impl AggregatorService for AggregatorServiceSVC {
     type ChannelStream = Pin<Box<dyn Stream<Item = Result<ProverMessage, Status>> + Send>>;
@@ -54,13 +67,12 @@ impl AggregatorService for AggregatorServiceSVC {
         request: Request<tonic::Streaming<AggregatorMessage>>, // Accept request of type HelloRequest
     ) -> Result<Response<Self::ChannelStream>, Status> {
         // Return an instance of type HelloReply
-        println!("Got a request: {:?}", request);
+        log::info!("Got a request: {:?}", request);
 
         let mut in_stream = request.into_inner();
         // spawn and channel are required if you want handle "disconnect" functionality
         // the `out_stream` will not be polled after client disconnect
         let (tx, rx) = mpsc::channel(128);
-        let mut pipeline = Pipeline::new("/tmp/prover".to_string(), "fib".to_string());
         tokio::spawn(async move {
             while let Some(item) = in_stream.next().await {
                 match item {
@@ -69,7 +81,7 @@ impl AggregatorService for AggregatorServiceSVC {
                             Some(req) => match req {
                                 aggregator_message::Request::GetStatusRequest(_req) => {
                                     // TODO: return prover info
-                                    let status = match pipeline.get_status() {
+                                    let status = match PIPELINE.lock().unwrap().get_status() {
                                         Ok(_) => 1,
                                         _ => 2,
                                     };
@@ -81,7 +93,7 @@ impl AggregatorService for AggregatorServiceSVC {
                                     ))
                                 }
                                 aggregator_message::Request::GenBatchProofRequest(req) => {
-                                    let result = pipeline.batch_prove(
+                                    let result = PIPELINE.lock().unwrap().batch_prove(
                                         req.input
                                             .unwrap()
                                             .public_inputs
@@ -102,7 +114,7 @@ impl AggregatorService for AggregatorServiceSVC {
                                 }
                                 aggregator_message::Request::GenAggregatedProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    let result = pipeline.aggregate_prove(
+                                    let result = PIPELINE.lock().unwrap().aggregate_prove(
                                         req.recursive_proof_1.clone(),
                                         req.recursive_proof_2.clone(),
                                     );
@@ -119,7 +131,7 @@ impl AggregatorService for AggregatorServiceSVC {
                                 }
                                 aggregator_message::Request::GenFinalProofRequest(req) => {
                                     //let id = resp.current_computing_request_id;
-                                    let result = pipeline.final_prove(
+                                    let result = PIPELINE.lock().unwrap().final_prove(
                                         req.recursive_proof.clone(),
                                         req.aggregator_addr.clone(),
                                     );
@@ -135,20 +147,24 @@ impl AggregatorService for AggregatorServiceSVC {
                                     ))
                                 }
                                 aggregator_message::Request::CancelRequest(req) => {
-                                    let result = match pipeline.cancel(req.id.clone()) {
-                                        Ok(_) => 1,
-                                        _ => 2,
-                                    };
+                                    let result =
+                                        match PIPELINE.lock().unwrap().cancel(req.id.clone()) {
+                                            Ok(_) => 1,
+                                            _ => 2,
+                                        };
                                     Some(prover_message::Response::CancelResponse(CancelResponse {
                                         result,
                                     }))
                                 }
                                 aggregator_message::Request::GetProofRequest(req) => {
-                                    let (res, str_res) =
-                                        match pipeline.get_proof(req.id.clone(), req.timeout) {
-                                            Ok((res, str_res)) => (res, str_res),
-                                            _ => (2, "".to_string()),
-                                        };
+                                    let (res, str_res) = match PIPELINE
+                                        .lock()
+                                        .unwrap()
+                                        .get_proof(req.id.clone(), req.timeout)
+                                    {
+                                        Ok((res, str_res)) => (res, str_res),
+                                        _ => (2, "".to_string()),
+                                    };
                                     Some(prover_message::Response::GetProofResponse(
                                         GetProofResponse {
                                             id: req.id.clone(),
@@ -186,7 +202,7 @@ impl AggregatorService for AggregatorServiceSVC {
                     }
                 }
             }
-            println!("\tclient disconnected");
+            log::info!("\tclient disconnected");
         });
 
         let reply = ReceiverStream::new(rx);

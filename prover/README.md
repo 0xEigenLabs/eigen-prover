@@ -7,6 +7,7 @@ basedir/
                          _/fib.cm
                          _/fib.const
       _/proof/{task_id}/status
+                      _/status.finished
                       _/batch_proof/
                                   _/fib.circom
                                   _/fib.zkin.json
@@ -28,7 +29,7 @@ basedir/
                                 _/fib.recursive1.pil
                                 _/fib.recursive1.pil.json
 
-                      _/snark_proof/
+                      _/final_proof/
                                 _/fib.recursive2.circom
                                 _/fib.recursive2.zkin.json
                                 _/fib.recursive2.r1cs
