@@ -1,0 +1,1 @@
+This is a test data, generate by `eigen-zkvm/tests/stark_aggregation.sh`.
