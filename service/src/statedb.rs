@@ -73,7 +73,7 @@ fn smt_get_result_to_proto(r: &SmtGetResult) -> GetResponse {
         ins_key: Some(fr_to_fea(&r.ins_key)),
         ins_value: r.ins_value.to_string(),
         is_old0: r.is_old0,
-        value: r.value.to_string(),
+        value: r.value.to_str_radix(16),
         proof_hash_counter: r.proof_hash_counter,
         db_read_log: HashMap::new(),
         result: Some(ResultCode {
