@@ -1,7 +1,8 @@
-mod agg_prove;
-mod batch_prove;
-mod final_prove;
-mod traits;
+pub(crate) mod agg_prove;
+pub(crate) mod batch_prove;
+pub(crate) mod final_prove;
+mod integration_test;
+pub(crate) mod traits;
 
 use crate::agg_prove::AggProver;
 use crate::batch_prove::BatchProver;
@@ -250,8 +251,8 @@ impl ProveStage {
 }
 
 pub struct Pipeline {
-    basedir: String,
-    task_name: String,
+    pub basedir: String,
+    pub task_name: String,
     queue: VecDeque<String>,
     task_map: Mutex<HashMap<String, ProveStage>>,
 }

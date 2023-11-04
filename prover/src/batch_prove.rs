@@ -2,6 +2,7 @@ use crate::traits::StageProver;
 use crate::BatchContext;
 use algebraic::errors::Result;
 use dsl_compile::circom_compiler;
+use log::{debug, info};
 use starky::prove::stark_prove;
 use starky::{compressor12_exec::exec, compressor12_setup::setup};
 
@@ -17,11 +18,12 @@ impl BatchProver {
 impl StageProver for BatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
     fn batch_prove(&self, ctx: &BatchContext) -> Result<()> {
-        log::info!("start batch prove");
+        info!("start batch_prove");
         // 1. stark prove: generate `.circom` file.
         let sp = &ctx.batch_stark;
         let cc = &ctx.batch_circom;
         let sp_next = &ctx.batch_stark.clone(); // output
+        debug!("start stark_prove");
         stark_prove(
             &ctx.batch_struct,
             &sp.piljson,
@@ -33,6 +35,7 @@ impl StageProver for BatchProver {
             &sp_next.zkin,
             "", // prover address
         )?;
+        debug!("end stark_prove");
 
         // 2. Compile circom circuit to r1cs, and generate witness
         circom_compiler(
@@ -45,9 +48,9 @@ impl StageProver for BatchProver {
             true, // reduced_simplification
         )
         .unwrap();
-        log::info!("end batch prove");
+        debug!("end circom_compiler prove");
 
-        log::info!("start c12 prove");
+        debug!("start compress_setup prove");
         // 1. compress setup
         setup(
             &sp.r1cs_file,
@@ -78,7 +81,7 @@ impl StageProver for BatchProver {
             &sp_next.zkin,
             "",
         )?;
-        log::info!("end c12 prove");
+        info!("end batch_prove");
         Ok(())
     }
 }
