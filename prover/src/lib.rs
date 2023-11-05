@@ -166,7 +166,7 @@ pub struct BatchContext {
     c12_stark: StarkProveArgs,
 
     batch_circom: CircomCompileArgs,
-    c12_circom: CircomCompileArgs,
+    // c12_circom: CircomCompileArgs,
 
     c12_struct: String,
     batch_struct: String,
@@ -196,7 +196,7 @@ impl BatchContext {
             batch_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, "GL"),
 
             c12_stark: StarkProveArgs::new(&basedir, &task_path, &task_name, "GL"),
-            c12_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, "GL"),
+            // c12_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, "GL"),
         }
     }
 }
@@ -237,8 +237,8 @@ impl AggContext {
 impl ProveStage {
     fn path(&self) -> String {
         let stage = match self {
-            Self::BatchProve(task_id) => format!("proof/{task_id}/agg_proof"),
-            Self::AggProve(task_id, _, _) => format!("proof/{task_id}/batch_proof"),
+            Self::BatchProve(task_id) => format!("proof/{task_id}/batch_proof"),
+            Self::AggProve(task_id, _, _) => format!("proof/{task_id}/agg_proof"),
             Self::FinalProve(task_id, _, _) => format!("proof/{task_id}/snark_proof"),
         };
         stage.to_string()

@@ -19,25 +19,27 @@ impl StageProver for BatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
     fn batch_prove(&self, ctx: &BatchContext) -> Result<()> {
         info!("start batch_prove");
-        // 1. stark prove: generate `.circom` file.
-        let sp = &ctx.batch_stark;
+        // 1. batch stark prove: generate `.circom` file.
+        let batch_stark = &ctx.batch_stark;
         let cc = &ctx.batch_circom;
-        let sp_next = &ctx.batch_stark.clone(); // output
+        let c12_stark = &ctx.c12_stark; // output
+
         debug!("start stark_prove");
         stark_prove(
             &ctx.batch_struct,
-            &sp.piljson,
+            &batch_stark.piljson,
             true,
             true,
-            &sp.const_file,
-            &sp.commit_file,
+            &batch_stark.const_file,
+            &batch_stark.commit_file,
             &cc.circom_file,
-            &sp_next.zkin,
+            &c12_stark.zkin,
             "", // prover address
         )?;
         debug!("end stark_prove");
 
         // 2. Compile circom circuit to r1cs, and generate witness
+        debug!("start circom_compiler");
         circom_compiler(
             cc.circom_file.clone(),
             "goldilocks".to_string(), // prime
@@ -48,39 +50,45 @@ impl StageProver for BatchProver {
             true, // reduced_simplification
         )
         .unwrap();
-        debug!("end circom_compiler prove");
+        debug!("end circom_compiler");
 
-        debug!("start compress_setup prove");
+        debug!("start compress_setup");
         // 1. compress setup
         setup(
-            &sp.r1cs_file,
-            &sp.pil_file,
-            &sp.const_file,
-            &sp.exec_file,
+            &c12_stark.r1cs_file,
+            &c12_stark.pil_file,
+            &c12_stark.const_file,
+            &c12_stark.exec_file,
             0,
         )?;
+        debug!("end compress_setup");
 
         // 2. compress exec
+        debug!("start compress_exec");
         exec(
-            &sp_next.zkin,
+            &c12_stark.zkin,
             &format!("{}/{}_js/{}.wasm", cc.output, ctx.task_name, ctx.task_name),
-            &sp.pil_file,
-            &sp.exec_file,
-            &sp.commit_file,
+            &c12_stark.pil_file,
+            &c12_stark.exec_file,
+            &c12_stark.commit_file,
         )?;
+        debug!("end compress_exec");
 
-        // 3. stark prove
+        // 3. c12 prove
+        debug!("start c12 prove");
         stark_prove(
             &ctx.c12_struct,
-            &sp.piljson,
+            &c12_stark.piljson,
             true,
             false,
-            &sp.const_file,
-            &sp.commit_file,
+            &c12_stark.const_file,
+            &c12_stark.commit_file,
             &cc.circom_file,
-            &sp_next.zkin,
+            &c12_stark.zkin,
             "",
         )?;
+        debug!("end c12 prove");
+
         info!("end batch_prove");
         Ok(())
     }

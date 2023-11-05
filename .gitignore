@@ -21,4 +21,4 @@ executor/node_modules
 executor/package-lock.json
 
 ## test proofs data
-prover/data/proof
+prover/tests/proof
