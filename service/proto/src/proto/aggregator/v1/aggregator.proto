@@ -11,7 +11,7 @@ message Version {
 // timestamps are represented in unix time in seconds
 
 /**
- * Define all methods implementes by the gRPC
+ * Define all methods implemented by the gRPC
  * Channel: prover receives aggregator messages and returns prover messages with the same id
  */
 service AggregatorService {
@@ -151,7 +151,7 @@ message GetStatusResponse {
 
 /**
  * @dev Result
- *  - OK: succesfully completed
+ *  - OK: successfully completed
  *  - ERROR: request is not correct, i.e. input data is wrong
  *  - INTERNAL_ERROR: internal server error when delivering the response
  */
