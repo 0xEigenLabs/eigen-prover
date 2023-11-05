@@ -167,7 +167,6 @@ pub struct BatchContext {
 
     batch_circom: CircomCompileArgs,
     // c12_circom: CircomCompileArgs,
-
     c12_struct: String,
     batch_struct: String,
 }
