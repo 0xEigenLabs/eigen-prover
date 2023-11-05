@@ -16,15 +16,19 @@ impl BatchProver {
 }
 
 impl StageProver for BatchProver {
-    /// Generate stark proof and generate its verifier circuit in circom
+    // Generate stark proof and generate its verifier circuit in circom
+    // 1. batch prove
+    // 2. compile circom to r1cs
+    // 3. compress12
+    // 4. c12 prove
     fn batch_prove(&self, ctx: &BatchContext) -> Result<()> {
         info!("start batch_prove");
-        // 1. batch stark prove: generate `.circom` file.
         let batch_stark = &ctx.batch_stark;
         let cc = &ctx.batch_circom;
         let c12_stark = &ctx.c12_stark; // output
 
         debug!("start stark_prove");
+        // 1. batch stark prove: generate `.circom` file.
         stark_prove(
             &ctx.batch_struct,
             &batch_stark.piljson,
@@ -53,7 +57,7 @@ impl StageProver for BatchProver {
         debug!("end circom_compiler");
 
         debug!("start compress_setup");
-        // 1. compress setup
+        // 3.1. compress setup
         setup(
             &c12_stark.r1cs_file,
             &c12_stark.pil_file,
@@ -63,7 +67,7 @@ impl StageProver for BatchProver {
         )?;
         debug!("end compress_setup");
 
-        // 2. compress exec
+        // 3.2. compress exec
         debug!("start compress_exec");
         exec(
             &c12_stark.zkin,
@@ -74,7 +78,7 @@ impl StageProver for BatchProver {
         )?;
         debug!("end compress_exec");
 
-        // 3. c12 prove
+        // 4. c12 prove
         debug!("start c12 prove");
         stark_prove(
             &ctx.c12_struct,
@@ -86,7 +90,7 @@ impl StageProver for BatchProver {
             &cc.circom_file,
             &c12_stark.zkin,
             "",
-        )?;
+        )?;// TODO: meet error
         debug!("end c12 prove");
 
         info!("end batch_prove");

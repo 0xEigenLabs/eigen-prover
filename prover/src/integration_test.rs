@@ -26,17 +26,13 @@ fn integration_test() -> algebraic::errors::Result<()> {
     );
     pipeline.save_checkpoint(task_id.to_string(), false);
 
-    // File::create("data/proof/0/agg_proof/fibonacci.circom").unwrap();
-
-    // // data/proof/0/agg_proof/fibonacci.circom
+    // 1. batch prove
     let ctx = BatchContext::new(
         pipeline.basedir.clone(),
         task_id.to_string(),
         pipeline.task_name.clone(),
     );
 
-    println!("zkin: {:?}", ctx.c12_stark.zkin);
-    println!("zkin: {:?}", ctx.batch_stark.zkin); // null str
     BatchProver::new().batch_prove(&ctx)?;
 
     // let agg_ctx = AggContext::new(
