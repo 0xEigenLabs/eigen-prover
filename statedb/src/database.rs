@@ -55,26 +55,28 @@ impl Database {
     }
 
     pub fn read_program(&mut self, key: &str) -> Result<String> {
+        let key: Vec<u8> = key.chars().map(|c| c as u8).collect::<Vec<_>>();
         let result = program
             .find(key)
             .select(Program::as_select())
             .first(&mut self.pool.get().unwrap())
             .optional();
         match result {
-            Ok(Some(pg)) => Ok(pg.data),
+            Ok(Some(pg)) => Ok(String::from_utf8_lossy(&pg.data).to_string()),
             Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
             Err(e) => Err(EigenError::DatabaseError(e)),
         }
     }
 
     pub fn read_nodes(&mut self, key: &str) -> Result<String> {
+        let key: Vec<u8> = key.chars().map(|c| c as u8).collect::<Vec<_>>();
         let result = nodes
             .find(key)
             .select(Nodes::as_select())
             .first(&mut self.pool.get().unwrap())
             .optional();
         match result {
-            Ok(Some(pg)) => Ok(pg.data),
+            Ok(Some(pg)) => Ok(String::from_utf8_lossy(&pg.data).to_string()),
             Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
             Err(e) => Err(EigenError::DatabaseError(e)),
         }
@@ -89,8 +91,8 @@ impl Database {
 
     pub fn write_program(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
         let new_pro = Program {
-            hash: key.to_string(),
-            data: value.to_string(),
+            hash: key.to_string().into(),
+            data: value.to_string().into(),
         };
         let res = match update {
             true => diesel::insert_into(program)
@@ -109,8 +111,8 @@ impl Database {
 
     pub fn write_nodes(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
         let new_pro = Nodes {
-            hash: key.to_string(),
-            data: value.to_string(),
+            hash: key.to_string().into(),
+            data: value.to_string().into(),
         };
         let res = match update {
             true => diesel::insert_into(nodes)
