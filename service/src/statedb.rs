@@ -247,7 +247,11 @@ impl StateDbService for StateDBServiceSVC {
         // Return an instance of type HelloReply
         debug!("Got a request: {:?}", request);
 
-        let reply = FlushResponse::default();
+        let reply = FlushResponse {
+            result: Some(ResultCode {
+                code: Code::Success.into(),
+            }),
+        };
 
         Ok(Response::new(reply)) // Send back our formatted greeting
     }
