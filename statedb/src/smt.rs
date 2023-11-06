@@ -1,8 +1,8 @@
 use crate::database::Database;
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
-use num_traits::ToPrimitive;
 use plonky::field_gl::Fr;
+use plonky::from_hex;
 use plonky::Field;
 use starky::linearhash::LinearHash;
 use starky::traits::MTNodeType;
@@ -628,7 +628,12 @@ impl SMT {
             let mut aux = BigUint::from(auxk[i].as_int());
             aux = (aux << n[i]) | BigUint::from(accs[i]);
             log::debug!("aux: {}", aux.to_string());
-            auxk[i] = Fr::from(aux.to_u64().unwrap());
+
+            let mut str_aux = aux.to_str_radix(16);
+            if str_aux.len() % 2 != 0 {
+                str_aux = format!("0{}", str_aux);
+            }
+            auxk[i] = from_hex(&str_aux).unwrap();
         }
     }
 
@@ -730,6 +735,21 @@ mod tests {
         smt.join_key(&result, &t, &mut kea_r);
         let key_r_str = h4_to_scalar(&kea_r);
         assert_eq!(key, key_r_str);
+    }
+
+    #[test]
+    fn test_join_key_overflow() {
+        let mut smt = setup();
+
+        let rkey = [
+            Fr::from(0xf3efdf4a91164c36),
+            Fr::from(0xcacc86e67aa7ad4d),
+            Fr::from(0x772e5272aa6c70be),
+            Fr::from(0xe6f4433edeb5f8be),
+        ];
+        let bits = vec![0, 1, 0, 0, 1, 0];
+        let mut _key = [Fr::ZERO; 4];
+        smt.join_key(&bits, &rkey, &mut _key);
     }
 
     #[test]
