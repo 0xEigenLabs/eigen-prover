@@ -164,7 +164,7 @@ message ProcessTransactionResponse {
     string create_address = 9;
     // State Root
     bytes state_root = 10;
-    // Logs emited by LOG opcode
+    // Logs emitted by LOG opcode
     repeated Log logs = 11;
     // Trace
     repeated ExecutionTraceStep execution_trace = 13;

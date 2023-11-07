@@ -5,14 +5,14 @@ use diesel::prelude::*;
 #[diesel(table_name = nodes)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Nodes {
-    pub hash: String,
-    pub data: String,
+    pub hash: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 #[derive(Queryable, Selectable, Insertable, AsChangeset)]
 #[diesel(table_name = program)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Program {
-    pub hash: String,
-    pub data: String,
+    pub hash: Vec<u8>,
+    pub data: Vec<u8>,
 }
