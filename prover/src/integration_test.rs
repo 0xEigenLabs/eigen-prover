@@ -26,6 +26,8 @@ fn integration_test() -> algebraic::errors::Result<()> {
     );
     pipeline.save_checkpoint(task_id.to_string(), false);
 
+    // pipeline.batch_prove()
+
     // 1. batch prove
     let ctx = BatchContext::new(
         pipeline.basedir.clone(),

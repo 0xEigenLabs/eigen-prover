@@ -42,7 +42,11 @@ impl StageProver for BatchProver {
         )?;
         debug!("end stark_prove");
 
-        // todo debug
+        // todo debug. skip first
+        //  diff aggregation_BN128_fibonacci/0/fibonacci.c12.r1cs tests/proof/0/batch_proof/fibonacci.r1cs
+        //  diff aggregation_BN128_fibonacci/0/fibonacci.c12_js/fibonacci.c12.wasm tests/proof/0/batch_proof/fibonacci_js/fibonacci.wasm
+        ////fixed  diff aggregation_BN128_fibonacci/0/fibonacci.c12.sym tests/proof/0/batch_proof/fibonacci.sym
+        //
         // 2. Compile circom circuit to r1cs, and generate witness
         debug!("start circom_compiler");
         circom_compiler(
@@ -51,22 +55,24 @@ impl StageProver for BatchProver {
             "full".to_string(),       // full_simplification
             cc.link_directories.clone(), // seems like here meet error.
             cc.output.clone(),
-            true, // no_simplification
-            true, // reduced_simplification
+            false, // no_simplification
+            false, // reduced_simplification
         )
         .unwrap();
-        debug!("end circom_compiler");
+        // debug!("end circom_compiler");
 
         debug!("start compress_setup");
+        // todo debug
+        // diff  aggregation_BN128_fibonacci/0/fibonacci.const tests/proof/0/batch_proof/fibonacci.const
         // 3.1. compress setup
         setup(
-            &c12_stark.r1cs_file, // pil.json meet error.
-            &c12_stark.pil_file, // pil.json meet error.
-            &c12_stark.const_file,
-            &c12_stark.exec_file,
+            &c12_stark.r1cs_file,
+            &c12_stark.pil_file,
+            &c12_stark.const_file,// pil.json meet error.
+            &c12_stark.exec_file,// pil.json meet error.
             0,
         )?;
-        debug!("end compress_setup");
+        // debug!("end compress_setup");
 
         // 3.2. compress exec
         debug!("start compress_exec");
@@ -88,7 +94,7 @@ impl StageProver for BatchProver {
             false,
             &c12_stark.const_file,
             &c12_stark.commit_file,
-            &cc.circom_file,// todo use a new var.
+            &cc.circom_file,// todo use a new var. add agg_circom path.
             &c12_stark.zkin,
             "",
         )?;
