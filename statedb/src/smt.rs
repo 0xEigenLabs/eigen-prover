@@ -712,6 +712,7 @@ mod tests {
 
     fn setup() -> SMT {
         // export DATABASE_URL="postgresql://root:password@127.0.0.1:5432/state"
+        env_logger::try_init().unwrap_or_default();
         let db = Database::new(None);
         SMT::new(db)
     }
@@ -780,7 +781,6 @@ mod tests {
 
     #[test]
     fn test_shared_element_2() {
-        // env_logger::init();
         let mut smt = setup();
         let sca = scalar_to_h4(&BigUint::from(7u64));
         let val = BigUint::from(2u64);
@@ -801,7 +801,6 @@ mod tests {
 
     #[test]
     fn test_shared_element_3() {
-        env_logger::init();
         let mut smt = setup();
         let sca = scalar_to_h4(&BigUint::from(7u64));
         let val = BigUint::from(123u64);
@@ -861,7 +860,6 @@ mod tests {
 
     #[test]
     fn test_smt_set_and_get() {
-        // env_logger::init();
         let mut smt = setup();
 
         let old_root = [Fr::ZERO; 4];
