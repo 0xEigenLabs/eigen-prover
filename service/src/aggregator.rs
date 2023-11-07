@@ -93,14 +93,11 @@ impl AggregatorService for AggregatorServiceSVC {
                                     ))
                                 }
                                 aggregator_message::Request::GenBatchProofRequest(req) => {
-                                    let result = PIPELINE.lock().unwrap().batch_prove(
-                                        req.input
-                                            .unwrap()
-                                            .public_inputs
-                                            .unwrap()
-                                            .batch_l2_data
-                                            .clone(),
-                                    );
+                                    let inp = req.input.unwrap().public_inputs.unwrap();
+                                    let result = PIPELINE
+                                        .lock()
+                                        .unwrap()
+                                        .batch_prove(inp.old_batch_num, inp.batch_l2_data.clone());
                                     let (id, res) = match result {
                                         Ok(i) => (i, 1),
                                         _ => ("".to_string(), 2),

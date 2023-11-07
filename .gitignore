@@ -30,3 +30,4 @@ executor/package-lock.json
 # IDE
 .idea
 .vscode
+prover/data/proof

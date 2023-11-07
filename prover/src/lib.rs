@@ -1,7 +1,10 @@
-mod agg_prove;
-mod batch_prove;
-mod final_prove;
-mod traits;
+pub(crate) mod agg_prove;
+pub(crate) mod batch_prove;
+pub(crate) mod final_prove;
+pub(crate) mod traits;
+
+#[cfg(test)]
+mod integration_test;
 
 use crate::agg_prove::AggProver;
 use crate::batch_prove::BatchProver;
@@ -165,15 +168,14 @@ pub struct BatchContext {
     c12_stark: StarkProveArgs,
 
     batch_circom: CircomCompileArgs,
-    c12_circom: CircomCompileArgs,
 
     c12_struct: String,
     batch_struct: String,
 }
 
 impl BatchContext {
-    pub fn new(basedir: String, task_id: String, task_name: String) -> Self {
-        let executor_dir = format!("{}/executor/{}", basedir.clone(), task_id.clone());
+    pub fn new(basedir: String, task_id: String, task_name: String, old_batch_num: u64) -> Self {
+        let executor_dir = format!("{}/executor/{}", basedir.clone(), old_batch_num);
         let task_path = ProveStage::BatchProve(task_id.clone()).path();
         BatchContext {
             basedir: basedir.clone(),
@@ -195,15 +197,14 @@ impl BatchContext {
             batch_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, "GL"),
 
             c12_stark: StarkProveArgs::new(&basedir, &task_path, &task_name, "GL"),
-            c12_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, "GL"),
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct AggContext {
-    basedir: String,
-    task_name: String,
+    pub basedir: String,
+    pub task_name: String,
     input: String,
     input2: String,
 
@@ -236,8 +237,8 @@ impl AggContext {
 impl ProveStage {
     fn path(&self) -> String {
         let stage = match self {
-            Self::BatchProve(task_id) => format!("proof/{task_id}/agg_proof"),
-            Self::AggProve(task_id, _, _) => format!("proof/{task_id}/batch_proof"),
+            Self::BatchProve(task_id) => format!("proof/{task_id}/batch_proof"),
+            Self::AggProve(task_id, _, _) => format!("proof/{task_id}/agg_proof"),
             Self::FinalProve(task_id, _, _) => format!("proof/{task_id}/snark_proof"),
         };
         stage.to_string()
@@ -252,7 +253,7 @@ impl ProveStage {
 pub struct Pipeline {
     basedir: String,
     task_name: String,
-    queue: VecDeque<String>,
+    queue: VecDeque<(String, u64)>, // task_id, old_batch_num
     task_map: Mutex<HashMap<String, ProveStage>>,
 }
 
@@ -309,11 +310,11 @@ impl Pipeline {
     }
 
     /// FIXME: receive input data
-    pub fn batch_prove(&mut self, _batch_l2_data: Vec<u8>) -> Result<String> {
+    pub fn batch_prove(&mut self, old_batch_num: u64, _batch_l2_data: Vec<u8>) -> Result<String> {
         let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
-                self.queue.push_back(task_id.clone());
+                self.queue.push_back((task_id.clone(), old_batch_num));
                 w.insert(task_id.clone(), ProveStage::BatchProve(task_id.clone()));
                 self.save_checkpoint(task_id, false)
             }
@@ -326,7 +327,7 @@ impl Pipeline {
         let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
-                self.queue.push_back(task_id.clone());
+                self.queue.push_back((task_id.clone(), 0));
                 w.insert(
                     task_id.clone(),
                     ProveStage::AggProve(task_id.clone(), input, input2),
@@ -342,7 +343,7 @@ impl Pipeline {
         let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
-                self.queue.push_back(task_id.clone());
+                self.queue.push_back((task_id.clone(), 0));
                 w.insert(
                     task_id.clone(),
                     ProveStage::FinalProve(task_id.clone(), curve_name, prover_addr),
@@ -374,7 +375,7 @@ impl Pipeline {
     }
 
     pub fn prove(&mut self) -> Result<()> {
-        if let Some(task_id) = self.queue.pop_front() {
+        if let Some((task_id, old_batch_num)) = self.queue.pop_front() {
             match self.task_map.get_mut().unwrap().get(&task_id) {
                 Some(v) => match v {
                     ProveStage::BatchProve(task_id) => {
@@ -382,6 +383,7 @@ impl Pipeline {
                             self.basedir.clone(),
                             task_id.clone(),
                             self.task_name.clone(),
+                            old_batch_num,
                         );
                         BatchProver::new().batch_prove(&ctx)?;
                     }

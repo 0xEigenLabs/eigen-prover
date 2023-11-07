@@ -21,16 +21,17 @@ impl StageProver for BatchProver {
         // 1. stark prove: generate `.circom` file.
         let sp = &ctx.batch_stark;
         let cc = &ctx.batch_circom;
-        let sp_next = &ctx.batch_stark.clone(); // output
+        let c12_stark = &ctx.c12_stark; // output
+        log::info!("batch_struct: {:?}", ctx.batch_struct);
         stark_prove(
             &ctx.batch_struct,
             &sp.piljson,
-            true,
-            true,
+            false,
+            false,
             &sp.const_file,
             &sp.commit_file,
             &cc.circom_file,
-            &sp_next.zkin,
+            &c12_stark.zkin,
             "", // prover address
         )?;
 
@@ -41,8 +42,8 @@ impl StageProver for BatchProver {
             "full".to_string(),       // full_simplification
             cc.link_directories.clone(),
             cc.output.clone(),
-            true, // no_simplification
-            true, // reduced_simplification
+            false, // no_simplification
+            false, // reduced_simplification
         )
         .unwrap();
         log::info!("end batch prove");
@@ -50,32 +51,32 @@ impl StageProver for BatchProver {
         log::info!("start c12 prove");
         // 1. compress setup
         setup(
-            &sp.r1cs_file,
-            &sp.pil_file,
-            &sp.const_file,
-            &sp.exec_file,
+            &c12_stark.r1cs_file,
+            &c12_stark.pil_file,
+            &c12_stark.const_file,
+            &c12_stark.exec_file,
             0,
         )?;
 
         // 2. compress exec
         exec(
-            &sp_next.zkin,
+            &c12_stark.zkin,
             &format!("{}/{}_js/{}.wasm", cc.output, ctx.task_name, ctx.task_name),
-            &sp.pil_file,
-            &sp.exec_file,
-            &sp.commit_file,
+            &c12_stark.pil_file,
+            &c12_stark.exec_file,
+            &c12_stark.commit_file,
         )?;
 
         // 3. stark prove
         stark_prove(
             &ctx.c12_struct,
-            &sp.piljson,
+            &c12_stark.piljson,
             true,
             false,
-            &sp.const_file,
-            &sp.commit_file,
+            &c12_stark.const_file,
+            &c12_stark.commit_file,
             &cc.circom_file,
-            &sp_next.zkin,
+            &c12_stark.zkin,
             "",
         )?;
         log::info!("end c12 prove");

@@ -27,8 +27,8 @@ impl StageProver for AggProver {
             "full".to_string(),
             cc.link_directories.clone(),
             sp.zkin.clone(),
-            true,
-            true,
+            false,
+            false,
         )
         .unwrap();
 
