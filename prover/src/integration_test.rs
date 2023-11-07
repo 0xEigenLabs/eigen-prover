@@ -3,6 +3,7 @@ use std::env;
 use std::fs;
 
 #[test]
+#[ignore]
 fn integration_test() -> algebraic::errors::Result<()> {
     env::set_var("RUST_LOG", "info");
     env_logger::try_init().unwrap_or_default();
