@@ -6,6 +6,11 @@ use log::{debug, info};
 use starky::prove::stark_prove;
 use starky::{compressor12_exec::exec, compressor12_setup::setup};
 
+// Generate stark proof and generate its verifier circuit in circom
+// 1. batch prove
+// 2. compile circom to r1cs
+// 3. compress12
+// 4. c12 prove
 #[derive(Default)]
 pub struct BatchProver {}
 
@@ -16,11 +21,6 @@ impl BatchProver {
 }
 
 impl StageProver for BatchProver {
-    // Generate stark proof and generate its verifier circuit in circom
-    // 1. batch prove
-    // 2. compile circom to r1cs
-    // 3. compress12
-    // 4. c12 prove
     fn batch_prove(&self, ctx: &BatchContext) -> Result<()> {
         info!("start batch_prove");
         let batch_stark = &ctx.batch_stark;
@@ -32,8 +32,8 @@ impl StageProver for BatchProver {
         stark_prove(
             &ctx.batch_struct,
             &batch_stark.piljson,
-            true,
-            true,
+            false,
+            false,
             &batch_stark.const_file,
             &batch_stark.commit_file,
             &cc.circom_file,
@@ -42,13 +42,14 @@ impl StageProver for BatchProver {
         )?;
         debug!("end stark_prove");
 
+        // todo debug
         // 2. Compile circom circuit to r1cs, and generate witness
         debug!("start circom_compiler");
         circom_compiler(
             cc.circom_file.clone(),
             "goldilocks".to_string(), // prime
             "full".to_string(),       // full_simplification
-            cc.link_directories.clone(),
+            cc.link_directories.clone(), // seems like here meet error.
             cc.output.clone(),
             true, // no_simplification
             true, // reduced_simplification
@@ -59,8 +60,8 @@ impl StageProver for BatchProver {
         debug!("start compress_setup");
         // 3.1. compress setup
         setup(
-            &c12_stark.r1cs_file,
-            &c12_stark.pil_file,
+            &c12_stark.r1cs_file, // pil.json meet error.
+            &c12_stark.pil_file, // pil.json meet error.
             &c12_stark.const_file,
             &c12_stark.exec_file,
             0,
@@ -87,10 +88,10 @@ impl StageProver for BatchProver {
             false,
             &c12_stark.const_file,
             &c12_stark.commit_file,
-            &cc.circom_file,
+            &cc.circom_file,// todo use a new var.
             &c12_stark.zkin,
             "",
-        )?;// TODO: meet error
+        )?;
         debug!("end c12 prove");
 
         info!("end batch_prove");
