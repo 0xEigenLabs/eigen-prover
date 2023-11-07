@@ -3,15 +3,15 @@
 pub mod state {
     diesel::table! {
         state.nodes (hash) {
-            hash -> Text,
-            data -> Text,
+            hash -> Bytea,
+            data -> Bytea,
         }
     }
 
     diesel::table! {
         state.program (hash) {
-            hash -> Text,
-            data -> Text,
+            hash -> Bytea,
+            data -> Bytea,
         }
     }
 

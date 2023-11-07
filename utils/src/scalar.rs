@@ -27,17 +27,6 @@ pub fn normalize_to_0xn_format(s: &str, n: usize) -> String {
     format!("0x{}", prepend_zeros(&remove_0x(s), n))
 }
 
-pub fn byte2char(b: u8) -> char {
-    std::char::from_u32(b as u32).unwrap()
-}
-
-pub fn byte2string(b: u8) -> String {
-    let mut result = String::from("");
-    result.push(byte2char(b >> 4));
-    result.push(byte2char(b & 0x0F));
-    result
-}
-
 /// Convert array of 4 Scalars of 64 bits into a unique 256 bits scalar
 ///
 /// # Arguments
@@ -107,36 +96,6 @@ pub fn scalar2fea(scalar: &BigUint) -> [Fr; 8] {
 
 pub fn scalar2fe(scalar: u64) -> Fr {
     Fr::from(scalar)
-}
-
-/// Byte to/from char conversion
-pub fn char2byte(c: char) -> u8 {
-    match c {
-        '0'..='9' => c as u8 - b'0',
-        'A'..='F' => c as u8 - b'A' + 10,
-        'a'..='f' => c as u8 - b'a' + 10,
-        _ => panic!("Invalud conversion, non-hex char: {}", c),
-    }
-}
-
-/// Strint to/from byte array conversion
-/// s must be even sized, and must not include the leading "0x"
-/// pData buffer must be big enough to store converted data
-pub fn string2ba(os: &str) -> Vec<u8> {
-    let mut s = remove_0x(os);
-
-    if s.len() % 2 != 0 {
-        // 0 + s
-        s = prepend_zeros(&s, s.len() + 1);
-    }
-    let dsize = s.len() * 2;
-    let chars = &mut s.chars();
-    let mut result: Vec<u8> = Vec::new();
-    for _i in 0..dsize {
-        result.push(char2byte(chars.next().unwrap()));
-        result.push(char2byte(chars.next().unwrap()));
-    }
-    result
 }
 
 /* Hexa string to/from field element (array) conversion */
