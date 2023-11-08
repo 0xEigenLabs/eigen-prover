@@ -82,10 +82,13 @@ impl AggregatorService for AggregatorServiceSVC {
                             Some(req) => match req {
                                 prover_message::Response::GetStatusResponse(resp) => {
                                     let _status = resp.status;
+                                    /*
                                     let _status = match PIPELINE.lock().unwrap().get_status() {
                                         Ok(_) => 1,
                                         _ => 2,
                                     };
+                                    */
+                                    log::info!("GetStatusRequest");
                                     Some(aggregator_message::Request::GetStatusRequest(
                                         GetStatusRequest {},
                                     ))
@@ -93,8 +96,11 @@ impl AggregatorService for AggregatorServiceSVC {
                                 prover_message::Response::GenBatchProofResponse(resp) => {
                                     let id = &resp.id;
                                     let _result = &resp.result;
+                                    /*
                                     let _result =
                                         PIPELINE.lock().unwrap().batch_prove(id.clone()).unwrap();
+                                    */
+                                    log::info!("GenBatchProofRequest");
 
                                     let input_prover = InputProver {
                                         public_inputs: Some(PublicInputs::default()),
@@ -110,10 +116,13 @@ impl AggregatorService for AggregatorServiceSVC {
                                 prover_message::Response::GenAggregatedProofResponse(resp) => {
                                     let id = &resp.id;
                                     let _result = &resp.result;
+                                    /*
                                     let _result = PIPELINE
                                         .lock()
                                         .unwrap()
                                         .aggregate_prove(id.clone(), "".into());
+                                    */
+                                    log::info!("GenAggregatedProofRequest");
                                     Some(aggregator_message::Request::GenAggregatedProofRequest(
                                         GenAggregatedProofRequest {
                                             recursive_proof_1: "".into(),
@@ -124,11 +133,14 @@ impl AggregatorService for AggregatorServiceSVC {
                                 prover_message::Response::GenFinalProofResponse(resp) => {
                                     let id = &resp.id;
                                     let _result = &resp.result;
+                                    /*
                                     let _result = PIPELINE.lock().unwrap().final_prove(
                                         id.clone(),
                                         "BN128".into(),
                                         "ABC".into(),
                                     );
+                                    */
+                                    log::info!("GenFinalProofRequest");
                                     Some(aggregator_message::Request::GenFinalProofRequest(
                                         GenFinalProofRequest {
                                             recursive_proof: "".into(),
@@ -138,10 +150,13 @@ impl AggregatorService for AggregatorServiceSVC {
                                 }
                                 prover_message::Response::CancelResponse(resp) => {
                                     let _result = &resp.result;
+                                    /*
                                     let _result = match PIPELINE.lock().unwrap().cancel("".into()) {
                                         Ok(_) => 1,
                                         _ => 2,
                                     };
+                                    */
+                                    log::info!("CancelRequest");
                                     Some(aggregator_message::Request::CancelRequest(
                                         CancelRequest { id: "".into() },
                                     ))
@@ -151,6 +166,7 @@ impl AggregatorService for AggregatorServiceSVC {
                                     let _result = &resp.result;
                                     let _result_string = &resp.result_string;
                                     let _proof = &resp.proof;
+                                    /*
                                     let (_res, _str_res) = match PIPELINE
                                         .lock()
                                         .unwrap()
@@ -159,6 +175,8 @@ impl AggregatorService for AggregatorServiceSVC {
                                         Ok((res, str_res)) => (res, str_res),
                                         _ => (2, "".to_string()),
                                     };
+                                    */
+                                    log::info!("GetProofRequest");
                                     Some(aggregator_message::Request::GetProofRequest(
                                         GetProofRequest {
                                             id: id.clone(),
