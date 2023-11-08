@@ -45,3 +45,13 @@ basedir/
                                 _/public_input.json
 
 ```
+
+## Testing
+
+```bash
+RUST_BACKTRACE=1 RUST_LOG=info \
+CIRCOMLIB=../../eigen-zkvm/starkjs/node_modules/circomlib/circuits \
+STARK_VERIFIER_GL=../../eigen-zkvm/starkjs/node_modules/pil-stark/circuits.gl \
+STARK_VERIFIER_BN128=../../eigen-zkvm/starkjs/node_modules/pil-stark/circuits.bn128  \
+cargo test --release -- --nocapture
+```

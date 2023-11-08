@@ -15,7 +15,7 @@ message Version {
  * Channel: prover receives aggregator messages and returns prover messages with the same id
  */
 service AggregatorService {
-    rpc Channel(stream AggregatorMessage) returns (stream ProverMessage) {}
+    rpc Channel(stream ProverMessage) returns (stream AggregatorMessage) {}
 }
 
 message AggregatorMessage

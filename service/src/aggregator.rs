@@ -9,10 +9,11 @@ use tonic::{self, Request, Response, Status};
 
 use aggregator_service::aggregator_service_server::AggregatorService;
 use aggregator_service::{
-    aggregator_message, prover_message, AggregatorMessage, CancelResponse,
-    GenAggregatedProofResponse, GenBatchProofResponse, GenFinalProofResponse, GetProofResponse,
-    GetStatusResponse, ProverMessage,
+    aggregator_message, prover_message, AggregatorMessage, CancelRequest,
+    GenAggregatedProofRequest, GenBatchProofRequest, GenFinalProofRequest, GetProofRequest,
+    GetStatusRequest, InputProver, ProverMessage, PublicInputs,
 };
+
 use prover::Pipeline;
 
 pub mod aggregator_service {
@@ -34,9 +35,9 @@ fn match_for_io_error(err_status: &Status) -> Option<&std::io::Error> {
         // https://github.com/hyperium/h2/pull/462
         /*
         if let Some(h2_err) = err.downcast_ref::<h2::Error>() {
-            if let Some(io_err) = h2_err.get_io() {
-                return Some(io_err);
-            }
+        if let Some(io_err) = h2_err.get_io() {
+        return Some(io_err);
+        }
         }
         */
 
@@ -60,11 +61,11 @@ pub fn prove() -> algebraic::errors::Result<()> {
 
 #[tonic::async_trait]
 impl AggregatorService for AggregatorServiceSVC {
-    type ChannelStream = Pin<Box<dyn Stream<Item = Result<ProverMessage, Status>> + Send>>;
+    type ChannelStream = Pin<Box<dyn Stream<Item = Result<AggregatorMessage, Status>> + Send>>;
 
     async fn channel(
         &self,
-        request: Request<tonic::Streaming<AggregatorMessage>>, // Accept request of type HelloRequest
+        request: Request<tonic::Streaming<ProverMessage>>, // Accept request of type HelloRequest
     ) -> Result<Response<Self::ChannelStream>, Status> {
         // Return an instance of type HelloReply
         log::info!("Got a request: {:?}", request);
@@ -77,97 +78,91 @@ impl AggregatorService for AggregatorServiceSVC {
             while let Some(item) = in_stream.next().await {
                 match item {
                     Ok(v) => {
-                        let resp = match v.request {
+                        let req = match v.response {
                             Some(req) => match req {
-                                aggregator_message::Request::GetStatusRequest(_req) => {
-                                    // TODO: return prover info
-                                    let status = match PIPELINE.lock().unwrap().get_status() {
+                                prover_message::Response::GetStatusResponse(resp) => {
+                                    let _status = resp.status;
+                                    let _status = match PIPELINE.lock().unwrap().get_status() {
                                         Ok(_) => 1,
                                         _ => 2,
                                     };
-                                    Some(prover_message::Response::GetStatusResponse(
-                                        GetStatusResponse {
-                                            status,
-                                            ..Default::default()
+                                    Some(aggregator_message::Request::GetStatusRequest(
+                                        GetStatusRequest {},
+                                    ))
+                                }
+                                prover_message::Response::GenBatchProofResponse(resp) => {
+                                    let id = &resp.id;
+                                    let _result = &resp.result;
+                                    let _result =
+                                        PIPELINE.lock().unwrap().batch_prove(id.clone()).unwrap();
+
+                                    let input_prover = InputProver {
+                                        public_inputs: Some(PublicInputs::default()),
+                                        db: Default::default(),
+                                        contracts_bytecode: Default::default(),
+                                    };
+                                    Some(aggregator_message::Request::GenBatchProofRequest(
+                                        GenBatchProofRequest {
+                                            input: Some(input_prover),
                                         },
                                     ))
                                 }
-                                aggregator_message::Request::GenBatchProofRequest(req) => {
-                                    let inp = req.input.unwrap().public_inputs.unwrap();
-                                    let result = PIPELINE
+                                prover_message::Response::GenAggregatedProofResponse(resp) => {
+                                    let id = &resp.id;
+                                    let _result = &resp.result;
+                                    let _result = PIPELINE
                                         .lock()
                                         .unwrap()
-                                        .batch_prove(inp.old_batch_num, inp.batch_l2_data.clone());
-                                    let (id, res) = match result {
-                                        Ok(i) => (i, 1),
-                                        _ => ("".to_string(), 2),
-                                    };
-                                    Some(prover_message::Response::GenBatchProofResponse(
-                                        GenBatchProofResponse {
-                                            id: id,
-                                            result: res,
+                                        .aggregate_prove(id.clone(), "".into());
+                                    Some(aggregator_message::Request::GenAggregatedProofRequest(
+                                        GenAggregatedProofRequest {
+                                            recursive_proof_1: "".into(),
+                                            recursive_proof_2: "".into(),
                                         },
                                     ))
                                 }
-                                aggregator_message::Request::GenAggregatedProofRequest(req) => {
-                                    //let id = resp.current_computing_request_id;
-                                    let result = PIPELINE.lock().unwrap().aggregate_prove(
-                                        req.recursive_proof_1.clone(),
-                                        req.recursive_proof_2.clone(),
+                                prover_message::Response::GenFinalProofResponse(resp) => {
+                                    let id = &resp.id;
+                                    let _result = &resp.result;
+                                    let _result = PIPELINE.lock().unwrap().final_prove(
+                                        id.clone(),
+                                        "BN128".into(),
+                                        "ABC".into(),
                                     );
-                                    let (id, res) = match result {
-                                        Ok(i) => (i, 1),
-                                        _ => ("".to_string(), 2),
-                                    };
-                                    Some(prover_message::Response::GenAggregatedProofResponse(
-                                        GenAggregatedProofResponse {
-                                            id: id,
-                                            result: res,
+                                    Some(aggregator_message::Request::GenFinalProofRequest(
+                                        GenFinalProofRequest {
+                                            recursive_proof: "".into(),
+                                            aggregator_addr: "".into(),
                                         },
                                     ))
                                 }
-                                aggregator_message::Request::GenFinalProofRequest(req) => {
-                                    //let id = resp.current_computing_request_id;
-                                    let result = PIPELINE.lock().unwrap().final_prove(
-                                        req.recursive_proof.clone(),
-                                        req.aggregator_addr.clone(),
-                                    );
-                                    let (id, res) = match result {
-                                        Ok(i) => (i, 1),
-                                        _ => ("".to_string(), 2),
+                                prover_message::Response::CancelResponse(resp) => {
+                                    let _result = &resp.result;
+                                    let _result = match PIPELINE.lock().unwrap().cancel("".into()) {
+                                        Ok(_) => 1,
+                                        _ => 2,
                                     };
-                                    Some(prover_message::Response::GenFinalProofResponse(
-                                        GenFinalProofResponse {
-                                            id: id,
-                                            result: res,
-                                        },
+                                    Some(aggregator_message::Request::CancelRequest(
+                                        CancelRequest { id: "".into() },
                                     ))
                                 }
-                                aggregator_message::Request::CancelRequest(req) => {
-                                    let result =
-                                        match PIPELINE.lock().unwrap().cancel(req.id.clone()) {
-                                            Ok(_) => 1,
-                                            _ => 2,
-                                        };
-                                    Some(prover_message::Response::CancelResponse(CancelResponse {
-                                        result,
-                                    }))
-                                }
-                                aggregator_message::Request::GetProofRequest(req) => {
-                                    let (res, str_res) = match PIPELINE
+                                prover_message::Response::GetProofResponse(resp) => {
+                                    let id = &resp.id;
+                                    let _result = &resp.result;
+                                    let _result_string = &resp.result_string;
+                                    let _proof = &resp.proof;
+                                    let (_res, _str_res) = match PIPELINE
                                         .lock()
                                         .unwrap()
-                                        .get_proof(req.id.clone(), req.timeout)
+                                        .get_proof(resp.id.clone(), 0)
                                     {
                                         Ok((res, str_res)) => (res, str_res),
                                         _ => (2, "".to_string()),
                                     };
-                                    Some(prover_message::Response::GetProofResponse(
-                                        GetProofResponse {
-                                            id: req.id.clone(),
-                                            result: res,
-                                            result_string: str_res,
-                                            proof: Default::default(), //FIXME
+                                    Some(aggregator_message::Request::GetProofRequest(
+                                        GetProofRequest {
+                                            id: id.clone(),
+                                            timeout: 0,
                                         },
                                     ))
                                 }
@@ -175,9 +170,9 @@ impl AggregatorService for AggregatorServiceSVC {
                             None => None,
                         };
 
-                        tx.send(Ok(ProverMessage {
+                        tx.send(Ok(AggregatorMessage {
                             id: v.id,
-                            response: resp,
+                            request: req,
                         }))
                         .await
                         .expect("working rx")
