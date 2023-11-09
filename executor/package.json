@@ -20,7 +20,7 @@
     "google-protobuf": "^3.21.2",
     "minimist": "^1.2.8",
     "path": "^0.12.7",
-    "pil-stark": "^0.0.56",
+    "pil-stark": "^0.0.49",
     "protobufjs": "^7.2.5",
     "protobufjs-cli": "^1.1.2",
     "sm": "file:../../eigen-zkvm/SM",
