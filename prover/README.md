@@ -50,8 +50,8 @@ basedir/
 
 ```bash
 RUST_BACKTRACE=1 RUST_LOG=info \
-CIRCOMLIB=../../eigen-zkvm/starkjs/node_modules/circomlib/circuits \
-STARK_VERIFIER_GL=../../eigen-zkvm/starkjs/node_modules/pil-stark/circuits.gl \
-STARK_VERIFIER_BN128=../../eigen-zkvm/starkjs/node_modules/pil-stark/circuits.bn128  \
+CIRCOMLIB=../executor/node_modules/circomlib/circuits \
+STARK_VERIFIER_GL=../executor/node_modules/pil-stark/circuits.gl \
+STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128  \
 cargo test --release -- --nocapture
 ```
