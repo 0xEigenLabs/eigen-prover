@@ -2,14 +2,13 @@
 #![allow(dead_code)]
 
 use tonic::transport::Server;
-mod aggregator;
+mod aggregator_client;
 mod config;
 mod statedb;
 
 #[macro_use]
 extern crate lazy_static;
 
-use aggregator::aggregator_service::aggregator_service_server::AggregatorServiceServer;
 use statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use tokio::{
     signal::unix::{signal, SignalKind},
@@ -25,7 +24,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let runtim_config = config::RuntimeConfig::from_toml("conf/base_config.toml").unwrap();
     let addr = runtim_config.addr.as_str().parse()?;
     let sdb = statedb::StateDBServiceSVC::default();
-    let agg = aggregator::AggregatorServiceSVC::default();
 
     log::info!("Launching sigterm handler");
     let (signal_tx, signal_rx) = oneshot::channel();
@@ -38,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    match aggregator::prove() {
+                    match aggregator_client::prove().await {
                         Ok(_) => {
                             log::debug!("prove one task");
                         }
@@ -60,7 +58,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("Listening on {}", addr);
     Server::builder()
         .add_service(StateDbServiceServer::new(sdb))
-        .add_service(AggregatorServiceServer::new(agg))
         .serve_with_shutdown(addr, async {
             signal_rx.await.ok();
             log::info!("Graceful context shutdown");
