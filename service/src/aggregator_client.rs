@@ -2,21 +2,21 @@
 #![allow(unknown_lints)]
 use algebraic::errors::{EigenError, Result};
 use std::env::var;
-use std::pin::Pin;
 use std::sync::Mutex;
 use std::time;
-use tokio::sync::mpsc;
-use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
-use tonic::{self, Request, Response, Status};
+use tokio_stream::{StreamExt};
+use tonic::{self, Request};
+
+use crate::time::{interval, Instant};
 
 use aggregator_service::aggregator_service_client::AggregatorServiceClient;
 use aggregator_service::{
     get_status_response,
-    aggregator_message, prover_message, AggregatorMessage, CancelRequest, CancelResponse,
-    GenAggregatedProofRequest, GenAggregatedProofResponse, GenBatchProofRequest,
-    GenBatchProofResponse, GenFinalProofRequest, GenFinalProofResponse, GetProofRequest,
-    GetProofResponse, GetStatusRequest, GetStatusResponse, InputProver, ProverMessage,
-    PublicInputs,
+    aggregator_message, prover_message, CancelResponse,
+    GenAggregatedProofResponse,
+    GenBatchProofResponse, GenFinalProofResponse,
+    GetProofResponse, GetStatusResponse, ProverMessage,
+    // PublicInputs, InputProver,
 };
 
 use prover::Pipeline;
@@ -32,12 +32,6 @@ lazy_static! {
     ));
 }
 
-fn echo_requests_iter() -> impl Stream<Item = ProverMessage> {
-    tokio_stream::iter(1..usize::MAX).map(|i| ProverMessage {
-        ..Default::default()
-    })
-}
-
 pub async fn prove() -> Result<()> {
     // PIPELINE.lock().unwrap().prove()
 
@@ -48,9 +42,21 @@ pub async fn prove() -> Result<()> {
 
     log::debug!("streaming aggregator:");
 
+    let start = Instant::now();
+
+    let outbound = async_stream::stream! {
+        let mut intval = interval(time::Duration::from_secs(1));
+
+        loop {
+            let time = intval.tick().await;
+            let elapsed = time.duration_since(start);
+
+            yield ProverMessage::default();
+        }
+    };
+
     // TODO: how to initialize the first message?
-    let in_stream = echo_requests_iter();
-    let response = client.channel(in_stream).await.unwrap();
+    let response = client.channel(Request::new(outbound)).await.unwrap();
 
     let mut resp_stream = response.into_inner();
 
@@ -177,6 +183,8 @@ pub async fn prove() -> Result<()> {
                 None
             }
         };
+
+        //TODO send response
     }
 
     Ok(())
