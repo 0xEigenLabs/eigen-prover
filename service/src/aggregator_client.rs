@@ -1,13 +1,13 @@
 #![allow(clippy::all)]
 #![allow(unknown_lints)]
+use algebraic::errors::{EigenError, Result};
 use std::env::var;
 use std::pin::Pin;
-use std::time;
 use std::sync::Mutex;
+use std::time;
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{self, Request, Response, Status};
-use algebraic::errors::{Result, EigenError};
 
 use aggregator_service::aggregator_service_client::AggregatorServiceClient;
 use aggregator_service::{
@@ -39,17 +39,15 @@ pub async fn prove() -> Result<()> {
     // PIPELINE.lock().unwrap().prove()
 
     let addr = std::env::var("NODE_ADDR").unwrap_or("http://[::1]:50051".to_string());
-    let mut client = AggregatorServiceClient::connect(addr.clone()).await.map_err(|e| EigenError::from(format!("Connect {}, error: {:?}", addr, e)))?;
+    let mut client = AggregatorServiceClient::connect(addr.clone())
+        .await
+        .map_err(|e| EigenError::from(format!("Connect {}, error: {:?}", addr, e)))?;
 
     log::debug!("streaming aggregator:");
 
-
     let in_stream = echo_requests_iter();
 
-    let response = client
-        .channel(in_stream)
-        .await
-        .unwrap();
+    let response = client.channel(in_stream).await.unwrap();
 
     let mut resp_stream = response.into_inner();
 
