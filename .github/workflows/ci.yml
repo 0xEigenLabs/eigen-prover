@@ -51,6 +51,13 @@ jobs:
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - name: Install Dependencies
         run: sudo apt install protobuf-compiler
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./executor
       - name: Install diesel
         run: cargo install diesel_cli
       - name: DB Migration
@@ -59,13 +66,6 @@ jobs:
         run: cargo build --verbose --release
       - name: Cargo test
         run: cargo test --release --verbose
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
-        with:
-          node-version: ${{ matrix.node-version }}
-      - name: Install dependencies
-        run: npm install
-        working-directory: ./executor
       - name: Cargo test prover
         run: cargo test --release -- --nocapture
         working-directory: ./prover
