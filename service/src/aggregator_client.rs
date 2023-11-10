@@ -38,9 +38,11 @@ lazy_static! {
     };
 }
 
-pub async fn prove() -> Result<()> {
-    // PIPELINE.lock().unwrap().prove()
+pub async fn run_prover() -> Result<()> {
+    PIPELINE.lock().unwrap().prove()
+}
 
+pub async fn run_client() -> Result<()> {
     let addr = std::env::var("NODE_ADDR").unwrap_or("http://[::1]:50051".to_string());
     let mut client = AggregatorServiceClient::connect(addr.clone())
         .await

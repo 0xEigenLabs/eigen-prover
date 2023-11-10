@@ -11,9 +11,8 @@ This repo aims to build components:
 Use [grpc server](https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md)
 
 ```
-cargo run
-# run in another terminal
-cargo run --example set
+cd service
+PROVER_FORK_ID=4  NODE_ADDR=http://127.0.0.1:50081  RUST_LOG=debug cargo run --release
 ```
 
 ## StateDB
