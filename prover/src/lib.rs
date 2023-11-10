@@ -393,9 +393,9 @@ impl Pipeline {
     }
 
     /// TODO: Return proof
-    pub fn get_proof(&mut self, task_id: String, _timeout: u64) -> Result<(i32, String)> {
+    pub fn get_proof(&mut self, task_id: String, _timeout: u64) -> Result<String> {
         match self.load_checkpoint(task_id) {
-            Ok(true) => Ok((1, "".to_string())),
+            Ok(true) => Ok("".to_string()),
             _ => Err(EigenError::InvalidValue("get_proof failed".to_string())),
         }
     }

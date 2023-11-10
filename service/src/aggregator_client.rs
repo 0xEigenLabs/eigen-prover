@@ -1,23 +1,25 @@
 #![allow(clippy::all)]
 #![allow(unknown_lints)]
+use aggregator_service::aggregator_service_client::AggregatorServiceClient;
+use aggregator_service::{
+    aggregator_message,
+    get_status_response,
+    prover_message,
+    CancelResponse,
+    GenAggregatedProofResponse,
+    GenBatchProofResponse,
+    GenFinalProofResponse,
+    GetProofResponse,
+    GetStatusResponse,
+    ProverMessage,
+    // PublicInputs, InputProver,
+};
 use algebraic::errors::{EigenError, Result};
 use std::env::var;
 use std::sync::Mutex;
-use std::time;
-use tokio_stream::{StreamExt};
+use tokio::sync::mpsc;
+use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::{self, Request};
-
-use crate::time::{interval, Instant};
-
-use aggregator_service::aggregator_service_client::AggregatorServiceClient;
-use aggregator_service::{
-    get_status_response,
-    aggregator_message, prover_message, CancelResponse,
-    GenAggregatedProofResponse,
-    GenBatchProofResponse, GenFinalProofResponse,
-    GetProofResponse, GetStatusResponse, ProverMessage,
-    // PublicInputs, InputProver,
-};
 
 use prover::Pipeline;
 
@@ -30,6 +32,10 @@ lazy_static! {
         var("WORKSPACE").unwrap_or("/tmp/prover".to_string()),
         var("TASK_NAME").unwrap_or("fib".to_string())
     ));
+    static ref PROVER_FORK_ID: u64 = {
+        let fork_id = var("PROVER_FORK_ID").unwrap_or("0".into());
+        fork_id.parse().unwrap_or(0)
+    };
 }
 
 pub async fn prove() -> Result<()> {
@@ -42,149 +48,137 @@ pub async fn prove() -> Result<()> {
 
     log::debug!("streaming aggregator:");
 
-    let start = Instant::now();
+    let (tx, rx) = mpsc::channel(128);
 
-    let outbound = async_stream::stream! {
-        let mut intval = interval(time::Duration::from_secs(1));
+    let out_stream = ReceiverStream::new(rx);
 
-        loop {
-            let time = intval.tick().await;
-            let elapsed = time.duration_since(start);
-
-            yield ProverMessage::default();
-        }
-    };
-
-    // TODO: how to initialize the first message?
-    let response = client.channel(Request::new(outbound)).await.unwrap();
+    let response = client
+        .channel(Request::new(out_stream))
+        .await
+        .map_err(|e| EigenError::from(format!("receive channel: {:?}", e)))?;
 
     let mut resp_stream = response.into_inner();
 
     while let Some(received) = resp_stream.next().await {
         let received = received.unwrap();
-        let resp = match received.request {
-            Some(req) => match req {
-                aggregator_message::Request::GetStatusRequest(req) => {
+        if let Some(request) = received.request {
+            let resp = match request {
+                aggregator_message::Request::GetStatusRequest(_req) => {
                     // step 1: get prover status
                     let status = match PIPELINE.lock().unwrap().get_status() {
                         Ok(_) => get_status_response::Status::Booting,
                         _ => get_status_response::Status::Unspecified,
                     };
-                    Some(prover_message::Response::GetStatusResponse(
-                        GetStatusResponse {
-                            status: status.into(),
-                            last_computed_request_id: "".to_string(),
-                            last_computed_end_time: 0,
-                            current_computing_request_id: "".to_string(),
-                            current_computing_start_time: 0,
-                            version_proto: "".to_string(),
-                            version_server: "".to_string(),
-                            pending_request_queue_ids: vec![],
-                            prover_name: "".to_string(),
-                            prover_id: "".to_string(),
-                            number_of_cores: 0,
-                            total_memory: 0,
-                            free_memory: 0,
-                            fork_id: 0,
-                        },
-                    ))
+                    // TODO: cpu and mem usage: https://github.com/GuillaumeGomez/sysinfo
+                    prover_message::Response::GetStatusResponse(GetStatusResponse {
+                        status: status.into(),
+                        last_computed_request_id: "".to_string(),
+                        last_computed_end_time: 0,
+                        current_computing_request_id: "".to_string(),
+                        current_computing_start_time: 0,
+                        version_proto: "".to_string(),
+                        version_server: "".to_string(),
+                        pending_request_queue_ids: vec![],
+                        prover_name: "".to_string(),
+                        prover_id: "".to_string(),
+                        number_of_cores: 0,
+                        total_memory: 0,
+                        free_memory: 0,
+                        fork_id: *PROVER_FORK_ID,
+                    })
                 }
                 aggregator_message::Request::GenBatchProofRequest(req) => {
                     // step 2: submit input to prover, and get task id
-                    let result = PIPELINE.lock().unwrap().batch_prove(
-                        /*
-                        req.input
-                            .unwrap()
-                            .public_inputs
-                            .unwrap()
-                            .batch_l2_data
-                            .clone(),
-                        */
-                        "".into()
-                    );
-                    let (id, res) = match result {
-                        Ok(i) => (i, 1),
-                        _ => ("".to_string(), 2),
+                    let input = req.input.unwrap();
+                    let _public_input = input.public_inputs.unwrap();
+                    let _contract_bytecode = input.contracts_bytecode;
+                    let _db = input.db;
+                    // TODO: use the input
+                    let task_id = uuid::Uuid::new_v4();
+                    let result = match PIPELINE.lock().unwrap().batch_prove(task_id.to_string()) {
+                        Ok(_) => aggregator_service::Result::Ok,
+                        _ => aggregator_service::Result::Error,
                     };
-                    Some(prover_message::Response::GenBatchProofResponse(
-                        GenBatchProofResponse {
-                            id: id,
-                            result: res,
-                        },
-                    ))
+                    prover_message::Response::GenBatchProofResponse(GenBatchProofResponse {
+                        id: task_id.to_string(),
+                        result: result.into(),
+                    })
                 }
 
                 aggregator_message::Request::GenAggregatedProofRequest(req) => {
                     // step 4: submit 2 proofs to aggregate, and goto step 3 again
-                    let result = PIPELINE.lock().unwrap().aggregate_prove(
+                    let (id, result) = match PIPELINE.lock().unwrap().aggregate_prove(
                         req.recursive_proof_1.clone(),
                         req.recursive_proof_2.clone(),
-                    );
-                    let (id, res) = match result {
-                        Ok(i) => (i, 1),
-                        _ => ("".to_string(), 2),
+                    ) {
+                        Ok(id) => (id, aggregator_service::Result::Ok),
+                        _ => ("".into(), aggregator_service::Result::Error),
                     };
-                    Some(prover_message::Response::GenAggregatedProofResponse(
+                    prover_message::Response::GenAggregatedProofResponse(
                         GenAggregatedProofResponse {
                             id: id,
-                            result: res,
+                            result: result.into(),
                         },
-                    ))
+                    )
                 }
                 aggregator_message::Request::GenFinalProofRequest(req) => {
                     // step 5: wrap the stark proof to snark, and goto step 3 again
-                    let result = PIPELINE.lock().unwrap().final_prove(
-                        "".into(),
+                    let task_id = uuid::Uuid::new_v4();
+                    let result = match PIPELINE.lock().unwrap().final_prove(
+                        task_id.to_string(),
                         req.recursive_proof.clone(),
                         req.aggregator_addr.clone(),
-                    );
-                    let (id, res) = match result {
-                        Ok(i) => (i, 1),
-                        _ => ("".to_string(), 2),
+                    ) {
+                        Ok(_) => aggregator_service::Result::Ok,
+                        _ => aggregator_service::Result::Error,
                     };
-                    Some(prover_message::Response::GenFinalProofResponse(
-                        GenFinalProofResponse {
-                            id: id,
-                            result: res,
-                        },
-                    ))
+                    prover_message::Response::GenFinalProofResponse(GenFinalProofResponse {
+                        id: task_id.to_string(),
+                        result: result.into(),
+                    })
                 }
                 aggregator_message::Request::CancelRequest(req) => {
                     let result = match PIPELINE.lock().unwrap().cancel(req.id.clone()) {
-                        Ok(_) => 1,
-                        _ => 2,
+                        Ok(_) => aggregator_service::Result::Ok,
+                        _ => aggregator_service::Result::Error,
                     };
-                    Some(prover_message::Response::CancelResponse(CancelResponse {
-                        result,
-                    }))
+                    prover_message::Response::CancelResponse(CancelResponse {
+                        result: result.into(),
+                    })
                 }
                 aggregator_message::Request::GetProofRequest(req) => {
                     // step 3: fetch proving progress by task id, and get the proof data
-                    let (res, str_res) = match PIPELINE
+                    let (_proof, res) = match PIPELINE
                         .lock()
                         .unwrap()
                         .get_proof(req.id.clone(), req.timeout)
                     {
-                        Ok((res, str_res)) => (res, str_res),
-                        _ => (2, "".to_string()),
+                        Ok(proof) => (proof, aggregator_service::Result::Ok),
+                        _ => ("".to_string(), aggregator_service::Result::Error),
                     };
-                    Some(prover_message::Response::GetProofResponse(
-                        GetProofResponse {
-                            id: req.id.clone(),
-                            result: res,
-                            result_string: str_res,
-                            proof: Default::default(), //FIXME
-                        },
-                    ))
-                }
-            },
-            _ => {
-                log::info!("Request is empty");
-                None
-            }
-        };
 
-        //TODO send response
+                    // TODO: check if it a final proof or recursive proof by status file
+                    // get_proof_response::Proof::RecursiveProof()
+                    // get_proof_response::Proof::FinalProof()
+
+                    prover_message::Response::GetProofResponse(GetProofResponse {
+                        id: req.id.clone(),
+                        result: res.into(),
+                        result_string: "".into(),
+                        proof: None,
+                    })
+                }
+            };
+            tx.send(ProverMessage {
+                id: received.id.clone(),
+                response: Some(resp),
+            })
+            .await
+            .map_err(|e| EigenError::from(format!("send message, {:?}", e)))?;
+        } else {
+            log::debug!("Sleep for next message");
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
     }
 
     Ok(())
