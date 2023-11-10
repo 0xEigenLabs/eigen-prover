@@ -36,6 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
+                    /*
                     match aggregator_client::prove().await {
                         Ok(_) => {
                             log::debug!("prove one task");
@@ -44,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             log::warn!("Task error: {:?}", e)
                         }
                     };
+                    */
                 },
                 _ = recv.changed() => {
                     log::info!("finished, break the loop, call it a day");
