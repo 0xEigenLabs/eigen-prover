@@ -1,7 +1,10 @@
-mod agg_prove;
-mod batch_prove;
-mod final_prove;
-mod traits;
+pub(crate) mod agg_prove;
+pub(crate) mod batch_prove;
+pub(crate) mod final_prove;
+pub(crate) mod traits;
+
+#[cfg(test)]
+mod integration_test;
 
 use crate::agg_prove::AggProver;
 use crate::batch_prove::BatchProver;
@@ -61,7 +64,7 @@ impl CircomCompileArgs {
     pub fn new(basedir: &str, task_path: &str, task_name: &str, curve: &str) -> Self {
         CircomCompileArgs {
             circom_file: format!("{basedir}/{task_path}/{task_name}.circom",),
-            output: format!("{basedir}/{task_path}/",),
+            output: format!("{basedir}/{task_path}",),
             link_directories: load_link(curve), // setup the library path
         }
     }
@@ -97,10 +100,6 @@ impl StarkProveArgs {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct FinalProveArgs {
     curve_type: String,
-    circuit_file: String,
-    wasm_file: String,
-    input_file: String,
-
     pk_file: String,
     vk_file: String,
     public_input_file: String,
@@ -116,6 +115,8 @@ pub struct FinalContext {
 
     final_stark: StarkProveArgs,
     final_circom: CircomCompileArgs,
+    recursive2_circom: CircomCompileArgs,
+    recursive2_stark: StarkProveArgs,
     final_stark_struct: String,
 
     final_snark: FinalProveArgs,
@@ -129,23 +130,33 @@ impl FinalContext {
         curve: String,
         prover_addr: String,
     ) -> Self {
-        let prev_task_path =
-            ProveStage::FinalProve(task_id.clone(), curve.clone(), prover_addr.clone()).path();
+        let prev_task_path = ProveStage::AggProve(task_id.clone(), "".into(), "".into()).path();
         let task_path =
             ProveStage::FinalProve(task_id.clone(), curve.clone(), prover_addr.clone()).path();
+        let r2_task_name = format!("{}.recursive2", task_name);
+        let final_task_name = format!("{}.final", task_name);
         FinalContext {
             basedir: basedir.clone(),
             task_id,
             prover_addr,
             task_name: task_name.clone(),
             final_stark_struct: "data/final.stark_struct.json".to_string(),
-            final_stark: StarkProveArgs::new(&basedir, &task_path, &task_name, &curve),
-            final_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, &curve),
-            final_snark: FinalProveArgs{
+            final_stark: StarkProveArgs::new(&basedir, &prev_task_path, &final_task_name, &curve),
+            recursive2_stark: StarkProveArgs::new(&basedir, &prev_task_path, &r2_task_name, &curve),
+            final_circom: CircomCompileArgs::new(
+                &basedir,
+                &prev_task_path,
+                &final_task_name,
+                &curve,
+            ),
+            recursive2_circom: CircomCompileArgs::new(
+                &basedir,
+                &prev_task_path,
+                &r2_task_name,
+                "GL",
+            ),
+            final_snark: FinalProveArgs {
                 curve_type: curve,
-                circuit_file: format!("{basedir}/{prev_task_path}/{task_name}.recursive2.r1cs"),
-                wasm_file: format!("{basedir}/{prev_task_path}/{task_name}.recursive2_js/{task_name}_recursive2.r1cs"),
-                input_file: format!("{basedir}/{prev_task_path}/{task_name}.recursive2.zkin.json"),
                 pk_file: format!("{basedir}/{task_path}/g16.key"),
                 vk_file: format!("{basedir}/{task_path}/verification_key.json"),
                 public_input_file: format!("{basedir}/{task_path}/public_input.json"),
@@ -162,73 +173,86 @@ pub struct BatchContext {
     task_name: String,
 
     batch_stark: StarkProveArgs,
-    c12_stark: StarkProveArgs,
 
-    batch_circom: CircomCompileArgs,
+    c12_stark: StarkProveArgs,
     c12_circom: CircomCompileArgs,
+
+    recursive1_stark: StarkProveArgs,
+    recursive1_circom: CircomCompileArgs,
 
     c12_struct: String,
     batch_struct: String,
 }
 
 impl BatchContext {
-    pub fn new(basedir: String, task_id: String, task_name: String) -> Self {
-        let executor_dir = format!("{}/executor/{}", basedir.clone(), task_id.clone());
-        let task_path = ProveStage::BatchProve(task_id.clone()).path();
+    pub fn new(basedir: &str, task_id: &str, task_name: &str) -> Self {
+        let executor_dir = format!("{}/executor/{}", basedir, task_id);
+        let task_path = ProveStage::BatchProve(task_id.to_string()).path();
+        let c12_task_name = format!("{}.c12", task_name);
+
+        let r1_task_name = format!("{}.recursive1", task_name);
+
         BatchContext {
-            basedir: basedir.clone(),
-            task_id: task_id.clone(),
-            task_name: task_name.clone(),
+            basedir: basedir.to_string(),
+            task_id: task_id.to_string(),
+            task_name: task_name.to_string(),
             batch_struct: "data/batch.stark_struct.json".to_string(),
             c12_struct: "data/c12.stark_struct.json".to_string(),
 
             batch_stark: StarkProveArgs {
                 r1cs_file: "".to_string(),
                 pil_file: "".to_string(),
-                piljson: format!("{}/{}.pil.json", executor_dir, task_name.clone()),
-                const_file: format!("{}/{}.const", executor_dir, task_name.clone()),
-                commit_file: format!("{}/{}.cm", executor_dir, task_name.clone()),
+                piljson: format!("{}/{}.pil.json", executor_dir, task_name),
+                const_file: format!("{}/{}.const", executor_dir, task_name),
+                commit_file: format!("{}/{}.cm", executor_dir, task_name),
                 exec_file: "".to_string(),
                 zkin: "".to_string(),
                 curve_type: "GL".to_string(),
             },
-            batch_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, "GL"),
 
-            c12_stark: StarkProveArgs::new(&basedir, &task_path, &task_name, "GL"),
-            c12_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, "GL"),
+            c12_stark: StarkProveArgs::new(basedir, &task_path, &c12_task_name, "GL"),
+            c12_circom: CircomCompileArgs::new(basedir, &task_path, &c12_task_name, "GL"),
+
+            recursive1_stark: StarkProveArgs::new(basedir, &task_path, &r1_task_name, "GL"),
+            recursive1_circom: CircomCompileArgs::new(basedir, &task_path, &r1_task_name, "GL"),
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct AggContext {
-    basedir: String,
-    task_name: String,
+    pub basedir: String,
+    pub task_name: String,
     input: String,
     input2: String,
 
+    agg_zkin: String,
+    agg_struct: String,
+
     agg_stark: StarkProveArgs,
     agg_circom: CircomCompileArgs,
-    agg_struct: String,
 }
 
 impl AggContext {
     pub fn new(
-        basedir: String,
-        task_id: String,
-        task_name: String,
+        basedir: &str,
+        task_id: &str,
+        task_name: &str,
         input: String,
         input2: String,
     ) -> Self {
-        let task_path = ProveStage::AggProve(task_id.clone(), input.clone(), input2.clone()).path();
+        let task_path =
+            ProveStage::AggProve(task_id.to_string(), input.clone(), input2.clone()).path();
+        let r2_task_name = format!("{}.recursive2", task_name);
         AggContext {
-            basedir: basedir.clone(),
-            task_name: task_name.clone(),
+            basedir: basedir.to_string(),
+            task_name: task_name.to_string(),
             input,
             input2,
+            agg_zkin: format!("{}/proof/{}/agg_zkin.json", basedir, task_id),
             agg_struct: "data/agg.stark_struct.json".to_string(),
-            agg_stark: StarkProveArgs::new(&basedir, &task_path, &task_name, "GL"),
-            agg_circom: CircomCompileArgs::new(&basedir, &task_path, &task_name, "GL"),
+            agg_stark: StarkProveArgs::new(basedir, &task_path, &r2_task_name, "GL"),
+            agg_circom: CircomCompileArgs::new(basedir, &task_path, &r2_task_name, "GL"),
         }
     }
 }
@@ -236,8 +260,8 @@ impl AggContext {
 impl ProveStage {
     fn path(&self) -> String {
         let stage = match self {
-            Self::BatchProve(task_id) => format!("proof/{task_id}/agg_proof"),
-            Self::AggProve(task_id, _, _) => format!("proof/{task_id}/batch_proof"),
+            Self::BatchProve(task_id) => format!("proof/{task_id}/batch_proof"),
+            Self::AggProve(task_id, _, _) => format!("proof/{task_id}/agg_proof"),
             Self::FinalProve(task_id, _, _) => format!("proof/{task_id}/snark_proof"),
         };
         stage.to_string()
@@ -252,7 +276,7 @@ impl ProveStage {
 pub struct Pipeline {
     basedir: String,
     task_name: String,
-    queue: VecDeque<String>,
+    queue: VecDeque<String>, // task_id
     task_map: Mutex<HashMap<String, ProveStage>>,
 }
 
@@ -274,6 +298,7 @@ impl Pipeline {
         if let Some(status) = task {
             // mkdir
             let workdir = Path::new(&self.basedir).join(status.path());
+            log::info!("save_checkpoint, mkdir: {:?}", workdir);
             let _ = std::fs::create_dir_all(workdir);
 
             if !finished {
@@ -308,9 +333,7 @@ impl Pipeline {
         Ok(status)
     }
 
-    /// FIXME: receive input data
-    pub fn batch_prove(&mut self, _batch_l2_data: Vec<u8>) -> Result<String> {
-        let task_id = Uuid::new_v4().to_string();
+    pub fn batch_prove(&mut self, task_id: String) -> Result<String> {
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(task_id.clone());
@@ -322,14 +345,14 @@ impl Pipeline {
     }
 
     /// Add a new task into task queue
-    pub fn aggregate_prove(&mut self, input: String, input2: String) -> Result<String> {
+    pub fn aggregate_prove(&mut self, task: String, task2: String) -> Result<String> {
         let task_id = Uuid::new_v4().to_string();
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(task_id.clone());
                 w.insert(
                     task_id.clone(),
-                    ProveStage::AggProve(task_id.clone(), input, input2),
+                    ProveStage::AggProve(task_id.clone(), task, task2),
                 );
                 self.save_checkpoint(task_id, false)
             }
@@ -338,8 +361,12 @@ impl Pipeline {
     }
 
     /// Add a new task into task queue
-    pub fn final_prove(&mut self, curve_name: String, prover_addr: String) -> Result<String> {
-        let task_id = Uuid::new_v4().to_string();
+    pub fn final_prove(
+        &mut self,
+        task_id: String,
+        curve_name: String,
+        prover_addr: String,
+    ) -> Result<String> {
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(task_id.clone());
@@ -366,9 +393,9 @@ impl Pipeline {
     }
 
     /// TODO: Return proof
-    pub fn get_proof(&mut self, task_id: String, _timeout: u64) -> Result<(i32, String)> {
+    pub fn get_proof(&mut self, task_id: String, _timeout: u64) -> Result<String> {
         match self.load_checkpoint(task_id) {
-            Ok(true) => Ok((1, "".to_string())),
+            Ok(true) => Ok("".to_string()),
             _ => Err(EigenError::InvalidValue("get_proof failed".to_string())),
         }
     }
@@ -378,18 +405,15 @@ impl Pipeline {
             match self.task_map.get_mut().unwrap().get(&task_id) {
                 Some(v) => match v {
                     ProveStage::BatchProve(task_id) => {
-                        let ctx = BatchContext::new(
-                            self.basedir.clone(),
-                            task_id.clone(),
-                            self.task_name.clone(),
-                        );
+                        let ctx =
+                            BatchContext::new(&self.basedir, task_id, &self.task_name.clone());
                         BatchProver::new().batch_prove(&ctx)?;
                     }
                     ProveStage::AggProve(task_id, input, input2) => {
                         let ctx = AggContext::new(
-                            self.basedir.clone(),
-                            task_id.clone(),
-                            self.task_name.clone(),
+                            &self.basedir,
+                            task_id,
+                            &self.task_name,
                             input.clone(),
                             input2.clone(),
                         );

@@ -11,6 +11,11 @@ on:
 env:
   CARGO_TERM_COLOR: always
   DATABASE_URL: postgresql://root:password@localhost:5432/state
+  RUST_BACKTRACE: 1
+  RUST_LOG: info
+  CIRCOMLIB: ../executor/node_modules/circomlib/circuits
+  STARK_VERIFIER_GL: ../executor/node_modules/pil-stark/circuits.gl
+  STARK_VERIFIER_BN128: ../executor/node_modules/pil-stark/circuits.bn128
 
 jobs:
   build_and_test:
@@ -22,6 +27,7 @@ jobs:
           - stable
           - beta
           - nightly
+        node-version: [18.x]
 
     services:
       postgres:
@@ -45,6 +51,13 @@ jobs:
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - name: Install Dependencies
         run: sudo apt install protobuf-compiler
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./executor
       - name: Install diesel
         run: cargo install diesel_cli
       - name: DB Migration
@@ -53,6 +66,10 @@ jobs:
         run: cargo build --verbose --release
       - name: Cargo test
         run: cargo test --release --verbose
+      - name: Cargo test prover
+        run: cargo test --release -- --nocapture
+        working-directory: ./prover
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest

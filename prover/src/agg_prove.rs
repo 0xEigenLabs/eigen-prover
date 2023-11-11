@@ -1,5 +1,6 @@
 use crate::traits::StageProver;
-use crate::AggContext;
+use crate::{AggContext, BatchContext};
+use algebraic::errors::EigenError;
 use algebraic::errors::Result;
 use dsl_compile::circom_compiler;
 use starky::{
@@ -18,56 +19,83 @@ impl StageProver for AggProver {
         log::info!("start aggregate prove");
 
         // 1. Compile circom circuit to r1cs, and generate witness
+        let batch_ctx = BatchContext::new(&ctx.basedir, &ctx.input, &ctx.task_name);
+        let batch2_ctx = BatchContext::new(&ctx.basedir, &ctx.input2, &ctx.task_name);
+
+        log::info!("batch_ctx: {:?}", batch_ctx);
+        log::info!("batch2_ctx: {:?}", batch2_ctx);
+
         let sp = &ctx.agg_stark;
-        let sp_next = &ctx.agg_stark.clone();
         let cc = &ctx.agg_circom;
+
+        let r1_stark = &batch_ctx.recursive1_stark;
+        let r1_circom = &batch_ctx.recursive1_circom;
+
+        log::info!("agg_stark: {:?}", sp);
+        log::info!("agg_circom: {:?}", cc);
         circom_compiler(
-            cc.circom_file.clone(),
+            r1_circom.circom_file.clone(),
             "goldilocks".to_string(),
             "full".to_string(),
             cc.link_directories.clone(),
-            sp.zkin.clone(),
-            true,
-            true,
+            r1_circom.output.clone(),
+            false,
+            false,
         )
-        .unwrap();
+        .map_err(|e| EigenError::from(format!("Compile Circom error: {:?}", e)))?;
 
         // 2. compress inputs
-        join_zkin(&ctx.input, &ctx.input2, &sp_next.zkin).unwrap();
+        let zkin = format!(
+            "{}/proof/{}/batch_proof/{}.recursive1.zkin.json",
+            ctx.basedir, ctx.input, ctx.task_name,
+        );
+        let zkin2 = format!(
+            "{}/proof/{}/batch_proof/{}.recursive1.zkin.json",
+            ctx.basedir, ctx.input2, ctx.task_name,
+        );
+
+        log::info!("join {} {} -> {}", zkin, zkin2, ctx.agg_zkin);
+        join_zkin(&zkin, &zkin2, &ctx.agg_zkin)?;
 
         // 3. compress setup
         setup(
-            &sp.r1cs_file,
-            &sp.pil_file,
-            &sp.const_file,
-            &sp.exec_file,
+            &r1_stark.r1cs_file,
+            &r1_stark.pil_file,
+            &r1_stark.const_file,
+            &r1_stark.exec_file,
             0,
         )?;
 
         // 4. compress exec
+        // TODO: place it in StarkProveArgs?
+        let wasm_file = format!(
+            "{}/{}.recursive1_js/{}.recursive1.wasm",
+            r1_circom.output, ctx.task_name, ctx.task_name
+        );
+        log::info!("wasm_file: {}", wasm_file);
         exec(
-            &sp.zkin,
-            &format!("{}/{}_js/{}.wasm", cc.output, ctx.task_name, ctx.task_name),
-            &sp.pil_file,
-            &sp.exec_file,
-            &sp.commit_file,
+            &ctx.agg_zkin,
+            &wasm_file,
+            &r1_stark.pil_file,
+            &r1_stark.exec_file,
+            &r1_stark.commit_file,
         )?;
 
         // 5. stark prove
+        log::info!("recursive2: {:?} -> {:?}", r1_stark, cc);
         stark_prove(
             &ctx.agg_struct,
-            &sp.piljson,
+            &r1_stark.piljson,
             true,
             false,
-            &sp.const_file,
-            &sp.commit_file,
+            &r1_stark.const_file,
+            &r1_stark.commit_file,
             &cc.circom_file,
             &sp.zkin,
             "",
         )?;
 
         log::info!("end aggregate prove");
-
         Ok(())
     }
 }
