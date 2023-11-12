@@ -8,7 +8,7 @@ fn integration_test() -> algebraic::errors::Result<()> {
 
     // init pipeline.
     let mut pipeline = Pipeline::new(
-        env::var("WORKSPACE").unwrap_or("data".to_string()),
+        env::var("WORKSPACE").unwrap_or(".".to_string()),
         env::var("TASK_NAME").unwrap_or("fibonacci".to_string()),
     );
     let task1 = pipeline.batch_prove("0".into()).unwrap();
