@@ -63,12 +63,14 @@ pub async fn run_client() -> Result<()> {
 
     while let Some(received) = resp_stream.next().await {
         let received = received.unwrap();
+        let req_id = received.id.clone();
+        log::debug!("debug new req {}", req_id.clone());
         if let Some(request) = received.request {
             let resp = match request {
                 aggregator_message::Request::GetStatusRequest(_req) => {
                     // step 1: get prover status
                     let status = match PIPELINE.lock().unwrap().get_status() {
-                        Ok(_) => get_status_response::Status::Booting,
+                        Ok(_) => get_status_response::Status::Idle,
                         _ => get_status_response::Status::Unspecified,
                     };
                     // TODO: cpu and mem usage: https://github.com/GuillaumeGomez/sysinfo
@@ -95,9 +97,10 @@ pub async fn run_client() -> Result<()> {
                     let _public_input = input.public_inputs.unwrap();
                     let _contract_bytecode = input.contracts_bytecode;
                     let _db = input.db;
+                    let req_id = received.id.clone();
                     // TODO: use the input
                     let task_id = uuid::Uuid::new_v4();
-                    let result = match PIPELINE.lock().unwrap().batch_prove(task_id.to_string()) {
+                    let result = match PIPELINE.lock().unwrap().batch_prove(req_id.clone()) {
                         Ok(_) => aggregator_service::Result::Ok,
                         _ => aggregator_service::Result::Error,
                     };

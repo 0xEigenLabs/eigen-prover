@@ -140,7 +140,7 @@ impl FinalContext {
             task_id,
             prover_addr,
             task_name: task_name.clone(),
-            final_stark_struct: "data/final.stark_struct.json".to_string(),
+            final_stark_struct: format!("{}/data/final.stark_struct.json", basedir),
             final_stark: StarkProveArgs::new(&basedir, &prev_task_path, &final_task_name, &curve),
             recursive2_stark: StarkProveArgs::new(&basedir, &prev_task_path, &r2_task_name, &curve),
             final_circom: CircomCompileArgs::new(
@@ -196,8 +196,8 @@ impl BatchContext {
             basedir: basedir.to_string(),
             task_id: task_id.to_string(),
             task_name: task_name.to_string(),
-            batch_struct: "data/batch.stark_struct.json".to_string(),
-            c12_struct: "data/c12.stark_struct.json".to_string(),
+            batch_struct: format!("{}/data/batch.stark_struct.json", basedir),
+            c12_struct: format!("{}/data/c12.stark_struct.json", basedir),
 
             batch_stark: StarkProveArgs {
                 r1cs_file: "".to_string(),
@@ -250,7 +250,7 @@ impl AggContext {
             input,
             input2,
             agg_zkin: format!("{}/proof/{}/agg_zkin.json", basedir, task_id),
-            agg_struct: "data/agg.stark_struct.json".to_string(),
+            agg_struct: format!("{}/data/agg.stark_struct.json", basedir),
             agg_stark: StarkProveArgs::new(basedir, &task_path, &r2_task_name, "GL"),
             agg_circom: CircomCompileArgs::new(basedir, &task_path, &r2_task_name, "GL"),
         }
