@@ -29,8 +29,8 @@ pub mod aggregator_service {
 
 lazy_static! {
     static ref PIPELINE: Mutex<Pipeline> = Mutex::new(Pipeline::new(
-        var("WORKSPACE").unwrap_or("/tmp/prover".to_string()),
-        var("TASK_NAME").unwrap_or("fib".to_string())
+        var("WORKSPACE").unwrap_or("/tmp/prover/data".to_string()),
+        var("TASK_NAME").unwrap_or("fibonacci".to_string())
     ));
     static ref PROVER_FORK_ID: u64 = {
         let fork_id = var("PROVER_FORK_ID").unwrap_or("0".into());
