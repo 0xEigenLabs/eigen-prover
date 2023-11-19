@@ -8,14 +8,14 @@ pub mod statedb_service {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = StateDbServiceClient::connect("http://[::1]:50051").await?;
+    let mut client = StateDbServiceClient::connect("http://0.0.0.0:50061").await?;
 
     let request = tonic::Request::new(SetRequest {
         old_root: Some(Fea {
-            fe0: 1,
-            fe1: 1,
-            fe2: 1,
-            fe3: 1,
+            fe0: 0,
+            fe1: 0,
+            fe2: 0,
+            fe3: 0,
         }),
         key: Some(Fea {
             fe0: 1,
