@@ -6,6 +6,11 @@ This repo aims to build components:
 * statedb
 * prover
 
+## Conf
+executor: 50071
+statedb: 50061
+prover_server listen at 50081
+
 ## Server
 
 Use [grpc server](https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md)

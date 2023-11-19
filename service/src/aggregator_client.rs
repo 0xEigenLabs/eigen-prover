@@ -62,7 +62,7 @@ pub async fn run_client() -> Result<()> {
     let mut resp_stream = response.into_inner();
 
     while let Some(received) = resp_stream.next().await {
-        let received = received.unwrap();
+        let received = received.map_err(|e| EigenError ::from(format!("client close socket {}", e)))?;
         let req_id = received.id.clone();
         log::debug!("debug new req {}", req_id.clone());
         if let Some(request) = received.request {
@@ -129,8 +129,9 @@ pub async fn run_client() -> Result<()> {
                 aggregator_message::Request::GenFinalProofRequest(req) => {
                     // step 5: wrap the stark proof to snark, and goto step 3 again
                     let task_id = uuid::Uuid::new_v4();
+                    let req_id = received.id.clone();
                     let result = match PIPELINE.lock().unwrap().final_prove(
-                        task_id.to_string(),
+                        req_id.clone(),
                         req.recursive_proof.clone(),
                         req.aggregator_addr.clone(),
                     ) {
