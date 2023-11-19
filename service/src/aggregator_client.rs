@@ -62,7 +62,8 @@ pub async fn run_client() -> Result<()> {
     let mut resp_stream = response.into_inner();
 
     while let Some(received) = resp_stream.next().await {
-        let received = received.map_err(|e| EigenError ::from(format!("client close socket {}", e)))?;
+        let received =
+            received.map_err(|e| EigenError::from(format!("client close socket {}", e)))?;
         let req_id = received.id.clone();
         log::debug!("debug new req {}", req_id.clone());
         if let Some(request) = received.request {
