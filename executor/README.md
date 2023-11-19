@@ -1,6 +1,6 @@
 # Prerequisites
 
-Currently, executor is dependent of eigen-prover repo. Make sure you have eigen-prover repo locally,
+Currently, executor is dependent of eigen-zkvm repo. Make sure you have eigen-zkvm repo locally,
 and create soft links under this directiry to SM and starksj directory.
 ```bash
 cd $YOUR_DIRECTORY
