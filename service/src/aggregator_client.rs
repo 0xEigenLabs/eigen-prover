@@ -29,8 +29,8 @@ pub mod aggregator_service {
 
 lazy_static! {
     static ref PIPELINE: Mutex<Pipeline> = Mutex::new(Pipeline::new(
-        var("WORKSPACE").unwrap_or("/tmp/prover".to_string()),
-        var("TASK_NAME").unwrap_or("fib".to_string())
+        var("WORKSPACE").unwrap_or("/tmp/prover/data".to_string()),
+        var("TASK_NAME").unwrap_or("fibonacci".to_string())
     ));
     static ref PROVER_FORK_ID: u64 = {
         let fork_id = var("PROVER_FORK_ID").unwrap_or("0".into());
@@ -62,13 +62,16 @@ pub async fn run_client() -> Result<()> {
     let mut resp_stream = response.into_inner();
 
     while let Some(received) = resp_stream.next().await {
-        let received = received.unwrap();
+        let received =
+            received.map_err(|e| EigenError::from(format!("client close socket {}", e)))?;
+        let req_id = received.id.clone();
+        log::debug!("debug new req {}", req_id.clone());
         if let Some(request) = received.request {
             let resp = match request {
                 aggregator_message::Request::GetStatusRequest(_req) => {
                     // step 1: get prover status
                     let status = match PIPELINE.lock().unwrap().get_status() {
-                        Ok(_) => get_status_response::Status::Booting,
+                        Ok(_) => get_status_response::Status::Idle,
                         _ => get_status_response::Status::Unspecified,
                     };
                     // TODO: cpu and mem usage: https://github.com/GuillaumeGomez/sysinfo
@@ -95,9 +98,10 @@ pub async fn run_client() -> Result<()> {
                     let _public_input = input.public_inputs.unwrap();
                     let _contract_bytecode = input.contracts_bytecode;
                     let _db = input.db;
+                    let req_id = received.id.clone();
                     // TODO: use the input
                     let task_id = uuid::Uuid::new_v4();
-                    let result = match PIPELINE.lock().unwrap().batch_prove(task_id.to_string()) {
+                    let result = match PIPELINE.lock().unwrap().batch_prove(req_id.clone()) {
                         Ok(_) => aggregator_service::Result::Ok,
                         _ => aggregator_service::Result::Error,
                     };
@@ -126,8 +130,9 @@ pub async fn run_client() -> Result<()> {
                 aggregator_message::Request::GenFinalProofRequest(req) => {
                     // step 5: wrap the stark proof to snark, and goto step 3 again
                     let task_id = uuid::Uuid::new_v4();
+                    let req_id = received.id.clone();
                     let result = match PIPELINE.lock().unwrap().final_prove(
-                        task_id.to_string(),
+                        req_id.clone(),
                         req.recursive_proof.clone(),
                         req.aggregator_addr.clone(),
                     ) {

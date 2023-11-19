@@ -24,7 +24,7 @@ impl StageProver for BatchProver {
         let c12_stark = &ctx.c12_stark;
         let r1_circom = &ctx.recursive1_circom; // output
         let r1_stark = &ctx.recursive1_stark; // output
-        log::info!("batch_struct: {:?}", ctx.batch_struct);
+        log::info!("batch_context: {:?}", ctx);
         stark_prove(
             &ctx.batch_struct,
             &sp.piljson,

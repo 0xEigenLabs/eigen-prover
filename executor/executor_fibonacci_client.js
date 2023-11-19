@@ -22,7 +22,7 @@ function main() {
   if (argv.target) {
     target = argv.target;
   } else {
-    target = "localhost:50051";
+    target = "localhost:50071";
   }
   let client = new executor_proto.ExecutorService(
     target,

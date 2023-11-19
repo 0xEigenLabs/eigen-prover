@@ -1,3 +1,19 @@
+# Prerequisites
+
+Currently, executor is dependent of eigen-zkvm repo. Make sure you have eigen-zkvm repo locally,
+and create soft links under this directiry to SM and starksj directory.
+```bash
+cd $YOUR_DIRECTORY
+git clone git@github.com:0xEigenLabs/eigen-zkvm.git
+
+# under eigen-prover/executor directory
+ln -s $YOUR_DIRECTORY/eigen-zkvm/SM .
+ln -s $YOUR_DIRECTORY/eigen-zkvm/starkjs .
+
+npm i
+```
+
+
 # Steps to test the Fibonacci example
 
 ```bash
