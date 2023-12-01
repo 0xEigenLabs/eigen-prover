@@ -1,29 +1,15 @@
 {
   "name": "executor",
   "version": "1.0.0",
-  "description": "",
-  "main": "executor_client.js",
+  "description": "Currently, executor is dependent of eigen-zkvm repo. Make sure you have eigen-zkvm repo locally, and create soft links under this directiry to SM and starksj directory. ```bash cd $YOUR_DIRECTORY git clone git@github.com:0xEigenLabs/eigen-zkvm.git",
+  "main": "index.js",
   "scripts": {
-    "killServer": "pkill -f 'node executor_server.js'",
-    "testFib": "nohup node executor_server.js & sleep 5s && node executor_fibonacci_client.js",
-    "testVM": "nohup node executor_server.js & sleep 5s && node executor_vm_client.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "Apache 2.0",
   "dependencies": {
-    "@0xpolygonhermez/zkevm-commonjs": "https://github.com/0xpolygonhermez/zkevm-commonjs.git#v0.6.0.0-rc.1",
-    "@grpc/grpc-js": "^1.9.5",
-    "@grpc/proto-loader": "^0.7.10",
-    "chai": "^4.3.10",
-    "dotenv": "^16.3.1",
-    "fs": "^0.0.1-security",
-    "google-protobuf": "^3.21.2",
-    "minimist": "^1.2.8",
-    "path": "^0.12.7",
-    "pil-stark": "^0.0.49",
-    "protobufjs": "^7.2.5",
-    "protobufjs-cli": "^1.1.2",
-    "sm": "file:../../eigen-zkvm/SM",
-    "starkjs": "file:../../eigen-zkvm/starkjs"
+    "circomlib": "^2.0.5",
+    "pil-stark": "^0.0.49"
   }
 }
