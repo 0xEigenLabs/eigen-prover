@@ -91,12 +91,12 @@ impl Database {
         }
     }
 
-    pub fn write_program(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
+    pub fn write_program(&mut self, key: &str, value: &Vec<u8>, update: bool) -> Result<usize> {
         let new_pro = Program {
             hash: key.to_string().into(),
-            data: value.to_string().into(),
+            data: value.clone(),
         };
-        log::debug!("write program: {}=>{}", key, value);
+        log::debug!("write program: {}=>{:?}", key, value);
         let res = match update {
             true => diesel::insert_into(program)
                 .values(&new_pro)
@@ -141,7 +141,7 @@ impl Database {
         update: bool,
     ) -> Result<usize> {
         match is_program {
-            true => self.write_program(key, value, update),
+            true => self.write_program(key, &value.to_string().into(), update),
             _ => self.write_nodes(key, value, update),
         }
     }

@@ -189,7 +189,6 @@ impl StateDbService for StateDBServiceSVC {
         debug!("Got a request: {:?}", request);
 
         let msg = request.get_ref();
-
         let mut si = self.smt.lock().map_err(|e| {
             error!("Get smt instance error due to data race, {:?}", e);
             tonic::Status::resource_exhausted("SMT data race")
@@ -227,6 +226,17 @@ impl StateDbService for StateDBServiceSVC {
         // Return an instance of type HelloReply
         debug!("Got a request: {:?}", request);
 
+        let msg = request.get_ref();
+        let mut si = self.smt.lock().map_err(|e| {
+            error!("Get smt instance error due to data race, {:?}", e);
+            tonic::Status::resource_exhausted("SMT data race")
+        })?;
+
+        for (k, v) in msg.input_db.iter() {
+            // v is FeList: [u64]
+            let felist = v.fe.iter().map(|e| Fr::from(*e)).collect();
+            si.db_mut().write(k, &felist, true).unwrap();
+        }
         Ok(Response::new(())) // Send back our formatted greeting
     }
 
@@ -236,6 +246,16 @@ impl StateDbService for StateDBServiceSVC {
     ) -> Result<Response<()>, Status> {
         // Return an instance of type HelloReply
         debug!("Got a request: {:?}", request);
+
+        let msg = request.get_ref();
+        let mut si = self.smt.lock().map_err(|e| {
+            error!("Get smt instance error due to data race, {:?}", e);
+            tonic::Status::resource_exhausted("SMT data race")
+        })?;
+
+        for (k, v) in msg.input_program_db.iter() {
+            si.db_mut().write_program(k, v, true).unwrap();
+        }
 
         Ok(Response::new(())) // Send back our formatted greeting
     }
