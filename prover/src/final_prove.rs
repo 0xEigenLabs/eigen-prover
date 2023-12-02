@@ -97,6 +97,7 @@ impl StageProver for FinalProver {
             &sp.r1cs_file,
             &args.pk_file,
             &args.vk_file,
+            false,
         )?;
         groth16_prove(
             &args.curve_type,
@@ -106,6 +107,7 @@ impl StageProver for FinalProver {
             &sp.zkin,
             &args.public_input_file,
             &args.proof_file,
+            false,
         )?;
         groth16_verify(
             &args.curve_type,
