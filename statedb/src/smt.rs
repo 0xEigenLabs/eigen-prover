@@ -38,6 +38,7 @@ pub struct SmtGetResult {
 }
 
 // https://github.com/0xPolygonHermez/zkevm-commonjs/blob/v0.6.0.0/src/smt.js
+// https://github.com/0xPolygonHermez/zkevm-prover/blob/v1.1.5-fork.4/src/statedb/smt.cpp
 #[derive(Default, Debug)]
 pub struct SMT {
     db: Database,
@@ -149,7 +150,7 @@ impl SMT {
                     // First, we create the db entry for the new VALUE, and store the calculated hash in newValH
                     let mut v = scalar2fea(&value);
                     let mut c = [Fr::ZERO; 4];
-                    let new_val_h = self.hash_save(&v, &c)?;
+                    let new_val_h = self.hash_save(&v, &c, persistent)?;
                     // Second, we create the db entry for the new leaf node = RKEY + HASH, and store the calculated hash in new_leaf_hash
                     v[..4].copy_from_slice(&found_key[..4]);
                     v[4..(4 + 4)].copy_from_slice(&new_val_h[..4]);
@@ -158,7 +159,7 @@ impl SMT {
                     c[0] = Fr::ONE;
 
                     // Save and get the hash
-                    let new_leaf_hash = self.hash_save(&v, &c)?;
+                    let new_leaf_hash = self.hash_save(&v, &c, persistent)?;
                     proof_hash_counter += 2;
 
                     // If we are not at the top, the new leaf hash will become part of the higher level content, based on the keys[level] bit
@@ -196,7 +197,7 @@ impl SMT {
                     // Prepare the capacity = 1, 0, 0, 0
 
                     // Save and get the hash
-                    let old_leaf_hash = self.hash_save(&v, &Self::ONE.clone())?;
+                    let old_leaf_hash = self.hash_save(&v, &Self::ONE.clone(), persistent)?;
                     // Record the inserted key for the reallocated old value
                     ins_key.copy_from_slice(&found_key);
                     ins_value = found_value;
@@ -217,7 +218,7 @@ impl SMT {
 
                     // Capacity is marking the node as intermediate
                     // Create the intermediate node
-                    let new_val_h = self.hash_save(&value_fea, &Self::EMPTY.clone())?;
+                    let new_val_h = self.hash_save(&value_fea, &Self::EMPTY.clone(), persistent)?;
 
                     // Insert a new leaf node for the new key-value hash pair
 
@@ -225,7 +226,7 @@ impl SMT {
                     v[0..4].copy_from_slice(&new_key);
                     v[4..].copy_from_slice(&new_val_h);
 
-                    let new_leaf_hash = self.hash_save(&v, &Self::ONE.clone())?;
+                    let new_leaf_hash = self.hash_save(&v, &Self::ONE.clone(), persistent)?;
 
                     // Insert a new bifurcation intermediate node with both hashes (old and new) in the right position based on the bit
 
@@ -237,7 +238,7 @@ impl SMT {
                     }
 
                     // Capacity is marking the node as intermediate
-                    let mut r2 = self.hash_save(&node, &Self::EMPTY.clone())?;
+                    let mut r2 = self.hash_save(&node, &Self::EMPTY.clone(), persistent)?;
 
                     proof_hash_counter += 4;
                     level2 -= 1;
@@ -256,7 +257,7 @@ impl SMT {
                         // Capacity is marking the node as intermediate
 
                         // Create the intermediate node and store the calculated hash in r2
-                        r2 = self.hash_save(&node, &Self::EMPTY.clone())?;
+                        r2 = self.hash_save(&node, &Self::EMPTY.clone(), persistent)?;
                         proof_hash_counter += 1;
                         log::info!(
                             "Smt::set() inserted a new intermediate level= {}, leaf node hash={}",
@@ -298,7 +299,7 @@ impl SMT {
 
                 // Capacity mars the node as intermediate/value
                 // Create the node and store the calculated hash in newValH
-                let new_val_h = self.hash_save(&value_fea, &Self::EMPTY.clone())?;
+                let new_val_h = self.hash_save(&value_fea, &Self::EMPTY.clone(), persistent)?;
                 // Insert the new key-value hash leaf node
 
                 // Calculate the node content: key|hash
@@ -308,7 +309,7 @@ impl SMT {
 
                 // Capacity marks the node as leaf
                 // Create the new leaf node and store the calculated hash in newLeafHash
-                let new_leaf_hash = self.hash_save(&key_val_vec, &Self::ONE.clone())?;
+                let new_leaf_hash = self.hash_save(&key_val_vec, &Self::ONE.clone(), persistent)?;
 
                 proof_hash_counter += 2;
                 // If not at the top of the tree, update siblings with the new leaf node hash
@@ -392,7 +393,7 @@ impl SMT {
                             a[0..4].copy_from_slice(&old_key);
                             a[4..].copy_from_slice(&val_h);
 
-                            let old_leaf_hash = self.hash_save(&a, &Self::ONE.clone())?;
+                            let old_leaf_hash = self.hash_save(&a, &Self::ONE.clone(), persistent)?;
                             proof_hash_counter += 1;
                             if level >= 0 {
                                 for jj in 0..4 {
@@ -443,7 +444,7 @@ impl SMT {
             a.copy_from_slice(&siblings[&level][0..8]);
             c.copy_from_slice(&siblings[&level][8..12]);
 
-            new_root = self.hash_save(&a, &c)?;
+            new_root = self.hash_save(&a, &c, persistent)?;
             proof_hash_counter += 1;
             level -= 1;
 
@@ -659,10 +660,10 @@ impl SMT {
         }
         db_value.append(&mut [Fr::ZERO; 8].to_vec());
         self.db
-            .write(&self.db.db_state_root_key.to_string(), &db_value, true)
+            .write(&self.db.db_state_root_key.to_string(), &db_value, true, true)
     }
 
-    fn hash_save(&mut self, a: &[Fr; 8], c: &[Fr; 4]) -> Result<[Fr; 4]> {
+    fn hash_save(&mut self, a: &[Fr; 8], c: &[Fr; 4], persistent: bool) -> Result<[Fr; 4]> {
         let mut db_value = [Fr::ZERO; 12];
         db_value[..8].copy_from_slice(a);
         db_value[8..].copy_from_slice(c);
@@ -674,7 +675,7 @@ impl SMT {
 
         let str_digest = h4_to_string(digest.try_into().unwrap());
 
-        self.db.write(&str_digest, &db_value.to_vec(), true)?;
+        self.db.write(&str_digest, &db_value.to_vec(), persistent, false)?;
         Ok([digest[0], digest[1], digest[2], digest[3]])
     }
 
