@@ -614,7 +614,7 @@ impl SMT {
         result
     }
 
-    fn join_key(&mut self, bits: &Vec<u64>, rkey: &[Fr; 4], auxk: &mut [Fr; 4]) {
+    fn join_key(&mut self, bits: &[u64], rkey: &[Fr; 4], auxk: &mut [Fr; 4]) {
         let mut n = [0u64, 0, 0, 0];
         let mut accs = [0u64, 0, 0, 0];
         for i in 0..bits.len() {
@@ -637,7 +637,7 @@ impl SMT {
         }
     }
 
-    fn get_unique_sibling(a: &Vec<Fr>) -> i32 {
+    fn get_unique_sibling(a: &[Fr]) -> i32 {
         let mut n_found = 0;
         let mut fnd: i32 = 0;
         for i in (0..a.len()).step_by(4) {
