@@ -1,9 +1,8 @@
 use revm::{
-    db::{CacheState},
+    db::CacheState,
     interpreter::CreateScheme,
     primitives::{
-        calc_excess_blob_gas, keccak256, Address,
-        Bytecode, Env, SpecId, TransactTo, U256,
+        calc_excess_blob_gas, keccak256, Address, Bytecode, Env, SpecId, TransactTo, U256,
     },
 };
 
@@ -177,24 +176,12 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
 #[cfg(test)]
 mod tests {
     use super::execute_one;
+    use revm::primitives::{address, b256};
     use std::collections::HashMap as STDHashMap;
-    use revm::{
-        primitives::{
-            address, b256,
-        },
-    };
     //use runtime::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
     //
 
-
-
-
-
-
-
-
     use models::*;
-
 
     #[test]
     fn test_execute_one() {
@@ -223,8 +210,7 @@ mod tests {
                 b256!("fe13266ff57000135fb9aa854bbfe455d8da85b21f626307bf3263a0c2a8e7fe"),
                 address!("dcc5ba93a1ed7e045690d722f2bf460a51c61415"),
             ),
-            ];
-
+        ];
 
         let test_file = "test-vectors/blockInfo.json";
         let suite_json = std::fs::read_to_string(&test_file).unwrap();
