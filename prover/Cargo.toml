@@ -14,7 +14,7 @@ dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "mai
 
 tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1" }
-uuid = { version = "1.5.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
+uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 
 serde = { version = "1.0", features = ["derive"] }
 
