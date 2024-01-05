@@ -177,9 +177,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
 mod tests {
     use super::execute_one;
     use revm::primitives::{address, b256};
-    use std::collections::HashMap as STDHashMap;
     //use runtime::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
-    //
 
     use models::*;
 
@@ -217,7 +215,7 @@ mod tests {
         println!("suite json: {:?}", suite_json);
 
         let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
-        let t: STDHashMap<String, TestUnit> = serde_json::from_str(&suite_json).unwrap();
-        execute_one(&t["blockInfo"], addr, 1).unwrap();
+        let t: TestUnit = serde_json::from_str(&suite_json).unwrap();
+        execute_one(&t, addr, 1).unwrap();
     }
 }
