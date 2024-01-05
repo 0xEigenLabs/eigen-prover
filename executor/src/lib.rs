@@ -83,7 +83,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
 
         env.cfg.spec_id = spec_name.to_spec_id();
 
-        for (_index, test) in tests.into_iter().enumerate() {
+        for test in tests {
             env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
 
             env.tx.data = unit
@@ -213,12 +213,11 @@ mod tests {
         ];
 
         let test_file = "test-vectors/blockInfo.json";
-        let suite_json = std::fs::read_to_string(&test_file).unwrap();
+        let suite_json = std::fs::read_to_string(test_file).unwrap();
         println!("suite json: {:?}", suite_json);
 
         let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
         let t: STDHashMap<String, TestUnit> = serde_json::from_str(&suite_json).unwrap();
-        let result = execute_one(&t["blockInfo"], addr, 1).unwrap();
-        println!("result: {:?}", result);
+        execute_one(&t["blockInfo"], addr, 1).unwrap();
     }
 }
