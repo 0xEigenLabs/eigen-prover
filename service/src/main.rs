@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let runtime_config = config::RuntimeConfig::from_toml("conf/base_config.toml").unwrap();
     println!("============={:?}", runtime_config);
     let state_db_addr: SocketAddr = runtime_config.state_db_addr.parse().expect("Invalid state_db_addr");
-    let executor_addr: SocketAddr = runtime_config.executor_addr.parse().expect("Invalid executor_addr");
+    // let executor_addr: SocketAddr = runtime_config.executor_addr.parse().expect("Invalid executor_addr");
     let sdb = statedb::StateDBServiceSVC::default();
     let executor = executor::ExecutorServiceSVC::default();
 
@@ -40,10 +40,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (send_client, mut recv_client) = watch::channel::<()>(());
     spawn(wait_for_sigterm(signal_tx, send, send_client));
 
-    let (executor_signal_tx, executor_signal_rx) = oneshot::channel();
-    let (send2, mut recv2) = watch::channel::<()>(());
-    let (send_client2, mut recv_client2) = watch::channel::<()>(());
-    spawn(wait_for_sigterm(executor_signal_tx, send2, send_client2));
+    // let (executor_signal_tx, executor_signal_rx) = oneshot::channel();
+    // let (send2, mut recv2) = watch::channel::<()>(());
+    // let (send_client2, mut recv_client2) = watch::channel::<()>(());
+    //spawn(wait_for_sigterm(executor_signal_tx, send2, send_client2));
 
     tokio::spawn(async move {
         loop {
@@ -87,10 +87,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         log::info!("finished in the walking task");
     });
 
+    log::info!("Launching StateDB service");
+    log::info!("Launching Executor service");
+    log::info!("StateDB service Listening on {}", state_db_addr);
+    // log::info!("Executor service Listening on {}", executor_addr);
+
     tokio::spawn(async move {
         log::info!("StateDB service Listening on {}", state_db_addr);
         Server::builder()
             .add_service(StateDbServiceServer::new(sdb))
+            .add_service(ExecutorServiceServer::new(executor))
             .serve_with_shutdown(state_db_addr, async {
                 signal_rx.await.ok();
                 log::info!("Graceful context shutdown");
@@ -99,17 +105,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or_else(|e| log::error!("Failed to start StateDB service: {:?}", e));
     });
 
-    tokio::spawn(async move {
-        log::info!("Executor service Listening on {}", executor_addr);
-        Server::builder()
-        .add_service(ExecutorServiceServer::new(executor))
-            .serve_with_shutdown(executor_addr, async {
-                executor_signal_rx.await.ok();
-                log::info!("Graceful context shutdown");
-            })
-            .await
-            .unwrap_or_else(|e| log::error!("Failed to start Executor service: {:?}", e));
-    });
+    // tokio::spawn(async move {
+    //     log::info!("Executor service Listening on {}", executor_addr);
+    //     Server::builder()
+    //         .add_service(ExecutorServiceServer::new(executor))
+    //         .serve_with_shutdown(executor_addr, async {
+    //             log::info!("Graceful context shutdown");
+    //         })
+    //         .await
+    //         .unwrap_or_else(|e| log::error!("Failed to start Executor service: {:?}", e));
+    // });
     Ok(())
 }
 
