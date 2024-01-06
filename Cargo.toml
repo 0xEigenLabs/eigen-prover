@@ -3,8 +3,7 @@ members = [
   "statedb",
   "prover",
   "service", 
-  "executor",
-  "client"
+  "executor"
 ]
 
 resolver = "2"
