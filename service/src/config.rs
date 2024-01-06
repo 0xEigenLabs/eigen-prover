@@ -1,3 +1,4 @@
+// config.rs
 use log::error;
 use serde_derive::Deserialize;
 use std::fs;
@@ -5,7 +6,8 @@ use std::path::Path;
 
 #[derive(Debug, Deserialize)]
 pub struct RuntimeConfig {
-    pub addr: String,
+    pub state_db_addr: String,
+    pub executor_addr: String,
 }
 
 impl RuntimeConfig {
