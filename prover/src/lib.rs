@@ -11,7 +11,6 @@ use crate::batch_prove::BatchProver;
 use crate::final_prove::FinalProver;
 use crate::traits::StageProver;
 use algebraic::errors::EigenError;
-use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::VecDeque;

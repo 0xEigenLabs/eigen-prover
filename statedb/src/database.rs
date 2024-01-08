@@ -12,7 +12,6 @@ use utils::{
     errors::{EigenError, Result},
     scalar::{h4_to_string, normalize_to_n_format, prepend_zeros},
 };
-use anyhow::bail;
 pub struct Database {
     pool: Pool<ConnectionManager<PgConnection>>,
     database_url: String,
