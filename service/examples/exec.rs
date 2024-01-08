@@ -14,14 +14,18 @@ pub mod executor_service {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-  let mut executor_client = ExecutorServiceClient::connect("http://[::1]:50071").await?;
+  let mut executor_client = ExecutorServiceClient::connect("http://0.0.0.0:50061").await?;
+  
+  let test_file = "../executor/test-vectors/blockInfo.json";
+  println!("test_file {}", test_file);
+  let batch_l2_data_json = std::fs::read_to_string(test_file).unwrap();
   let request = ProcessBatchRequest {
     old_state_root: "0x".as_bytes().to_vec(),
     old_acc_input_hash: "0x".as_bytes().to_vec(),
     old_batch_num: 1,
     chain_id: 1,
     fork_id: 1,
-    batch_l2_data: "your_batch_data".as_bytes().to_vec(),
+    batch_l2_data: batch_l2_data_json.as_bytes().to_vec(),
     global_exit_root: "0x".as_bytes().to_vec(),
     eth_timestamp: 1635870424, 
     coinbase: "0x".to_string(),
@@ -39,6 +43,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       tx_hash_to_generate_call_trace: Vec::new(),
     }),
   };
-  let response = executor_client.process_batch(request);
+  println!("request: {:?}", request);
+  let response = executor_client.process_batch(request).await?;
+  println!("response: {:?}", response);
   Ok(())
 }

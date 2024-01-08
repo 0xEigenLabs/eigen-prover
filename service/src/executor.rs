@@ -51,8 +51,7 @@ impl ExecutorService for ExecutorServiceSVC {
     };
     let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
     let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
-    executor::execute_one(&t, addr, 1);
-    
+    let res: () = executor::execute_one(&t, addr, 1).unwrap();
     let response = executor_service::ProcessBatchResponse {
       new_state_root: "0x".as_bytes().to_vec(),
       new_acc_input_hash: "0x".as_bytes().to_vec(),
