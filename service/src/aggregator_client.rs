@@ -14,7 +14,8 @@ use aggregator_service::{
     ProverMessage,
     // PublicInputs, InputProver,
 };
-use algebraic::errors::{EigenError, Result};
+use algebraic::errors::EigenError;
+use anyhow::Result;
 use std::env::var;
 use std::sync::Mutex;
 use tokio::sync::mpsc;

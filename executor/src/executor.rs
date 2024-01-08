@@ -7,6 +7,7 @@ use revm::{
 };
 
 use models::*;
+use anyhow::{Result, bail};
 
 extern crate alloc;
 use alloc::string::String;
@@ -167,7 +168,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
                     _ => {
                         let s = exec_result.clone().err().map(|e| e.to_string()).unwrap();
                         print!("UNEXPECTED ERROR: {s}");
-                        return Err(s);
+                        bail!(s);
                     }
                 }
                 Ok(())
@@ -176,7 +177,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
             // dump state and traces if test failed
             let Err(e) = check() else { continue };
 
-            return Err(e);
+            return Err(e.to_string());
         }
     }
     Ok(())

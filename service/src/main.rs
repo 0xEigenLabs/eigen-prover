@@ -88,9 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         log::info!("finished in the walking task");
     });
 
-    log::info!("Launching StateDB service");
-    log::info!("Launching Executor service");
-    log::info!("StateDB service Listening on {}", addr);
+    log::info!("StateDB service and Executor service Listening on {}", addr);
 
     Server::builder()
         .add_service(StateDbServiceServer::new(sdb))
@@ -100,26 +98,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             log::info!("Graceful context shutdown");
         })
         .await?;
-
-    // log::info!("Executor service Listening on {}", executor_addr);
-
-    // log::info!("Listening on {}", addr);
-    // tokio::spawn(async move {
-    //     log::info!("StateDB service Listening on {}", addr);
-        
-    //         .unwrap_or_else(|e| log::error!("Failed to start StateDB service: {:?}", e));
-    // });
-
-    // tokio::spawn(async move {
-    //     log::info!("Executor service Listening on {}", executor_addr);
-    //     Server::builder()
-    //         .add_service(ExecutorServiceServer::new(executor))
-    //         .serve_with_shutdown(executor_addr, async {
-    //             log::info!("Graceful context shutdown");
-    //         })
-    //         .await
-    //         .unwrap_or_else(|e| log::error!("Failed to start Executor service: {:?}", e));
-    // });
     Ok(())
 }
 
