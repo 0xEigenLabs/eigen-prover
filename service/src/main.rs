@@ -34,17 +34,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::info!("Launching sigterm handler");
     let (signal_tx, signal_rx) = oneshot::channel();
-    //let (state_db_signal_tx, state_db_signal_rx) = oneshot::channel();
     let mut interval = time::interval(time::Duration::from_secs(1));
     let mut interval_client = time::interval(time::Duration::from_secs(5));
     let (send, mut recv) = watch::channel::<()>(());
     let (send_client, mut recv_client) = watch::channel::<()>(());
     spawn(wait_for_sigterm(signal_tx, send, send_client));
-
-    // let (executor_signal_tx, executor_signal_rx) = oneshot::channel();
-    // let (send2, mut recv2) = watch::channel::<()>(());
-    // let (send_client2, mut recv_client2) = watch::channel::<()>(());
-    //spawn(wait_for_sigterm(executor_signal_tx, send2, send_client2));
 
     tokio::spawn(async move {
         loop {
