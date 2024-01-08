@@ -2,16 +2,16 @@ use revm::{
     db::CacheState,
     interpreter::CreateScheme,
     primitives::{
-        calc_excess_blob_gas, keccak256, Address, Bytecode, Env, SpecId, TransactTo, U256,
+        calc_excess_blob_gas, keccak256, Address, Bytecode, Env, ExecutionResult, SpecId,
+        TransactTo, U256,
     },
 };
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use models::*;
 
 extern crate alloc;
-use alloc::string::String;
-use alloc::string::ToString;
+
 use alloc::vec::Vec;
 
 // pub struct Executor {
@@ -23,7 +23,7 @@ use alloc::vec::Vec;
 //     }
 // }
 
-pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<_, String> {
+pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<ExecutionResult>> {
     // Create database and insert cache
     let mut cache_state = CacheState::new(false);
     for (address, info) in &unit.pre {
@@ -93,7 +93,6 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<_, S
 
         env.cfg.spec_id = spec_name.to_spec_id();
 
-
         for test in tests {
             env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
 
@@ -143,7 +142,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<_, S
             evm.env = env.clone();
 
             // do the deed
-            let exec_result = evm.transact_commit()?;
+            let exec_result = evm.transact_commit().map_err(anyhow::Error::msg)?;
 
             all_result.push(exec_result);
         }
