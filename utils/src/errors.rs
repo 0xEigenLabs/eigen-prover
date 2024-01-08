@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-pub type Result<T> = std::result::Result<T, EigenError>;
+pub use anyhow::Result;
 
 #[derive(Error, Debug)]
 pub enum EigenError {
