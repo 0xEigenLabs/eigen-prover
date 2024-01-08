@@ -6,8 +6,8 @@ use revm::{
     },
 };
 
+use anyhow::{bail, Result};
 use models::*;
-use anyhow::{Result, bail};
 
 extern crate alloc;
 use alloc::string::String;
@@ -22,7 +22,6 @@ use alloc::vec::Vec;
 //         Executor {}
 //     }
 // }
-
 
 pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), String> {
     // Create database and insert cache

@@ -11,6 +11,7 @@ use crate::batch_prove::BatchProver;
 use crate::final_prove::FinalProver;
 use crate::traits::StageProver;
 use algebraic::errors::EigenError;
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -18,7 +19,6 @@ use std::env::var;
 use std::path::Path;
 use std::sync::Mutex;
 use uuid::Uuid;
-use anyhow::{bail, Result};
 
 fn load_link(curve_type: &str) -> Vec<String> {
     let mut links: Vec<String> = vec![];

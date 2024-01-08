@@ -4,15 +4,14 @@
 use tonic::transport::Server;
 mod aggregator_client;
 mod config;
-mod statedb;
 mod executor_service;
-use std::net::SocketAddr;
+mod statedb;
 
 #[macro_use]
 extern crate lazy_static;
 
-use statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
+use statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use tokio::{
     signal::unix::{signal, SignalKind},
     spawn,
@@ -26,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let runtime_config = config::RuntimeConfig::from_toml("conf/base_config.toml").unwrap();
     let addr = runtime_config.addr.as_str().parse()?;
-    
+
     // let state_db_addr: SocketAddr = runtime_config.state_db_addr.parse().expect("Invalid state_db_addr");
     // let executor_addr: SocketAddr = runtime_config.executor_addr.parse().expect("Invalid executor_addr");
     let sdb = statedb::StateDBServiceSVC::default();

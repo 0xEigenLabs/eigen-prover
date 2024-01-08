@@ -1,28 +1,18 @@
 #![allow(clippy::all)]
 #![allow(unknown_lints)]
-use executor_service::executor_service_client::ExecutorServiceClient;
+
 use executor_service::executor_service_server::ExecutorService;
-use executor_service::{
-    CallTrace, Contract, ExecutionTraceStep, ExecutorError, InfoReadWrite, Log,
-    ProcessBatchRequest, ProcessBatchResponse, RomError, TraceConfig, TransactionContext,
-    TransactionStep,
-};
-use log::{debug, error};
+use executor_service::{ProcessBatchRequest, ProcessBatchResponse};
+use log::debug;
 use models::*;
-use revm::primitives::bitvec::ptr::null;
+
 use std::collections::HashMap;
 use tonic::{Request, Response, Status};
 pub mod executor_service {
     tonic::include_proto!("executor.v1");
 }
 use executor::execute_one;
-use revm::{
-    db::CacheState,
-    interpreter::CreateScheme,
-    primitives::{
-        address, calc_excess_blob_gas, keccak256, Address, Bytecode, Env, SpecId, TransactTo, U256,
-    },
-};
+use revm::primitives::address;
 
 #[derive(Debug, Default)]
 pub struct ExecutorServiceSVC {}
@@ -53,7 +43,7 @@ impl ExecutorService for ExecutorServiceSVC {
         };
         let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
         let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
-        let res: () = execute_one(&t, addr, 1).unwrap();
+        let _res: () = execute_one(&t, addr, 1).unwrap();
         let response = executor_service::ProcessBatchResponse {
             new_state_root: "0x".as_bytes().to_vec(),
             new_acc_input_hash: "0x".as_bytes().to_vec(),

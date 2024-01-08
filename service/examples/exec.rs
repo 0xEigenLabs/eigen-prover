@@ -1,14 +1,8 @@
-use executor::executor;
 use executor_service::executor_service_client::ExecutorServiceClient;
-use executor_service::executor_service_server::ExecutorService;
-use executor_service::{
-    CallTrace, Contract, ExecutionTraceStep, ExecutorError, InfoReadWrite, Log,
-    ProcessBatchRequest, ProcessBatchResponse, RomError, TraceConfig, TransactionContext,
-    TransactionStep,
-};
-use models::*;
+use executor_service::{ProcessBatchRequest, TraceConfig};
+
 use std::collections::HashMap;
-use tonic::{Request, Response, Status};
+
 pub mod executor_service {
     tonic::include_proto!("executor.v1");
 }
