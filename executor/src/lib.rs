@@ -23,7 +23,7 @@ use alloc::vec::Vec;
 //     }
 // }
 
-pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), String> {
+pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<_, String> {
     // Create database and insert cache
     let mut cache_state = CacheState::new(false);
     for (address, info) in &unit.pre {
@@ -81,6 +81,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
     env.tx.blob_hashes = unit.transaction.blob_versioned_hashes.clone();
     env.tx.max_fee_per_blob_gas = unit.transaction.max_fee_per_blob_gas;
 
+    let mut all_result = vec![];
     // post and execution
     for (spec_name, tests) in &unit.post {
         if matches!(
@@ -91,6 +92,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
         }
 
         env.cfg.spec_id = spec_name.to_spec_id();
+
 
         for test in tests {
             env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
@@ -141,45 +143,12 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
             evm.env = env.clone();
 
             // do the deed
-            let exec_result = evm.transact_commit();
+            let exec_result = evm.transact_commit()?;
 
-            // validate results
-            // this is in a closure so we can have a common printing routine for errors
-            let check = || {
-                // if we expect exception revm should return error from execution.
-                // So we do not check logs and state root.
-                //
-                // Note that some tests that have exception and run tests from before state clear
-                // would touch the caller account and make it appear in state root calculation.
-                // This is not something that we would expect as invalid tx should not touch state.
-                // but as this is a cleanup of invalid tx it is not properly defined and in the end
-                // it does not matter.
-                // Test where this happens: `tests/GeneralStateTests/stTransactionTest/NoSrcAccountCreate.json`
-                // and you can check that we have only two "hash" values for before and after state clear.
-                match (&test.expect_exception, &exec_result) {
-                    // do nothing
-                    (None, Ok(_)) => (),
-                    // return okay, exception is expected.
-                    (Some(_), Err(_e)) => {
-                        //print!("ERROR: {e}");
-                        return Ok(());
-                    }
-                    _ => {
-                        let s = exec_result.clone().err().map(|e| e.to_string()).unwrap();
-                        print!("UNEXPECTED ERROR: {s}");
-                        bail!(s);
-                    }
-                }
-                Ok(())
-            };
-
-            // dump state and traces if test failed
-            let Err(e) = check() else { continue };
-
-            return Err(e.to_string());
+            all_result.push(exec_result);
         }
     }
-    Ok(())
+    Ok(all_result)
 }
 
 #[cfg(test)]
