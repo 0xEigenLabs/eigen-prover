@@ -17,6 +17,7 @@ use std::collections::VecDeque;
 use std::env::var;
 use std::path::Path;
 use std::sync::Mutex;
+use anyhow::Error;
 use uuid::Uuid;
 
 fn load_link(curve_type: &str) -> Vec<String> {
@@ -340,7 +341,7 @@ impl Pipeline {
                 w.insert(task_id.clone(), ProveStage::BatchProve(task_id.clone()));
                 self.save_checkpoint(task_id, false)
             }
-            _ => Err(EigenError::Unknown("Task queue is full".to_string())),
+            _ => Err(Error::msg("Task queue is full".to_string())),
         }
     }
 
@@ -356,7 +357,7 @@ impl Pipeline {
                 );
                 self.save_checkpoint(task_id, false)
             }
-            _ => Err(EigenError::Unknown("Task queue is full".to_string())),
+            _ => Err(Error::msg("Task queue is full".to_string())),
         }
     }
 
@@ -376,7 +377,7 @@ impl Pipeline {
                 );
                 self.save_checkpoint(task_id, false)
             }
-            _ => Err(EigenError::Unknown("Task queue is full".to_string())),
+            _ => Err(Error::msg("Task queue is full".to_string())),
         }
     }
 
@@ -396,7 +397,7 @@ impl Pipeline {
     pub fn get_proof(&mut self, task_id: String, _timeout: u64) -> Result<String> {
         match self.load_checkpoint(task_id) {
             Ok(true) => Ok("".to_string()),
-            _ => Err(EigenError::InvalidValue("get_proof failed".to_string())),
+            _ => Err(Error::msg("get_proof failed".to_string())),
         }
     }
 
