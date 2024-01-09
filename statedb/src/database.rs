@@ -1,6 +1,7 @@
 use crate::models::{Nodes, Program};
 use crate::schema::state::nodes::dsl::nodes;
 use crate::schema::state::program::dsl::program;
+use anyhow::bail;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -64,8 +65,8 @@ impl Database {
             .optional();
         match result {
             Ok(Some(pg)) => Ok(String::from_utf8_lossy(&pg.data).to_string()),
-            Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
-            Err(e) => Err(EigenError::DatabaseError(e)),
+            Ok(None) => bail!(EigenError::DatabaseError(diesel::NotFound)),
+            Err(e) => bail!(EigenError::DatabaseError(e)),
         }
     }
 
@@ -79,8 +80,8 @@ impl Database {
             .optional();
         match result {
             Ok(Some(pg)) => Ok(String::from_utf8_lossy(&pg.data).to_string()),
-            Ok(None) => Err(EigenError::DatabaseError(diesel::NotFound)),
-            Err(e) => Err(EigenError::DatabaseError(e)),
+            Ok(None) => bail!(EigenError::DatabaseError(diesel::NotFound)),
+            Err(e) => bail!(EigenError::DatabaseError(e)),
         }
     }
 
@@ -180,6 +181,6 @@ impl Database {
     pub fn get_program(&mut self, key: &str) -> Result<Vec<u8>> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let hex_data = self.read_remote(true, &key)?;
-        hex::decode(hex_data).map_err(|e| EigenError::from(format!("hex decode error: {}", e)))
+        Ok(hex::decode(hex_data)?)
     }
 }

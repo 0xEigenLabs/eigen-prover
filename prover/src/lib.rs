@@ -11,6 +11,7 @@ use crate::batch_prove::BatchProver;
 use crate::final_prove::FinalProver;
 use crate::traits::StageProver;
 use algebraic::errors::{EigenError, Result};
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -341,7 +342,7 @@ impl Pipeline {
                 w.insert(task_id.clone(), ProveStage::BatchProve(task_id.clone()));
                 self.save_checkpoint(task_id, false)
             }
-            _ => Err(Error::msg("Task queue is full".to_string())),
+            _ => bail!(EigenError::Unknown("Task queue is full".to_string())),
         }
     }
 
@@ -357,7 +358,7 @@ impl Pipeline {
                 );
                 self.save_checkpoint(task_id, false)
             }
-            _ => Err(Error::msg("Task queue is full".to_string())),
+            _ => bail!(EigenError::Unknown("Task queue is full".to_string())),
         }
     }
 
@@ -377,7 +378,7 @@ impl Pipeline {
                 );
                 self.save_checkpoint(task_id, false)
             }
-            _ => Err(Error::msg("Task queue is full".to_string())),
+            _ => bail!(EigenError::Unknown("Task queue is full".to_string())),
         }
     }
 
@@ -397,7 +398,7 @@ impl Pipeline {
     pub fn get_proof(&mut self, task_id: String, _timeout: u64) -> Result<String> {
         match self.load_checkpoint(task_id) {
             Ok(true) => Ok("".to_string()),
-            _ => Err(Error::msg("get_proof failed".to_string())),
+            _ => bail!(EigenError::InvalidValue("get_proof failed".to_string())),
         }
     }
 
