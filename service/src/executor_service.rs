@@ -2,7 +2,7 @@
 #![allow(unknown_lints)]
 
 use executor_service::executor_service_server::ExecutorService;
-use executor_service::{ProcessBatchRequest, ProcessBatchResponse};
+use executor_service::{ProcessBatchRequest, ProcessBatchResponse, ExecutorError};
 use log::debug;
 use models::*;
 
@@ -42,8 +42,23 @@ impl ExecutorService for ExecutorServiceSVC {
         };
         let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
         let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
-        let _res = execute_one(&t, addr, 1).unwrap();
-        let response = executor_service::ProcessBatchResponse::default();
+        let _res = execute_one(&t, addr, 1);
+        let mut response = executor_service::ProcessBatchResponse::default();
+        let last_element = match _res {
+            Ok(res) => {
+                response.error = ExecutorError::NoError.into();
+                println!("exec success");
+                res.last().cloned()
+            }
+            Err(e) => {
+                response.error = ExecutorError::Unspecified.into();
+                eprintln!("exec error: {:?}", e);
+                None
+            }
+        };
+
+        debug!("execute_one last_element: {:?}", last_element);
+
         Ok(Response::new(response))
     }
 }

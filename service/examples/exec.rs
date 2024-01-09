@@ -1,5 +1,5 @@
 use executor_service::executor_service_client::ExecutorServiceClient;
-use executor_service::{ProcessBatchRequest, TraceConfig};
+use executor_service::{ProcessBatchRequest, TraceConfig, ExecutorError};
 
 use std::collections::HashMap;
 
@@ -39,7 +39,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }),
     };
     println!("request: {:?}", request);
-    let response = executor_client.process_batch(request).await?;
+    let response = executor_client.process_batch(request).await?.into_inner();
+    if response.error == ExecutorError::NoError.into() {
+        println!("process batch success");
+    } else {
+        // Handle other error cases
+        eprintln!("process batch failed, Error: {}", response.error);
+    }
+
     println!("response: {:?}", response);
     Ok(())
 }

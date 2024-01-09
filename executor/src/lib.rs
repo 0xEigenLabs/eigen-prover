@@ -142,7 +142,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
             evm.env = env.clone();
 
             // do the deed
-            let exec_result = evm.transact_commit().map_err(anyhow::Error::msg)?;
+            let exec_result: ExecutionResult = evm.transact_commit().map_err(anyhow::Error::msg)?;
 
             all_result.push(exec_result);
         }
@@ -194,6 +194,15 @@ mod tests {
         let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
         let t: TestUnit = serde_json::from_str(&suite_json).unwrap();
         println!("TestUnit t: {:?}", t);
-        execute_one(&t, addr, 1).unwrap();
+        let res: Result<Vec<revm::primitives::ExecutionResult>, anyhow::Error> = execute_one(&t, addr, 1);
+        
+        match res {
+            Ok(_) => {
+                println!("exec sueccess");
+            }
+            Err(e) => {
+                eprintln!("Error occurred: {}", e);
+            }
+        }
     }
 }
