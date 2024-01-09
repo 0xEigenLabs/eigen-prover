@@ -12,15 +12,15 @@ impl RuntimeConfig {
     pub fn from_toml<T: AsRef<Path>>(path: T) -> Option<Self> {
         let contents = match fs::read_to_string(path) {
             Ok(c) => c,
-            Err(_) => {
-                error!("Something went wrong reading the runtime config file.");
+            Err(e) => {
+                error!("Something went wrong reading the runtime config file, {:?}", e);
                 return None;
             }
         };
         let config: RuntimeConfig = match toml::from_str(&contents) {
             Ok(c) => c,
-            Err(_) => {
-                error!("Something went wrong reading the runtime config file.");
+            Err(e) => {
+                error!("Something went wrong reading the runtime config file, {:?}", e);
                 return None;
             }
         };
