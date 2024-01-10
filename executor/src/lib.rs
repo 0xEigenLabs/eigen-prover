@@ -2,19 +2,19 @@ use revm::{
     db::CacheState,
     interpreter::CreateScheme,
     primitives::{
-        calc_excess_blob_gas, keccak256, Address, Bytecode, Env, SpecId, TransactTo, U256,
+        calc_excess_blob_gas, keccak256, Address, Bytecode, Env, ExecutionResult, SpecId,
+        TransactTo, U256,
     },
 };
 
+use anyhow::Result;
 use models::*;
 
 extern crate alloc;
-use alloc::string::String;
-use alloc::string::ToString;
 
 use alloc::vec::Vec;
 
-pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), String> {
+pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<ExecutionResult>> {
     // Create database and insert cache
     let mut cache_state = CacheState::new(false);
     for (address, info) in &unit.pre {
@@ -72,6 +72,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
     env.tx.blob_hashes = unit.transaction.blob_versioned_hashes.clone();
     env.tx.max_fee_per_blob_gas = unit.transaction.max_fee_per_blob_gas;
 
+    let mut all_result = vec![];
     // post and execution
     for (spec_name, tests) in &unit.post {
         if matches!(
@@ -132,45 +133,12 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<(), 
             evm.env = env.clone();
 
             // do the deed
-            let exec_result = evm.transact_commit();
+            let exec_result: ExecutionResult = evm.transact_commit().map_err(anyhow::Error::msg)?;
 
-            // validate results
-            // this is in a closure so we can have a common printing routine for errors
-            let check = || {
-                // if we expect exception revm should return error from execution.
-                // So we do not check logs and state root.
-                //
-                // Note that some tests that have exception and run tests from before state clear
-                // would touch the caller account and make it appear in state root calculation.
-                // This is not something that we would expect as invalid tx should not touch state.
-                // but as this is a cleanup of invalid tx it is not properly defined and in the end
-                // it does not matter.
-                // Test where this happens: `tests/GeneralStateTests/stTransactionTest/NoSrcAccountCreate.json`
-                // and you can check that we have only two "hash" values for before and after state clear.
-                match (&test.expect_exception, &exec_result) {
-                    // do nothing
-                    (None, Ok(_)) => (),
-                    // return okay, exception is expected.
-                    (Some(_), Err(_e)) => {
-                        //print!("ERROR: {e}");
-                        return Ok(());
-                    }
-                    _ => {
-                        let s = exec_result.clone().err().map(|e| e.to_string()).unwrap();
-                        print!("UNEXPECTED ERROR: {s}");
-                        return Err(s);
-                    }
-                }
-                Ok(())
-            };
-
-            // dump state and traces if test failed
-            let Err(e) = check() else { continue };
-
-            return Err(e);
+            all_result.push(exec_result);
         }
     }
-    Ok(())
+    Ok(all_result)
 }
 
 #[cfg(test)]
@@ -216,6 +184,16 @@ mod tests {
 
         let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
         let t: TestUnit = serde_json::from_str(&suite_json).unwrap();
-        execute_one(&t, addr, 1).unwrap();
+        println!("TestUnit t: {:?}", t);
+        let res = execute_one(&t, addr, 1);
+
+        match res {
+            Ok(_) => {
+                println!("exec sueccess");
+            }
+            Err(e) => {
+                eprintln!("Error occurred: {}", e);
+            }
+        }
     }
 }

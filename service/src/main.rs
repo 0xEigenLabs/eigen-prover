@@ -4,11 +4,13 @@
 use tonic::transport::Server;
 mod aggregator_client;
 mod config;
+mod executor_service;
 mod statedb;
 
 #[macro_use]
 extern crate lazy_static;
 
+use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
 use statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use tokio::{
     signal::unix::{signal, SignalKind},
@@ -21,13 +23,16 @@ use tokio::{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    let runtim_config = config::RuntimeConfig::from_toml("conf/base_config.toml").unwrap();
-    let addr = runtim_config.addr.as_str().parse()?;
+    let runtime_config = config::RuntimeConfig::from_toml("conf/base_config.toml").unwrap();
+    let addr = runtime_config.addr.as_str().parse()?;
+
+    // let state_db_addr: SocketAddr = runtime_config.state_db_addr.parse().expect("Invalid state_db_addr");
+    // let executor_addr: SocketAddr = runtime_config.executor_addr.parse().expect("Invalid executor_addr");
     let sdb = statedb::StateDBServiceSVC::default();
+    let executor = executor_service::ExecutorServiceSVC::default();
 
     log::info!("Launching sigterm handler");
     let (signal_tx, signal_rx) = oneshot::channel();
-
     let mut interval = time::interval(time::Duration::from_secs(1));
     let mut interval_client = time::interval(time::Duration::from_secs(5));
     let (send, mut recv) = watch::channel::<()>(());
@@ -76,15 +81,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         log::info!("finished in the walking task");
     });
 
-    log::info!("Listening on {}", addr);
+    log::info!("StateDB service and Executor service Listening on {}", addr);
+
     Server::builder()
         .add_service(StateDbServiceServer::new(sdb))
+        .add_service(ExecutorServiceServer::new(executor))
         .serve_with_shutdown(addr, async {
             signal_rx.await.ok();
             log::info!("Graceful context shutdown");
         })
         .await?;
-
     Ok(())
 }
 
