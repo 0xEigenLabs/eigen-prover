@@ -34,8 +34,7 @@ impl StateDBClientCli {
             get_db_read_log: true,
         });
 
-        self
-            .client
+        self.client
             .get(req)
             .await
             .map_err(|e| EigenError::from(format!("get status: {:?}", e)))
@@ -55,8 +54,7 @@ impl StateDBClientCli {
             details: true,
             get_db_read_log: true,
         });
-        self
-            .client
+        self.client
             .set(req)
             .await
             .map_err(|e| EigenError::from(format!("set status: {:?}", e)))
@@ -67,8 +65,7 @@ impl StateDBClientCli {
         key: Fea,
     ) -> Result<Response<GetProgramResponse>, EigenError> {
         let req = tonic::Request::new(GetProgramRequest { key: Some(key) });
-        self
-            .client
+        self.client
             .get_program(req)
             .await
             .map_err(|e| EigenError::from(format!("get_program status: {:?}", e)))
@@ -84,16 +81,14 @@ impl StateDBClientCli {
             data,
             persistent: true,
         });
-        self
-            .client
+        self.client
             .set_program(req)
             .await
             .map_err(|e| EigenError::from(format!("set_program status: {:?}", e)))
     }
 
     pub async fn flush(mut self) -> Result<Response<FlushResponse>, EigenError> {
-        self
-            .client
+        self.client
             .flush(())
             .await
             .map_err(|e| EigenError::from(format!("set_program status: {:?}", e)))
