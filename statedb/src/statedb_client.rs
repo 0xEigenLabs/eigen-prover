@@ -5,7 +5,7 @@ use statedb_service::{
     SetProgramRequest, SetProgramResponse, SetRequest, SetResponse,
 };
 use tonic::transport::Channel;
-use tonic::{Request, Response};
+use tonic::Response;
 
 pub mod statedb_service {
     tonic::include_proto!("statedb.v1");
@@ -34,12 +34,11 @@ impl StateDBClientCli {
             get_db_read_log: true,
         });
 
-        let resp = self
+        self
             .client
             .get(req)
             .await
-            .map_err(|e| EigenError::from(format!("get status: {:?}", e)));
-        return resp;
+            .map_err(|e| EigenError::from(format!("get status: {:?}", e)))
     }
 
     pub async fn set(
@@ -56,12 +55,11 @@ impl StateDBClientCli {
             details: true,
             get_db_read_log: true,
         });
-        let res = self
+        self
             .client
             .set(req)
             .await
-            .map_err(|e| EigenError::from(format!("set status: {:?}", e)));
-        return res;
+            .map_err(|e| EigenError::from(format!("set status: {:?}", e)))
     }
 
     pub async fn get_program(
@@ -69,12 +67,11 @@ impl StateDBClientCli {
         key: Fea,
     ) -> Result<Response<GetProgramResponse>, EigenError> {
         let req = tonic::Request::new(GetProgramRequest { key: Some(key) });
-        let res = self
+        self
             .client
             .get_program(req)
             .await
-            .map_err(|e| EigenError::from(format!("get_program status: {:?}", e)));
-        return res;
+            .map_err(|e| EigenError::from(format!("get_program status: {:?}", e)))
     }
 
     pub async fn set_program(
@@ -84,23 +81,21 @@ impl StateDBClientCli {
     ) -> Result<Response<SetProgramResponse>, EigenError> {
         let req = tonic::Request::new(SetProgramRequest {
             key: Some(key),
-            data: data,
+            data,
             persistent: true,
         });
-        let res = self
+        self
             .client
             .set_program(req)
             .await
-            .map_err(|e| EigenError::from(format!("set_program status: {:?}", e)));
-        return res;
+            .map_err(|e| EigenError::from(format!("set_program status: {:?}", e)))
     }
 
     pub async fn flush(mut self) -> Result<Response<FlushResponse>, EigenError> {
-        let res = self
+        self
             .client
             .flush(())
             .await
-            .map_err(|e| EigenError::from(format!("set_program status: {:?}", e)));
-        return res;
+            .map_err(|e| EigenError::from(format!("set_program status: {:?}", e)))
     }
 }
