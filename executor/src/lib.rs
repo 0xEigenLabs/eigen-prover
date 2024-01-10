@@ -82,7 +82,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
             continue;
         }
 
-        env.cfg.spec_id = spec_name.to_spec_id();
+        //env.cfg.spec_id = spec_name.to_spec_id();
 
         for test in tests {
             env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
@@ -145,7 +145,10 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
 mod tests {
     use super::execute_one;
     use revm::primitives::{address, b256};
+
     //use runtime::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
+
+    //use revm::inspectors::TracerEip3155;
 
     use models::*;
 
