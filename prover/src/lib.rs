@@ -12,13 +12,13 @@ use crate::final_prove::FinalProver;
 use crate::traits::StageProver;
 use algebraic::errors::{EigenError, Result};
 use anyhow::bail;
+use anyhow::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::env::var;
 use std::path::Path;
 use std::sync::Mutex;
-use anyhow::Error;
 use uuid::Uuid;
 
 fn load_link(curve_type: &str) -> Vec<String> {

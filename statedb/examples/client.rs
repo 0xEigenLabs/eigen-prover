@@ -1,4 +1,4 @@
-use statedb::statedb_client::statedb_service::{Fea};
+use statedb::statedb_client::statedb_service::Fea;
 use statedb::statedb_client::StateDBClientCli;
 
 #[tokio::main]
