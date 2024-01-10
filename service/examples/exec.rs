@@ -1,5 +1,5 @@
 use executor_service::executor_service_client::ExecutorServiceClient;
-use executor_service::{ProcessBatchRequest, TraceConfig, ExecutorError};
+use executor_service::{ExecutorError, ProcessBatchRequest, TraceConfig};
 
 use std::collections::HashMap;
 

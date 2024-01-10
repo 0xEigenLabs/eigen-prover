@@ -2,7 +2,7 @@
 #![allow(unknown_lints)]
 
 use executor_service::executor_service_server::ExecutorService;
-use executor_service::{ProcessBatchRequest, ProcessBatchResponse, ExecutorError};
+use executor_service::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse};
 use log::debug;
 use models::*;
 

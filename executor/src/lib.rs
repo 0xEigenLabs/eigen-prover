@@ -194,8 +194,9 @@ mod tests {
         let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
         let t: TestUnit = serde_json::from_str(&suite_json).unwrap();
         println!("TestUnit t: {:?}", t);
-        let res: Result<Vec<revm::primitives::ExecutionResult>, anyhow::Error> = execute_one(&t, addr, 1);
-        
+        let res: Result<Vec<revm::primitives::ExecutionResult>, anyhow::Error> =
+            execute_one(&t, addr, 1);
+
         match res {
             Ok(_) => {
                 println!("exec sueccess");
