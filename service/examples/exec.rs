@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("test_file {}", test_file);
     let batch_l2_data_json = std::fs::read_to_string(test_file).unwrap();
     let mut request = ProcessBatchRequest::default();
-    request.batch_l2_data=batch_l2_data_json.as_bytes().to_vec();
+    request.batch_l2_data = batch_l2_data_json.as_bytes().to_vec();
     println!("request: {:?}", request);
     let response = executor_client.process_batch(request).await?.into_inner();
     if response.error == ExecutorError::NoError.into() {
