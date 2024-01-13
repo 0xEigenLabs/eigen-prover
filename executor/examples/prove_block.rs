@@ -90,6 +90,7 @@ async fn main() -> anyhow::Result<()> {
         cache_db.insert_account_info(from_acc, acc_info);
 
         // TODO: check if we really need insert to account
+        /*
         if tx.to.is_some() {
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
             let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
@@ -106,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
             }
             cache_db.insert_account_info(to_acc, acc_info);
         }
+        */
     }
     let mut evm = EVM::new();
     evm.database(cache_db);
