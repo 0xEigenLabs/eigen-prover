@@ -66,7 +66,6 @@ async fn main() -> anyhow::Result<()> {
     // Params
     let chain_id: u64 = 1;
     //let block_number = 10889447;
-    //let block_number = 456;
 
     // Fetch the transaction-rich block
     let block = match client.get_block_with_txs(block_number).await {
@@ -89,6 +88,24 @@ async fn main() -> anyhow::Result<()> {
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
         println!("acc_info: {} => {:?}", from_acc, acc_info);
         cache_db.insert_account_info(from_acc, acc_info);
+
+        // TODO: check if we really need insert to account
+        if tx.to.is_some() {
+            let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
+            let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
+            println!("to_info: {} => {:?}", to_acc, acc_info);
+            // setup storage
+            let slot = U256::from(0);
+            if acc_info.code.as_ref().unwrap().len() > 0 {
+                // query value of storage slot at account address
+                let value = ethersdb.storage(to_acc, slot).unwrap();
+
+                cache_db
+                    .insert_account_storage(to_acc, slot, value)
+                    .unwrap();
+            }
+            cache_db.insert_account_info(to_acc, acc_info);
+        }
     }
     let mut evm = EVM::new();
     evm.database(cache_db);
@@ -181,10 +198,11 @@ async fn main() -> anyhow::Result<()> {
         // Flush the file writer
         inner.lock().unwrap().flush().expect("Failed to flush file");
         */
-        let result = evm.transact_ref().unwrap();
-        for (k, v) in &result.state {
-            println!("state: {}=>{:?}", k, v);
-        }
+        evm.transact_commit().unwrap();
+    }
+
+    for (k, v) in &evm.db.as_ref().unwrap().accounts {
+        println!("state: {}=>{:?}", k, v);
     }
 
     println!(
