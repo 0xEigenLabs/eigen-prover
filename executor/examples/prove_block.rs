@@ -1,21 +1,19 @@
-///! NO=457 cargo run --release --example prove_block
 #![allow(dead_code)]
-
 use ethers_core::types::BlockId;
 use ethers_providers::Middleware;
 use ethers_providers::{Http, Provider};
 //use revm::inspectors::TracerEip3155;
 
-use revm::Database;
 use revm::db::{CacheDB, EmptyDB, EthersDB};
 use revm::primitives::{Address, Env, TransactTo, U256};
+use revm::Database;
 use revm::EVM;
 
+use std::env as stdenv;
 use std::io::BufWriter;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::env as stdenv;
 
 macro_rules! local_fill {
     ($left:expr, $right:expr, $fun:expr) => {
@@ -50,9 +48,9 @@ impl Write for FlushWriter {
     }
 }
 
+/// Usage: NO=457 cargo run --release --example prove_block
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-
     let env_block_number = stdenv::var("NO").unwrap_or(String::from("0"));
     let block_number: u64 = env_block_number.parse().unwrap();
 
