@@ -30,7 +30,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
     let mut env = Env::default();
     // for mainnet
     env.cfg.chain_id = chain_id;
-    // env.cfg.spec_id is set down the road
+    //env.cfg.spec_id is set down the road
 
     // block env
     env.block.number = unit.env.current_number;
@@ -82,7 +82,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
             continue;
         }
 
-        //env.cfg.spec_id = spec_name.to_spec_id();
+        env.cfg.spec_id = spec_name.to_spec_id();
 
         for test in tests {
             env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
