@@ -5,8 +5,9 @@ use ethers_providers::{Http, Provider};
 //use revm::inspectors::TracerEip3155;
 
 use revm::db::{CacheDB, EmptyDB, EthersDB};
-use revm::primitives::{Address, Env, TransactTo, U256};
+use revm::primitives::{Address, Env, ResultAndState, TransactTo, U256};
 use revm::Database;
+use revm::DatabaseCommit;
 use revm::EVM;
 
 use std::env as stdenv;
@@ -82,6 +83,7 @@ async fn main() -> anyhow::Result<()> {
     let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
 
     let mut cache_db = CacheDB::new(EmptyDB::default());
+    // get pre
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
@@ -139,6 +141,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Fill in CfgEnv
     env.cfg.chain_id = chain_id;
+    let mut all_result = vec![];
     for tx in block.transactions {
         env.tx.caller = Address::from(tx.from.as_fixed_bytes());
         env.tx.gas_limit = tx.gas.as_u64();
@@ -200,11 +203,41 @@ async fn main() -> anyhow::Result<()> {
         // Flush the file writer
         inner.lock().unwrap().flush().expect("Failed to flush file");
         */
-        evm.transact_commit().unwrap();
+        //evm.transact_commit().unwrap();
+        let result = evm.transact().unwrap();
+        evm.db().unwrap().commit(result.state.clone());
+        let txbytes = serde_json::to_vec(&env.tx).unwrap();
+        all_result.push((txbytes, env.tx.data, env.tx.value, result));
     }
-
     for (k, v) in &evm.db.as_ref().unwrap().accounts {
         println!("state: {}=>{:?}", k, v);
+    }
+    // get `post: BTreeMap<SpecName, Vec<Test>>`
+    for res in &all_result {
+        match res {
+            (txbytes, data, value, ResultAndState { result, state }) => {
+                // 1. expect_exception: Option<String>,
+                println!("expect_exception: {:?}", result.is_success());
+                // indexes: TxPartIndices,
+                println!(
+                    "indexes: data{:?}, value: {}0, gas: {}",
+                    data,
+                    value,
+                    result.gas_used()
+                );
+                println!("output: {:?}", result.output());
+
+                // TODO: hash: B256, // post state root
+                //let hash = serde_json::to_vec(&state).unwrap();
+                //println!("hash: {:?}", state);
+                // post_state: HashMap<Address, AccountInfo>,
+                println!("post_state: {:?}", state);
+                // logs: B256,
+                println!("logs: {:?}", result.logs());
+                // txbytes: Option<Bytes>,
+                println!("txbytes: {:?}", txbytes);
+            }
+        }
     }
 
     println!(
