@@ -98,16 +98,16 @@ async fn main() -> anyhow::Result<()> {
             println!("to_info: {} => {:?}", to_acc, acc_info);
             cache_db.insert_account_info(to_acc, acc_info);
             // setup storage
-            let slot = U256::from_limbs(eU256::from("0x8810ce7a11ce4f42149f65734b60a86d227eedb52ff858262a8e4915daf4a7bd").0);
+            let slot = U256::from_limbs(
+                eU256::from("0x8810ce7a11ce4f42149f65734b60a86d227eedb52ff858262a8e4915daf4a7bd").0,
+            );
             let val = ethersdb.storage(to_acc, slot).unwrap();
-            cache_db
-                .insert_account_storage(to_acc, slot, val)
-                .unwrap();
-            let slot = U256::from_limbs(eU256::from("0x0f63dc0b0c00de449ca1b2bb53ef60eb6efb0fbd54eab20c2acb1f31375a7f8f").0);
+            cache_db.insert_account_storage(to_acc, slot, val).unwrap();
+            let slot = U256::from_limbs(
+                eU256::from("0x0f63dc0b0c00de449ca1b2bb53ef60eb6efb0fbd54eab20c2acb1f31375a7f8f").0,
+            );
             let val = ethersdb.storage(to_acc, slot).unwrap();
-            cache_db
-                .insert_account_storage(to_acc, slot, val)
-                .unwrap();
+            cache_db.insert_account_storage(to_acc, slot, val).unwrap();
         }
     }
     let mut evm = EVM::new();
