@@ -214,29 +214,28 @@ async fn main() -> anyhow::Result<()> {
     }
     // get `post: BTreeMap<SpecName, Vec<Test>>`
     for res in &all_result {
-        match res {
-            (txbytes, data, value, ResultAndState { result, state }) => {
-                // 1. expect_exception: Option<String>,
-                println!("expect_exception: {:?}", result.is_success());
-                // indexes: TxPartIndices,
-                println!(
-                    "indexes: data{:?}, value: {}0, gas: {}",
-                    data,
-                    value,
-                    result.gas_used()
-                );
-                println!("output: {:?}", result.output());
+        let (txbytes, data, value, ResultAndState { result, state }) = res;
+        {
+            // 1. expect_exception: Option<String>,
+            println!("expect_exception: {:?}", result.is_success());
+            // indexes: TxPartIndices,
+            println!(
+                "indexes: data{:?}, value: {}0, gas: {}",
+                data,
+                value,
+                result.gas_used()
+            );
+            println!("output: {:?}", result.output());
 
-                // TODO: hash: B256, // post state root
-                //let hash = serde_json::to_vec(&state).unwrap();
-                //println!("hash: {:?}", state);
-                // post_state: HashMap<Address, AccountInfo>,
-                println!("post_state: {:?}", state);
-                // logs: B256,
-                println!("logs: {:?}", result.logs());
-                // txbytes: Option<Bytes>,
-                println!("txbytes: {:?}", txbytes);
-            }
+            // TODO: hash: B256, // post state root
+            //let hash = serde_json::to_vec(&state).unwrap();
+            //println!("hash: {:?}", state);
+            // post_state: HashMap<Address, AccountInfo>,
+            println!("post_state: {:?}", state);
+            // logs: B256,
+            println!("logs: {:?}", result.logs());
+            // txbytes: Option<Bytes>,
+            println!("txbytes: {:?}", txbytes);
         }
     }
 
