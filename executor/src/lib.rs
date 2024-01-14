@@ -30,7 +30,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
     let mut env = Env::default();
     // for mainnet
     env.cfg.chain_id = chain_id;
-    // env.cfg.spec_id is set down the road
+    //env.cfg.spec_id is set down the road
 
     // block env
     env.block.number = unit.env.current_number;
@@ -145,7 +145,10 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
 mod tests {
     use super::execute_one;
     use revm::primitives::{address, b256};
+
     //use runtime::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
+
+    //use revm::inspectors::TracerEip3155;
 
     use models::*;
 
