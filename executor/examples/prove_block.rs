@@ -5,7 +5,7 @@ use ethers_providers::{Http, Provider};
 //use revm::inspectors::TracerEip3155;
 
 use revm::db::{CacheDB, EmptyDB, EthersDB};
-use revm::primitives::{Address, Env, ResultAndState, TransactTo, U256};
+use revm::primitives::{address, Address, Env, ResultAndState, TransactTo, U256};
 use revm::Database;
 use revm::DatabaseCommit;
 use revm::EVM;
@@ -52,6 +52,7 @@ impl Write for FlushWriter {
 /// Usage: NO=457 cargo run --release --example prove_block
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    use ethers_core::types::U256 as eU256;
     let env_block_number = stdenv::var("NO").unwrap_or(String::from("0"));
     let block_number: u64 = env_block_number.parse().unwrap();
 
@@ -80,16 +81,20 @@ async fn main() -> anyhow::Result<()> {
     // Use the previous block state as the db with caching
     let prev_id: BlockId = previous_block_number.into();
     // SAFETY: This cannot fail since this is in the top-level tokio runtime
+    let ethersdb1 = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
     let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
 
-    let mut cache_db = CacheDB::new(EmptyDB::default());
-    // get pre
+    let cache_db = CacheDB::new(ethersdb1);
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
         println!("acc_info: {} => {:?}", from_acc, acc_info);
-        cache_db.insert_account_info(from_acc, acc_info);
+
+        let actual = U256::from_limbs(eU256::from("0x8810ce7a11ce4f42149f65734b60a86d227eedb52ff858262a8e4915daf4a7bd").0);
+        let val = ethersdb.storage(address!("552eFA093b86EB6d80aDc3D5F732D093FbF885D6"), actual);
+        println!("value {:?}", val)
+        // cache_db.insert_account_info(from_acc, acc_info);
 
         // TODO: check if we really need insert to account
         /*
@@ -141,7 +146,6 @@ async fn main() -> anyhow::Result<()> {
 
     // Fill in CfgEnv
     env.cfg.chain_id = chain_id;
-    let mut all_result = vec![];
     for tx in block.transactions {
         env.tx.caller = Address::from(tx.from.as_fixed_bytes());
         env.tx.gas_limit = tx.gas.as_u64();
@@ -203,42 +207,15 @@ async fn main() -> anyhow::Result<()> {
         // Flush the file writer
         inner.lock().unwrap().flush().expect("Failed to flush file");
         */
-        //evm.transact_commit().unwrap();
-        let result = evm.transact().unwrap();
-        evm.db().unwrap().commit(result.state.clone());
-        let txbytes = serde_json::to_vec(&env.tx).unwrap();
-        all_result.push((txbytes, env.tx.data, env.tx.value, result));
+        let result = evm.transact_commit().unwrap();
+        println!("tx result {:?}", result);
     }
     for (k, v) in &evm.db.as_ref().unwrap().accounts {
-        println!("state: {}=>{:?}", k, v);
+        println!("account: {}=>{:?}", k, v);
     }
-    // get `post: BTreeMap<SpecName, Vec<Test>>`
-    for res in &all_result {
-        let (txbytes, data, value, ResultAndState { result, state }) = res;
-        {
-            // 1. expect_exception: Option<String>,
-            println!("expect_exception: {:?}", result.is_success());
-            // indexes: TxPartIndices,
-            println!(
-                "indexes: data{:?}, value: {}0, gas: {}",
-                data,
-                value,
-                result.gas_used()
-            );
-            println!("output: {:?}", result.output());
-
-            // TODO: hash: B256, // post state root
-            //let hash = serde_json::to_vec(&state).unwrap();
-            //println!("hash: {:?}", state);
-            // post_state: HashMap<Address, AccountInfo>,
-            println!("post_state: {:?}", state);
-            // logs: B256,
-            println!("logs: {:?}", result.logs());
-            // txbytes: Option<Bytes>,
-            println!("txbytes: {:?}", txbytes);
-        }
+    for (k, v) in &evm.db.as_ref().unwrap().contracts {
+        println!("contract: {}=>{:?}", k, v);
     }
-
     println!(
         "Finished execution. Total CPU time: {:.6}s",
         elapsed.as_secs_f64()
