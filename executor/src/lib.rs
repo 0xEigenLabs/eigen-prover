@@ -2,19 +2,20 @@ use revm::{
     db::CacheState,
     interpreter::CreateScheme,
     primitives::{
-        calc_excess_blob_gas, keccak256, Address, Bytecode, Env, ExecutionResult, SpecId,
+        calc_excess_blob_gas, keccak256, Address, Bytecode, Bytes, Env, ResultAndState, SpecId,
         TransactTo, U256,
     },
 };
 
 use anyhow::Result;
 use models::*;
-
+use ruint::Uint;
 extern crate alloc;
 
 use alloc::vec::Vec;
 
-pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<ExecutionResult>> {
+type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
+pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> ExecResult {
     // Create database and insert cache
     let mut cache_state = CacheState::new(false);
     for (address, info) in &unit.pre {
@@ -133,9 +134,11 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
             evm.env = env.clone();
 
             // do the deed
-            let exec_result: ExecutionResult = evm.transact_commit().map_err(anyhow::Error::msg)?;
-
-            all_result.push(exec_result);
+            // let exec_result: ExecutionResult = evm.transact_commit().map_err(anyhow::Error::msg)?;
+            let result = evm.transact().unwrap();
+            evm.transact_commit().unwrap();
+            let txbytes = serde_json::to_vec(&env.tx).unwrap();
+            all_result.push((txbytes, env.tx.data, env.tx.value, result));
         }
     }
     Ok(all_result)
@@ -190,13 +193,17 @@ mod tests {
         println!("TestUnit t: {:?}", t);
         let res = execute_one(&t, addr, 1);
 
-        match res {
-            Ok(_) => {
-                println!("exec sueccess");
+        let last_element = match res {
+            Ok(res) => {
+                println!("exec success");
+                res.last().cloned()
             }
             Err(e) => {
-                eprintln!("Error occurred: {}", e);
+                eprintln!("exec error: {:?}", e);
+                None
             }
-        }
+        };
+
+        println!("execute_one last_element: {:?}", last_element);
     }
 }
