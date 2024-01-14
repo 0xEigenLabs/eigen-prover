@@ -81,40 +81,34 @@ async fn main() -> anyhow::Result<()> {
     // Use the previous block state as the db with caching
     let prev_id: BlockId = previous_block_number.into();
     // SAFETY: This cannot fail since this is in the top-level tokio runtime
-    let ethersdb1 = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
     let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
 
-    let cache_db = CacheDB::new(ethersdb1);
+    let mut cache_db = CacheDB::new(EmptyDB::default());
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
         println!("acc_info: {} => {:?}", from_acc, acc_info);
 
-        let actual = U256::from_limbs(eU256::from("0x8810ce7a11ce4f42149f65734b60a86d227eedb52ff858262a8e4915daf4a7bd").0);
-        let val = ethersdb.storage(address!("552eFA093b86EB6d80aDc3D5F732D093FbF885D6"), actual);
-        println!("value {:?}", val)
-        // cache_db.insert_account_info(from_acc, acc_info);
+        cache_db.insert_account_info(from_acc, acc_info);
 
-        // TODO: check if we really need insert to account
-        /*
         if tx.to.is_some() {
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
             let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
             println!("to_info: {} => {:?}", to_acc, acc_info);
-            // setup storage
-            let slot = U256::from(0);
-            if acc_info.code.as_ref().unwrap().len() > 0 {
-                // query value of storage slot at account address
-                let value = ethersdb.storage(to_acc, slot).unwrap();
-
-                cache_db
-                    .insert_account_storage(to_acc, slot, value)
-                    .unwrap();
-            }
             cache_db.insert_account_info(to_acc, acc_info);
+            // setup storage
+            let slot = U256::from_limbs(eU256::from("0x8810ce7a11ce4f42149f65734b60a86d227eedb52ff858262a8e4915daf4a7bd").0);
+            let val = ethersdb.storage(to_acc, slot).unwrap();
+            cache_db
+                .insert_account_storage(to_acc, slot, val)
+                .unwrap();
+            let slot = U256::from_limbs(eU256::from("0x0f63dc0b0c00de449ca1b2bb53ef60eb6efb0fbd54eab20c2acb1f31375a7f8f").0);
+            let val = ethersdb.storage(to_acc, slot).unwrap();
+            cache_db
+                .insert_account_storage(to_acc, slot, val)
+                .unwrap();
         }
-        */
     }
     let mut evm = EVM::new();
     evm.database(cache_db);
