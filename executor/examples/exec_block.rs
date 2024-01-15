@@ -3,6 +3,7 @@ use ethers_core::types::BlockId;
 use ethers_providers::Middleware;
 use ethers_providers::{Http, Provider};
 //use revm::inspectors::TracerEip3155;
+//use ruint::{aliases::*, uint, Uint};
 
 use revm::db::{CacheDB, EmptyDB, EthersDB};
 use revm::primitives::{Address, Env, ResultAndState, TransactTo, U256};
@@ -91,25 +92,29 @@ async fn main() -> anyhow::Result<()> {
         println!("acc_info: {} => {:?}", from_acc, acc_info);
         cache_db.insert_account_info(from_acc, acc_info);
 
-        // TODO: check if we really need insert to account
-        /*
         if tx.to.is_some() {
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
             let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
             println!("to_info: {} => {:?}", to_acc, acc_info);
             // setup storage
-            let slot = U256::from(0);
-            if acc_info.code.as_ref().unwrap().len() > 0 {
-                // query value of storage slot at account address
-                let value = ethersdb.storage(to_acc, slot).unwrap();
+            /*
+            uint!{
+                for slot in [0x2_U256, 0x82440beeb8ea7bdc8fb6c47af3bdfbce49c97853988e80d3269a2ccae791587a_U256] {
+                    let slot = U256::from(slot);
+                    if acc_info.code.as_ref().unwrap().len() > 0 {
+                        // query value of storage slot at account address
+                        let value = ethersdb.storage(to_acc, slot).unwrap();
+                        println!("slot:{}, value: {:?}", slot, value);
 
-                cache_db
-                    .insert_account_storage(to_acc, slot, value)
-                    .unwrap();
+                        cache_db
+                            .insert_account_storage(to_acc, slot, value)
+                            .unwrap();
+                    }
+                }
             }
+            */
             cache_db.insert_account_info(to_acc, acc_info);
         }
-        */
     }
     let mut evm = EVM::new();
     evm.database(cache_db);
@@ -211,6 +216,11 @@ async fn main() -> anyhow::Result<()> {
     }
     for (k, v) in &evm.db.as_ref().unwrap().accounts {
         println!("state: {}=>{:?}", k, v);
+        if !v.storage.is_empty() {
+            for (k, v) in v.storage.iter() {
+                println!("slot => storage: {}=>{}", k, v);
+            }
+        }
     }
     // get `post: BTreeMap<SpecName, Vec<Test>>`
     for res in &all_result {
@@ -220,7 +230,7 @@ async fn main() -> anyhow::Result<()> {
             println!("expect_exception: {:?}", result.is_success());
             // indexes: TxPartIndices,
             println!(
-                "indexes: data{:?}, value: {}0, gas: {}",
+                "indexes: data{:?}, value: {}, gas: {}",
                 data,
                 value,
                 result.gas_used()
