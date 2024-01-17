@@ -4,7 +4,7 @@
 use executor_service::executor_service_server::ExecutorService;
 use executor_service::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse};
 use log::debug;
-use models::*;
+//use models::*;
 use tonic::{Request, Response, Status};
 pub mod executor_service {
     tonic::include_proto!("executor.v1");

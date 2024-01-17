@@ -1,10 +1,6 @@
 use revm::{
-    db::{CacheDB, CacheState, EmptyDB, EthersDB},
-    interpreter::CreateScheme,
-    primitives::{
-        calc_excess_blob_gas, keccak256, Address, Bytecode, Bytes, Env, ExecutionResult,
-        ResultAndState, SpecId, TransactTo, U256,
-    },
+    db::{CacheDB, EmptyDB, EthersDB},
+    primitives::{Address, Bytes, Env, ResultAndState, TransactTo, U256},
     Database, DatabaseCommit, EVM,
 };
 
@@ -13,13 +9,9 @@ use ethers_providers::Middleware;
 use ethers_providers::{Http, Provider};
 use ruint::Uint;
 
-use std::io::BufWriter;
-use std::io::Write;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use anyhow::Result;
-use models::*;
 
 extern crate alloc;
 
@@ -40,7 +32,7 @@ macro_rules! local_fill {
     };
 }
 
-pub async fn execute_one(block_number: u64, addr: Address, chain_id: u64) -> ExecResult {
+pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> ExecResult {
     let client = Provider::<Http>::try_from("http://localhost:8545").unwrap();
     let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
@@ -113,7 +105,7 @@ pub async fn execute_one(block_number: u64, addr: Address, chain_id: u64) -> Exe
     let txs = block.transactions.len();
     println!("Found {txs} transactions.");
 
-    let elapsed = std::time::Duration::ZERO;
+    let _elapsed = std::time::Duration::ZERO;
 
     // Create the traces directory if it doesn't exist
     std::fs::create_dir_all("traces").expect("Failed to create traces directory");
@@ -196,20 +188,20 @@ pub async fn execute_one(block_number: u64, addr: Address, chain_id: u64) -> Exe
             }
         }
     }
-    
+
     Ok(all_result)
 }
 
 #[cfg(test)]
 mod tests {
     use super::execute_one;
-    use revm::primitives::{address, b256};
+    use revm::primitives::address;
 
     //use runtime::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
 
     //use revm::inspectors::TracerEip3155;
 
-    use models::*;
+    //use models::*;
 
     #[tokio::test]
     async fn test_execute_one() {

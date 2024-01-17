@@ -14,9 +14,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let batch_l2_data_json = std::fs::read_to_string(test_file).unwrap();
 
     // TODO: Get blockNumber from batch_l2_data
-    let blockNumber = "3";
+    let block_number = "3";
     let request = ProcessBatchRequest {
-        batch_l2_data: blockNumber.as_bytes().to_vec(),
+        batch_l2_data: block_number.as_bytes().to_vec(),
         ..Default::default()
     };
     println!("request: {:?}", request);
