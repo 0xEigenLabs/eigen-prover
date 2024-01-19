@@ -1,14 +1,15 @@
+use log::info;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
-    primitives::{Address, Bytes, Env, ResultAndState, TransactTo, U256},
+    primitives::{Address, Bytes, Env, HashMap, ResultAndState, TransactTo, B256, U256},
     Database, DatabaseCommit, EVM,
 };
 
+use alloc::collections::BTreeMap;
 use ethers_core::types::BlockId;
 use ethers_providers::Middleware;
 use ethers_providers::{Http, Provider};
 use ruint::Uint;
-
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -50,12 +51,15 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
     let mut cache_db = CacheDB::new(EmptyDB::default());
 
+    let test_pre = HashMap::new();
+    let accs_info = vec![];
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
-
         println!("acc_info: {} => {:?}", from_acc, acc_info);
+        accs_info.push(acc_info);
+        test_pre.insert(from_acc, serde_json::from_str(serde_json::to_string(&acc_info)?.as_str())?);
         cache_db.insert_account_info(from_acc, acc_info);
 
         if tx.to.is_some() {
@@ -110,15 +114,33 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
     // Create the traces directory if it doesn't exist
     std::fs::create_dir_all("traces").expect("Failed to create traces directory");
 
+    let transaction_parts = models::TransactionParts {
+        data: vec![],
+        gas_limit: vec![],
+        gas_price: None,
+        nonce: U256::default(),
+        secret_key: B256::default(),
+        sender: Address::default(),
+        to: None,
+        value: vec![],
+        max_fee_per_gas: None,
+        max_priority_fee_per_gas: None,
+        access_lists: vec![],
+        blob_versioned_hashes: vec![],
+        max_fee_per_blob_gas: None,
+    };
+
     // Fill in CfgEnv
     env.cfg.chain_id = chain_id;
     let mut all_result = vec![];
     for tx in block.transactions {
         env.tx.caller = Address::from(tx.from.as_fixed_bytes());
         env.tx.gas_limit = tx.gas.as_u64();
+
         local_fill!(env.tx.gas_price, tx.gas_price, U256::from_limbs);
         local_fill!(env.tx.value, Some(tx.value), U256::from_limbs);
         env.tx.data = tx.input.0.into();
+
         let mut gas_priority_fee = U256::ZERO;
         local_fill!(
             gas_priority_fee,
@@ -152,6 +174,18 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
         evm.env = env.clone();
 
+        transaction_parts.data.push(tx.input.0.into());
+        transaction_parts.gas_limit.push(U256::from(tx.gas.into()));
+        transaction_parts.gas_price = Some(U256::from(tx.gas_price.unwrap().as_u64()));
+        transaction_parts.nonce = U256::from(tx.nonce.as_u64());
+        transaction_parts.secret_key = B256::default();
+        transaction_parts.sender = Address::from(tx.from.as_fixed_bytes());
+        transaction_parts.to = Some(Address::from(tx.to.unwrap().as_fixed_bytes()));
+        transaction_parts.value.push(U256::from(tx.value.as_u64()));
+        transaction_parts.max_fee_per_gas = Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()));
+        transaction_parts.max_priority_fee_per_gas =
+            Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()));
+        transaction_parts.access_lists.push(tx.access_list);
         /*
         // Construct the file writer to write the trace to
         let tx_number = tx.transaction_index.unwrap().0[0];
@@ -180,6 +214,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
     }
+
     for (k, v) in &evm.db.as_ref().unwrap().accounts {
         println!("state: {}=>{:?}", k, v);
         if !v.storage.is_empty() {
@@ -188,6 +223,103 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             }
         }
     }
+
+    let mut test_post = BTreeMap::new();
+    for res in &all_result {
+        let (txbytes, data, value, ResultAndState { result, state }) = res;
+        {
+            // 1. expect_exception: Option<String>,
+            println!("expect_exception: {:?}", result.is_success());
+            // indexes: TxPartIndices,
+            println!(
+                "indexes: data{:?}, value: {}, gas: {}",
+                data,
+                value,
+                result.gas_used()
+            );
+            println!("output: {:?}", result.output());
+
+            // TODO: hash: B256, // post state root
+            //let hash = serde_json::to_vec(&state).unwrap();
+            //println!("hash: {:?}", state);
+            // post_state: HashMap<Address, AccountInfo>,
+            println!("post_state: {:?}", state);
+            // logs: B256,
+            println!("logs: {:?}", result.logs());
+            // txbytes: Option<Bytes>,
+            println!("txbytes: {:?}", txbytes);
+
+            test_post.insert(
+                models::SpecName::Shanghai,
+                vec![models::Test{
+                    expect_exception: result.is_success()?,
+                    indexes: models::TxPartIndices {
+                        data: 0,
+                        gas: result.gas_used() as usize,
+                        value: value.to_usize().expect("Conversion to usize failed")
+                    },
+                    post_state: state
+                    .into_iter()
+                    .map(|(address, account)| (address, account.info))
+                    .collect(),
+                    logs: result.logs(),
+                    txbytes: txbytes,
+                    hash: todo!(),
+                }],
+            );
+        }
+    }
+
+    let mut test_env = models::Env {
+        current_coinbase: Address(block.author),
+        current_difficulty: U256.from(10000),
+        current_gas_limit: U256.from(5000),
+        current_number: U256.from(1),
+        current_timestamp: U256.from(1642492800),
+        current_base_fee: Some(U256.from(1000)),
+        previous_hash: B256::default(),
+
+        current_random: Some(B256::default()),
+        current_beacon_root: Some(B256::default()),
+        current_withdrawals_root: Some(B256::default()),
+
+        parent_blob_gas_used: Some(U256.from(20000)),
+        parent_excess_blob_gas: Some(U256.from(5000)),
+    };
+    local_fill!(test_env.current_coinbase, block.author);
+    local_fill!(
+        test_env.current_difficulty,
+        Some(block.difficulty),
+        U256::from_limbs
+    );
+    local_fill!(
+        test_env.current_gas_limit,
+        Some(block.gas_limit),
+        U256::from_limbs
+    );
+    local_fill!(test_env.current_number, block.number);
+    local_fill!(
+        test_env.current_timestamp,
+        Some(block.timestamp),
+        U256::from_limbs
+    );
+    local_fill!(test_env.current_base_fee, block.base_fee_per_gas);
+    local_fill!(test_env.previous_hash, block.parent_hash);
+    // local_fill!(test_env.current_random, block.random);
+    // local_fill!(test_env.current_beacon_root, block.beacon_root);
+    local_fill!(test_env.current_withdrawals_root, block.withdrawals_root);
+    local_fill!(test_env.parent_blob_gas_used, block.gas_used);
+    local_fill!(test_env.parent_excess_blob_gas, block.gas_used);
+
+    let test_unit = models::TestUnit {
+        info: "sss",
+        env: test_env,
+        // pre: HashMap<Address, AccountInfo, BuildHasherDefault<AHasher>, Global>
+        pre: test_pre,
+        // post: BTreeMap<SpecName, Vec<Test, Global>, Global>
+        post: test_post,
+        transaction: transaction_parts,
+    };
 
     Ok(all_result)
 }
@@ -201,7 +333,7 @@ mod tests {
 
     //use revm::inspectors::TracerEip3155;
 
-    //use models::*;
+    use models::*;
 
     #[tokio::test]
     async fn test_execute_one() {
