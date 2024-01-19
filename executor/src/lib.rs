@@ -1,7 +1,7 @@
 use log::info;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
-    primitives::{Address, Bytes, Env, HashMap, ResultAndState, TransactTo, B256, U256},
+    primitives::{Address, Bytes, Env, HashMap, ResultAndState, TransactTo, B256, U256, FixedBytes},
     Database, DatabaseCommit, EVM,
 };
 
@@ -59,7 +59,10 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
         println!("acc_info: {} => {:?}", from_acc, acc_info);
         accs_info.push(acc_info);
-        test_pre.insert(from_acc, serde_json::from_str(serde_json::to_string(&acc_info)?.as_str())?);
+        test_pre.insert(
+            from_acc,
+            serde_json::from_str(serde_json::to_string(&acc_info)?.as_str())?,
+        );
         cache_db.insert_account_info(from_acc, acc_info);
 
         if tx.to.is_some() {
@@ -251,17 +254,17 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
             test_post.insert(
                 models::SpecName::Shanghai,
-                vec![models::Test{
+                vec![models::Test {
                     expect_exception: result.is_success()?,
                     indexes: models::TxPartIndices {
                         data: 0,
                         gas: result.gas_used() as usize,
-                        value: value.to_usize().expect("Conversion to usize failed")
+                        value: value.to_usize().expect("Conversion to usize failed"),
                     },
                     post_state: state
-                    .into_iter()
-                    .map(|(address, account)| (address, account.info))
-                    .collect(),
+                        .into_iter()
+                        .map(|(address, account)| (address, account.info))
+                        .collect(),
                     logs: result.logs(),
                     txbytes: txbytes,
                     hash: todo!(),
@@ -272,47 +275,35 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
     let mut test_env = models::Env {
         current_coinbase: Address(block.author),
-        current_difficulty: U256.from(10000),
-        current_gas_limit: U256.from(5000),
-        current_number: U256.from(1),
-        current_timestamp: U256.from(1642492800),
-        current_base_fee: Some(U256.from(1000)),
+        current_difficulty: U256::from(10000),
+        current_gas_limit: U256::from(5000),
+        current_number: U256::from(1),
+        current_timestamp: U256::from(1642492800),
+        current_base_fee: Some(U256::from(1000)),
         previous_hash: B256::default(),
 
         current_random: Some(B256::default()),
         current_beacon_root: Some(B256::default()),
         current_withdrawals_root: Some(B256::default()),
 
-        parent_blob_gas_used: Some(U256.from(20000)),
-        parent_excess_blob_gas: Some(U256.from(5000)),
+        parent_blob_gas_used: Some(U256::from(20000)),
+        parent_excess_blob_gas: Some(U256::from(5000)),
     };
-    local_fill!(test_env.current_coinbase, block.author);
-    local_fill!(
-        test_env.current_difficulty,
-        Some(block.difficulty),
-        U256::from_limbs
-    );
-    local_fill!(
-        test_env.current_gas_limit,
-        Some(block.gas_limit),
-        U256::from_limbs
-    );
-    local_fill!(test_env.current_number, block.number);
-    local_fill!(
-        test_env.current_timestamp,
-        Some(block.timestamp),
-        U256::from_limbs
-    );
-    local_fill!(test_env.current_base_fee, block.base_fee_per_gas);
-    local_fill!(test_env.previous_hash, block.parent_hash);
+    test_env.current_coinbase = Address(block.author);
+    test_env.current_difficulty = U256::from_limbs(Some(block.difficulty));
+    test_env.current_gas_limit = U256::from_limbs(Some(block.gas_limit));
+    test_env.current_number = U256::from_limbs(block.number.unwrap());
+    test_env.current_timestamp = U256::from_limbs(Some(block.timestamp));
+    test_env.current_base_fee = Some(U256::from_limbs(block.base_fee_per_gas));
+    test_env.previous_hash = FixedBytes::from(block.parent_hash);
     // local_fill!(test_env.current_random, block.random);
     // local_fill!(test_env.current_beacon_root, block.beacon_root);
-    local_fill!(test_env.current_withdrawals_root, block.withdrawals_root);
-    local_fill!(test_env.parent_blob_gas_used, block.gas_used);
-    local_fill!(test_env.parent_excess_blob_gas, block.gas_used);
+    test_env.current_withdrawals_root = block.withdrawals_root.unwrap();
+    test_env.parent_blob_gas_used = Some(Uint::from_limbs(block.gas_used));
+    test_env.parent_excess_blob_gas = Some(Uint::from(block.gas_used));
 
     let test_unit = models::TestUnit {
-        info: "sss",
+        info: "sss".into(),
         env: test_env,
         // pre: HashMap<Address, AccountInfo, BuildHasherDefault<AHasher>, Global>
         pre: test_pre,
