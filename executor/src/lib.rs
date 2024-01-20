@@ -1,10 +1,11 @@
 use revm::{
     db::CacheState,
+    handler::Handler,
     interpreter::CreateScheme,
     primitives::{
-        calc_excess_blob_gas, keccak256, Address, Bytecode, Env, ExecutionResult, SpecId,
-        TransactTo, U256,
+        calc_excess_blob_gas, keccak256, Address, Bytecode, Env, ExecutionResult, TransactTo, U256,
     },
+    Context,
 };
 
 use anyhow::Result;
@@ -82,7 +83,9 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
             continue;
         }
 
+        /*
         env.cfg.spec_id = spec_name.to_spec_id();
+        */
 
         for test in tests {
             env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
@@ -119,18 +122,21 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
             };
             env.tx.transact_to = to;
 
-            let mut cache = cache_state.clone();
+            let cache = cache_state.clone();
+            /*
             cache.set_state_clear_flag(SpecId::enabled(
                 env.cfg.spec_id,
                 revm::primitives::SpecId::SPURIOUS_DRAGON,
             ));
-            let mut state = revm::db::State::builder()
+            */
+            let state = revm::db::State::builder()
                 .with_cached_prestate(cache)
                 .with_bundle_update()
                 .build();
-            let mut evm = revm::new();
-            evm.database(&mut state);
-            evm.env = env.clone();
+            let mut ctx = Context::new_with_db(state);
+            ctx.evm.env = Box::new(env.clone());
+            let handler = Handler::mainnet_with_spec(spec_name.to_spec_id());
+            let mut evm = revm::Evm::new(ctx, handler);
 
             // do the deed
             let exec_result: ExecutionResult = evm.transact_commit().map_err(anyhow::Error::msg)?;
