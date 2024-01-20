@@ -22,8 +22,7 @@ algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main"
 utils =  { path = "../utils" }
 models = { git = "https://github.com/eigmax/powdr_revm", branch = "continuations", package = "models" }
 lazy_static = "1.4.0"
-anyhow = { version = "1.0", default-features = false }
-# config
+anyhow = "1.0"# config
 serde = "1.0.92"
 serde_derive = "1.0.92"
 toml = "0.5.1"

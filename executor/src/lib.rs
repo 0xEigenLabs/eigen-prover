@@ -1,8 +1,10 @@
 use log::info;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
-    primitives::{Address, Bytes, Env, HashMap, ResultAndState, TransactTo, B256, U256, FixedBytes},
-    Database, DatabaseCommit, EVM,
+    primitives::{
+        Address, Bytes, Env, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256,
+    },
+    Database, DatabaseCommit, Evm,
 };
 
 use alloc::collections::BTreeMap;
@@ -89,8 +91,6 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
-    let mut evm = EVM::new();
-    evm.database(cache_db);
 
     let mut env = Env::default();
     if let Some(number) = block.number {
@@ -109,6 +109,17 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         local_fill!(env.block.basefee, Some(base_fee), U256::from_limbs);
     }
 
+    let mut evm = Evm::builder()
+        .with_db(cache_db)
+        .modify_env(|e| {
+            *e =  env.clone();
+            // e.cfg = env.cfg;
+            // e.block = env.block;
+            // e.tx = env.tx;
+        })
+        .build();
+    // evm.env = env.clone();
+
     let txs = block.transactions.len();
     println!("Found {txs} transactions.");
 
@@ -117,7 +128,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
     // Create the traces directory if it doesn't exist
     std::fs::create_dir_all("traces").expect("Failed to create traces directory");
 
-    let transaction_parts = models::TransactionParts {
+    let mut transaction_parts = models::TransactionParts {
         data: vec![],
         gas_limit: vec![],
         gas_price: None,
@@ -153,7 +164,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         env.tx.gas_priority_fee = Some(gas_priority_fee);
         env.tx.chain_id = Some(chain_id);
         env.tx.nonce = Some(tx.nonce.as_u64());
-        if let Some(access_list) = tx.access_list {
+        if let Some(access_list) = tx.access_list.clone() {
             env.tx.access_list = access_list
                 .0
                 .into_iter()
@@ -174,8 +185,6 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             Some(to_address) => TransactTo::Call(Address::from(to_address.as_fixed_bytes())),
             None => TransactTo::create(),
         };
-
-        evm.env = env.clone();
 
         transaction_parts.data.push(tx.input.0.into());
         transaction_parts.gas_limit.push(U256::from(tx.gas.into()));
@@ -289,7 +298,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         parent_blob_gas_used: Some(U256::from(20000)),
         parent_excess_blob_gas: Some(U256::from(5000)),
     };
-    test_env.current_coinbase = Address(block.author);
+    test_env.current_coinbase = Address::from(block.author?);
     test_env.current_difficulty = U256::from_limbs(Some(block.difficulty));
     test_env.current_gas_limit = U256::from_limbs(Some(block.gas_limit));
     test_env.current_number = U256::from_limbs(block.number.unwrap());
@@ -298,8 +307,8 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
     test_env.previous_hash = FixedBytes::from(block.parent_hash);
     // local_fill!(test_env.current_random, block.random);
     // local_fill!(test_env.current_beacon_root, block.beacon_root);
-    test_env.current_withdrawals_root = block.withdrawals_root.unwrap();
-    test_env.parent_blob_gas_used = Some(Uint::from_limbs(block.gas_used));
+    test_env.current_withdrawals_root = block.withdrawals_root;
+    test_env.parent_blob_gas_used = Some(Uint::from(block.gas_used));
     test_env.parent_excess_blob_gas = Some(Uint::from(block.gas_used));
 
     let test_unit = models::TestUnit {

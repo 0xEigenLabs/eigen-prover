@@ -9,7 +9,7 @@ use revm::db::{CacheDB, EmptyDB, EthersDB};
 use revm::primitives::{Address, Env, ResultAndState, TransactTo, U256};
 use revm::Database;
 use revm::DatabaseCommit;
-use revm::EVM;
+use revm::Evm;
 
 use std::env as stdenv;
 use std::io::BufWriter;
@@ -116,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
-    let mut evm = EVM::new();
+    let mut evm = Evm::new();
     evm.database(cache_db);
 
     let mut env = Env::default();
@@ -199,7 +199,7 @@ async fn main() -> anyhow::Result<()> {
         )));
         let writer = FlushWriter::new(Arc::clone(&inner));
 
-        // Inspect and commit the transaction to the EVM
+        // Inspect and commit the transaction to the Evm
         let inspector = TracerEip3155::new(Box::new(writer), true, true);
         if let Err(error) = evm.inspect_commit(inspector) {
             println!("Got error: {:?}", error);

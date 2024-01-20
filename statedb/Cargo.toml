@@ -12,7 +12,7 @@ algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main"
 diesel = { version = "2.1.0", features = ["r2d2", "postgres"] }
 utils = { path = "../utils" }
 tonic = "0.10.2"
-anyhow = { version = "1.0", default-features = false }
+anyhow = "1.0"
 hex = "0.4.3"
 log = "0.4.0"
 env_logger = "0.10"
