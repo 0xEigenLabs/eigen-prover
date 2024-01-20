@@ -1,7 +1,6 @@
 use crate::traits::StageProver;
 use crate::FinalContext;
-use algebraic::errors::EigenError;
-use algebraic::errors::Result;
+use anyhow::Result;
 use dsl_compile::circom_compiler;
 use groth16::api::{groth16_prove, groth16_setup, groth16_verify};
 use starky::{compressor12_exec::exec, compressor12_setup::setup, prove::stark_prove};
@@ -34,8 +33,7 @@ impl StageProver for FinalProver {
             cc.output.clone(),
             false,
             false,
-        )
-        .map_err(|e| EigenError::from(format!("Compile Circom error: {:?}", e)))?;
+        )?;
 
         log::info!("setup");
 
@@ -84,8 +82,7 @@ impl StageProver for FinalProver {
             cc.output.clone(),
             false,
             false,
-        )
-        .map_err(|e| EigenError::from(format!("Compile Circom error: {:?}", e)))?;
+        )?;
         let wasm_file = format!(
             "{}/{}.final_js/{}.final.wasm",
             cc.output, ctx.task_name, ctx.task_name

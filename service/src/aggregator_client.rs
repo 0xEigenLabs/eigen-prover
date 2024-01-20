@@ -14,8 +14,7 @@ use aggregator_service::{
     ProverMessage,
     // PublicInputs, InputProver,
 };
-use algebraic::errors::EigenError;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::env::var;
 use std::sync::Mutex;
 use tokio::sync::mpsc;
@@ -47,7 +46,7 @@ pub async fn run_client() -> Result<()> {
     let addr = std::env::var("NODE_ADDR").unwrap_or("http://[::1]:50051".to_string());
     let mut client = AggregatorServiceClient::connect(addr.clone())
         .await
-        .map_err(|e| EigenError::from(format!("Connect {}, error: {:?}", addr, e)))?;
+        .map_err(|e| anyhow!("Connect {}, error: {:?}", addr, e))?;
 
     log::debug!("streaming aggregator:");
 
@@ -58,13 +57,12 @@ pub async fn run_client() -> Result<()> {
     let response = client
         .channel(Request::new(out_stream))
         .await
-        .map_err(|e| EigenError::from(format!("receive channel: {:?}", e)))?;
+        .map_err(|e| anyhow!(format!("receive channel: {:?}", e)))?;
 
     let mut resp_stream = response.into_inner();
 
     while let Some(received) = resp_stream.next().await {
-        let received =
-            received.map_err(|e| EigenError::from(format!("client close socket {}", e)))?;
+        let received = received.map_err(|e| anyhow!(format!("client close socket {}", e)))?;
         let req_id = received.id.clone();
         log::debug!("debug new req {}", req_id.clone());
         if let Some(request) = received.request {
@@ -182,7 +180,7 @@ pub async fn run_client() -> Result<()> {
                 response: Some(resp),
             })
             .await
-            .map_err(|e| EigenError::from(format!("send message, {:?}", e)))?;
+            .map_err(|e| anyhow!(format!("send message, {:?}", e)))?;
         } else {
             log::debug!("Sleep for next message");
             std::thread::sleep(std::time::Duration::from_secs(1));

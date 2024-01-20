@@ -1,6 +1,6 @@
 use crate::traits::StageProver;
 use crate::BatchContext;
-use algebraic::errors::Result;
+use anyhow::Result;
 use dsl_compile::circom_compiler;
 use starky::prove::stark_prove;
 use starky::{compressor12_exec::exec, compressor12_setup::setup};

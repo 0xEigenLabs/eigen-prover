@@ -1,5 +1,5 @@
 use crate::{AggContext, BatchContext, FinalContext};
-use algebraic::errors::Result;
+use anyhow::Result;
 
 pub trait StageProver {
     fn batch_prove(&self, _ctx: &BatchContext) -> Result<()> {

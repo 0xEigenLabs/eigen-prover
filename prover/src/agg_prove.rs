@@ -1,7 +1,6 @@
 use crate::traits::StageProver;
 use crate::{AggContext, BatchContext};
-use algebraic::errors::EigenError;
-use algebraic::errors::Result;
+use anyhow::Result;
 use dsl_compile::circom_compiler;
 use starky::{
     compressor12_exec::exec, compressor12_setup::setup, prove::stark_prove, zkin_join::join_zkin,
@@ -41,8 +40,7 @@ impl StageProver for AggProver {
             r1_circom.output.clone(),
             false,
             false,
-        )
-        .map_err(|e| EigenError::from(format!("Compile Circom error: {:?}", e)))?;
+        )?;
 
         // 2. compress inputs
         let zkin = format!(
