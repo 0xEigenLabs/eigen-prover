@@ -10,7 +10,7 @@ use crate::agg_prove::AggProver;
 use crate::batch_prove::BatchProver;
 use crate::final_prove::FinalProver;
 use crate::traits::StageProver;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -327,8 +327,8 @@ impl Pipeline {
             .join(task_id.clone())
             .join("status.finished");
         let status: bool = std::fs::read_to_string(p)?.parse().map_err(|e| {
-            log::error!("load_checkpoint: {:?}", e);
-            bail!("load checkpoint failed");
+            log::error!("load_checkpoint");
+            anyhow!("load checkpoint failed, {:?}", e)
         })?;
         Ok(status)
     }
