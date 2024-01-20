@@ -20,7 +20,7 @@ log = "0.4.0"
 #riscv = { git = "https://github.com/powdr-labs/powdr.git", branch = "main", package = "riscv" }
 #number = { git = "https://github.com/powdr-labs/powdr.git", branch = "main", package = "number" }
 #backend = { git = "https://github.com/powdr-labs/powdr.git", branch = "main", package = "backend" }
-anyhow = { version = "1.0", default-features = false }
+anyhow =  "1.0"
 #revm = { version = "3.5.0", features = ["std", "ethersdb", "serde"] }
 revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
 #revm = { path = "../../revm/crates/revm", default-features = false, features = [ "serde", "ethersdb" ] }

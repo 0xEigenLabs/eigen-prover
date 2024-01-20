@@ -1,4 +1,4 @@
-use algebraic::errors::EigenError;
+use anyhow::Result;
 use statedb_service::state_db_service_client::StateDbServiceClient;
 use statedb_service::{
     Fea, FlushResponse, GetProgramRequest, GetProgramResponse, GetRequest, GetResponse,
@@ -16,17 +16,12 @@ pub struct StateDBClientCli {
 }
 
 impl StateDBClientCli {
-    pub async fn new(addr: String) -> Result<Self, EigenError> {
-        let result = StateDbServiceClient::connect(addr.clone())
-            .await
-            .map_err(|e| EigenError::from(format!("connect err: {:?}", e)));
-        match result {
-            Ok(c) => Ok(StateDBClientCli { client: c }),
-            Err(e) => Err(e),
-        }
+    pub async fn new(addr: String) -> Result<Self> {
+        let client = StateDbServiceClient::connect(addr.clone()).await?;
+        Ok(StateDBClientCli { client })
     }
 
-    pub async fn get(mut self, root: Fea, key: Fea) -> Result<Response<GetResponse>, EigenError> {
+    pub async fn get(mut self, root: Fea, key: Fea) -> Result<Response<GetResponse>> {
         let req = tonic::Request::new(GetRequest {
             root: Some(root),
             key: Some(key),
@@ -34,18 +29,10 @@ impl StateDBClientCli {
             get_db_read_log: true,
         });
 
-        self.client
-            .get(req)
-            .await
-            .map_err(|e| EigenError::from(format!("get status: {:?}", e)))
+        Ok(self.client.get(req).await?)
     }
 
-    pub async fn set(
-        mut self,
-        root: Fea,
-        key: Fea,
-        val: String,
-    ) -> Result<Response<SetResponse>, EigenError> {
+    pub async fn set(mut self, root: Fea, key: Fea, val: String) -> Result<Response<SetResponse>> {
         let req = tonic::Request::new(SetRequest {
             old_root: Some(root),
             key: Some(key),
@@ -54,43 +41,28 @@ impl StateDBClientCli {
             details: true,
             get_db_read_log: true,
         });
-        self.client
-            .set(req)
-            .await
-            .map_err(|e| EigenError::from(format!("set status: {:?}", e)))
+        Ok(self.client.set(req).await?)
     }
 
-    pub async fn get_program(
-        mut self,
-        key: Fea,
-    ) -> Result<Response<GetProgramResponse>, EigenError> {
+    pub async fn get_program(mut self, key: Fea) -> Result<Response<GetProgramResponse>> {
         let req = tonic::Request::new(GetProgramRequest { key: Some(key) });
-        self.client
-            .get_program(req)
-            .await
-            .map_err(|e| EigenError::from(format!("get_program status: {:?}", e)))
+        Ok(self.client.get_program(req).await?)
     }
 
     pub async fn set_program(
         mut self,
         key: Fea,
         data: Vec<u8>,
-    ) -> Result<Response<SetProgramResponse>, EigenError> {
+    ) -> Result<Response<SetProgramResponse>> {
         let req = tonic::Request::new(SetProgramRequest {
             key: Some(key),
             data,
             persistent: true,
         });
-        self.client
-            .set_program(req)
-            .await
-            .map_err(|e| EigenError::from(format!("set_program status: {:?}", e)))
+        Ok(self.client.set_program(req).await?)
     }
 
-    pub async fn flush(mut self) -> Result<Response<FlushResponse>, EigenError> {
-        self.client
-            .flush(())
-            .await
-            .map_err(|e| EigenError::from(format!("set_program status: {:?}", e)))
+    pub async fn flush(mut self) -> Result<Response<FlushResponse>> {
+        Ok(self.client.flush(()).await?)
     }
 }
