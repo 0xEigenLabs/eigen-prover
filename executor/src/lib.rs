@@ -1,24 +1,25 @@
 use log::info;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
-    primitives::{Address, Bytes, Env, HashMap, ResultAndState, TransactTo, B256, U256, FixedBytes},
+    interpreter::gas::ZERO,
+    primitives::{
+        Address, Bytes, Env, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256,
+    },
     Database, DatabaseCommit, EVM,
 };
 
 use alloc::collections::BTreeMap;
-use ethers_core::types::BlockId;
+use anyhow::Result;
+use ethers_core::types::{BlockId, H160};
 use ethers_providers::Middleware;
 use ethers_providers::{Http, Provider};
+use models::*;
 use ruint::Uint;
-use std::sync::Arc;
-
-use anyhow::Result;
+use std::{default, sync::Arc};
 
 extern crate alloc;
 
 use alloc::vec::Vec;
-use models::AccessListItem;
-use serde::de::Unexpected::Option;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 
@@ -60,12 +61,12 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
         println!("acc_info: {} => {:?}", from_acc, acc_info);
-        accs_info.push(acc_info);
+        accs_info.push(acc_info.clone());
         test_pre.insert(
             from_acc,
-            serde_json::from_str(serde_json::to_string(&acc_info)?.as_str())?,
+            serde_json::from_str(serde_json::to_string(&acc_info.clone())?.as_str())?,
         );
-        cache_db.insert_account_info(from_acc, acc_info.clone());
+        cache_db.insert_account_info(from_acc, acc_info);
 
         if tx.to.is_some() {
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
@@ -141,10 +142,9 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
     for tx in block.transactions {
         env.tx.caller = Address::from(tx.from.as_fixed_bytes());
         env.tx.gas_limit = tx.gas.as_u64();
-
         local_fill!(env.tx.gas_price, tx.gas_price, U256::from_limbs);
         local_fill!(env.tx.value, Some(tx.value), U256::from_limbs);
-        env.tx.data = tx.input.0.into();
+        env.tx.data = tx.input.0.clone().into();
 
         let mut gas_priority_fee = U256::ZERO;
         local_fill!(
@@ -155,7 +155,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         env.tx.gas_priority_fee = Some(gas_priority_fee);
         env.tx.chain_id = Some(chain_id);
         env.tx.nonce = Some(tx.nonce.as_u64());
-        if let Some(access_list) = tx.access_list {
+        if let Some(access_list) = tx.access_list.clone() {
             env.tx.access_list = access_list
                 .0
                 .into_iter()
@@ -179,27 +179,53 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
         evm.env = env.clone();
 
-        transaction_parts.data.push(tx.input.0.into());
-        transaction_parts.gas_limit.push(U256::from(tx.gas.into()));
-        transaction_parts.gas_price = Some(U256::from(tx.gas_price.unwrap().as_u64()));
+        let mut gas_limit_Uint = Uint::ZERO;
+        local_fill!(gas_limit_Uint, Some(block.gas_limit), U256::from_limbs);
+        let tx_data = tx.input.0.clone();
+        transaction_parts.data.push(tx_data.into());
+        transaction_parts.gas_limit.push(gas_limit_Uint);
+        transaction_parts.gas_price = Some(env.tx.gas_price);
         transaction_parts.nonce = U256::from(tx.nonce.as_u64());
         transaction_parts.secret_key = B256::default();
         transaction_parts.sender = Address::from(tx.from.as_fixed_bytes());
         transaction_parts.to = Some(Address::from(tx.to.unwrap().as_fixed_bytes()));
-        transaction_parts.value.push(U256::from(tx.value.as_u64()));
+        transaction_parts.value.push(env.tx.value);
         transaction_parts.max_fee_per_gas = Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()));
         transaction_parts.max_priority_fee_per_gas =
             Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()));
-        let mut access_list = vec![];
-        for item in tx.access_list.unwrap().0 {
-            access_list.push(
-                AccessListItem {
-                    address: Address::from(item.address.to_fixed_bytes()),
-                    storage_keys: item.storage_keys.iter().map(|h256| B256::from(h256.to_fixed_bytes())).collect(),
-                }
-            )
-        }
-        transaction_parts.access_lists.push(Some(access_list));
+
+        // if let Some(access_list) = tx.access_list {
+        //     env.tx.access_list = access_list
+        //         .0
+        //         .into_iter()
+        //         .map(|item| {
+        //             let new_keys: Vec<U256> = item
+        //                 .storage_keys
+        //                 .into_iter()
+        //                 .map(|h256| U256::from_le_bytes(h256.0))
+        //                 .collect();
+        //             (Address::from(item.address.as_fixed_bytes()), new_keys)
+        //         })
+        //         .collect();
+        // } else {
+        //     env.tx.access_list = Default::default();
+        // }
+        let access_list_vec = tx.access_list.as_ref().map(|access_list| {
+            access_list
+                .0
+                .iter()
+                .map(|item| AccessListItem {
+                    address: Address::from(item.address.as_fixed_bytes()),
+                    storage_keys: item
+                        .storage_keys
+                        .iter()
+                        .map(|h256| B256::from(h256.to_fixed_bytes()))
+                        .collect(),
+                })
+                .collect()
+        });
+
+        transaction_parts.access_lists.push(access_list_vec);
         /*
         // Construct the file writer to write the trace to
         let tx_number = tx.transaction_index.unwrap().0[0];
@@ -241,49 +267,51 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
     let mut test_post = BTreeMap::new();
     for res in &all_result {
         let (txbytes, data, value, ResultAndState { result, state }) = res;
-        // 1. expect_exception: Option<String>,
-        println!("expect_exception: {:?}", result.is_success());
-        // indexes: TxPartIndices,
-        println!(
-            "indexes: data{:?}, value: {}, gas: {}",
-            data,
-            value,
-            result.gas_used()
-        );
-        println!("output: {:?}", result.output());
+        {
+            // 1. expect_exception: Option<String>,
+            println!("expect_exception: {:?}", result.is_success());
+            // indexes: TxPartIndices,
+            println!(
+                "indexes: data{:?}, value: {}, gas: {}",
+                data,
+                value,
+                result.gas_used()
+            );
+            println!("output: {:?}", result.output());
 
-        // TODO: hash: B256, // post state root
-        //let hash = serde_json::to_vec(&state).unwrap();
-        //println!("hash: {:?}", state);
-        // post_state: HashMap<Address, AccountInfo>,
-        println!("post_state: {:?}", state);
-        // logs: B256,
-        println!("logs: {:?}", result.logs());
-        // txbytes: Option<Bytes>,
-        println!("txbytes: {:?}", txbytes);
+            // TODO: hash: B256, // post state root
+            //let hash = serde_json::to_vec(&state).unwrap();
+            //println!("hash: {:?}", state);
+            // post_state: HashMap<Address, AccountInfo>,
+            println!("post_state: {:?}", state);
+            // logs: B256,
+            println!("logs: {:?}", result.logs());
+            // txbytes: Option<Bytes>,
+            println!("txbytes: {:?}", txbytes);
 
-        test_post.insert(
-            models::SpecName::Shanghai,
-            vec![models::Test {
-                expect_exception: result.is_success()?,
-                indexes: models::TxPartIndices {
-                    data: 0,
-                    gas: result.gas_used() as usize,
-                    value: value.to_usize().expect("Conversion to usize failed"),
-                },
-                post_state: state
-                    .into_iter()
-                    .map(|(address, account)| (address, account.clone().info))
-                    .collect(),
-                logs:  B256::default(), // TODO: fill this field,
-                txbytes: Some(Bytes::copy_from_slice(txbytes)),
-                hash: B256::default(), //TODO: fill this field
-            }],
-        );
+            // test_post.insert(
+            //     models::SpecName::Shanghai,
+            //     vec![models::Test {
+            //         expect_exception: Some("err".to_string()),
+            //         indexes: models::TxPartIndices {
+            //             data: 0,
+            //             gas: result.gas_used() as usize,
+            //             value: value.as_u64,
+            //         },
+            //         post_state: state
+            //             .into_iter()
+            //             .map(|(address, account)| (address, account.info))
+            //             .collect(),
+            //         logs: result.logs(),
+            //         txbytes: txbytes,
+            //         hash: todo!(),
+            //     }],
+            // );
+        }
     }
 
     let mut test_env = models::Env {
-        current_coinbase: Address::from(block.author),
+        current_coinbase: Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap()),
         current_difficulty: U256::from(10000),
         current_gas_limit: U256::from(5000),
         current_number: U256::from(1),
@@ -298,18 +326,38 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         parent_blob_gas_used: Some(U256::from(20000)),
         parent_excess_blob_gas: Some(U256::from(5000)),
     };
-    test_env.current_coinbase = Address::from(block.author);
-    test_env.current_difficulty = U256::from(block.difficulty);
-    test_env.current_gas_limit = U256::from(block.gas_limit);
-    test_env.current_number = U256::from(block.number.unwrap());
-    test_env.current_timestamp = U256::from(Some(block.timestamp));
-    test_env.current_base_fee = Some(U256::from(block.base_fee_per_gas));
-    test_env.previous_hash = FixedBytes::from(block.parent_hash);
+    test_env.current_coinbase = Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap());
+    local_fill!(
+        test_env.current_difficulty,
+        Some(block.difficulty),
+        U256::from_limbs
+    );
+    local_fill!(
+        test_env.current_gas_limit,
+        Some(block.gas_limit),
+        U256::from_limbs
+    );
+    if let Some(number) = block.number {
+        let nn = number.0[0];
+        test_env.current_number = U256::from(nn);
+    }
+    local_fill!(
+        test_env.current_timestamp,
+        Some(block.timestamp),
+        U256::from_limbs
+    );
+    let mut base_fee = Uint::ZERO;
+    local_fill!(base_fee, block.base_fee_per_gas, U256::from_limbs);
+    test_env.current_base_fee = Some(base_fee);
+    //test_env.previous_hash = FixedBytes::from(block.parent_hash);
     // local_fill!(test_env.current_random, block.random);
     // local_fill!(test_env.current_beacon_root, block.beacon_root);
-    test_env.current_withdrawals_root = Some(B256::from(block.withdrawals_root.unwrap().as_fixed_bytes()));
-    test_env.parent_blob_gas_used = Some(U256::from(block.gas_used));
-    test_env.parent_excess_blob_gas = Some(Uint::from(block.gas_used));
+    //test_env.current_withdrawals_root = Some(FixedBytes::from(block.withdrawals_root.unwrap()));
+
+    let mut gas_used = Uint::ZERO;
+    local_fill!(gas_used, Some(block.gas_used), U256::from_limbs);
+    test_env.parent_blob_gas_used = Some(gas_used);
+    test_env.parent_excess_blob_gas = Some(gas_used);
 
     let test_unit = models::TestUnit {
         info: "sss".into(),
@@ -320,6 +368,10 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         post: test_post,
         transaction: transaction_parts,
     };
+
+    println!("test_unit: {:#?}", test_unit);
+    // let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
+    // std::fs::write("output.json", json_string).expect("Failed to write to file");
 
     Ok(all_result)
 }
