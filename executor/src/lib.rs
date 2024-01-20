@@ -276,24 +276,24 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             // txbytes: Option<Bytes>,
             println!("txbytes: {:?}", txbytes);
 
-            test_post.insert(
-                models::SpecName::Shanghai,
-                vec![models::Test {
-                    expect_exception: Some("err".to_string()),
-                    indexes: models::TxPartIndices {
-                        data: 0,
-                        gas: result.gas_used() as usize,
-                        value: value.as_u64,
-                    },
-                    post_state: state
-                        .into_iter()
-                        .map(|(address, account)| (address, account.info))
-                        .collect(),
-                    logs: result.logs(),
-                    txbytes: txbytes,
-                    hash: todo!(),
-                }],
-            );
+            // test_post.insert(
+            //     models::SpecName::Shanghai,
+            //     vec![models::Test {
+            //         expect_exception: Some("err".to_string()),
+            //         indexes: models::TxPartIndices {
+            //             data: 0,
+            //             gas: result.gas_used() as usize,
+            //             value: value.as_u64,
+            //         },
+            //         post_state: state
+            //             .into_iter()
+            //             .map(|(address, account)| (address, account.info))
+            //             .collect(),
+            //         logs: result.logs(),
+            //         txbytes: txbytes,
+            //         hash: todo!(),
+            //     }],
+            // );
         }
     }
 

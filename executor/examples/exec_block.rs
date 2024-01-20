@@ -6,10 +6,10 @@ use ethers_providers::{Http, Provider};
 //use ruint::{aliases::*, uint, Uint};
 
 use revm::db::{CacheDB, EmptyDB, EthersDB};
-use revm::primitives::{Address, Env, ResultAndState, TransactTo, U256};
+use revm::primitives::{Address, Env, ResultAndState, SpecId, TransactTo, U256};
 use revm::Database;
 use revm::DatabaseCommit;
-use revm::EVM;
+use revm::{handler::Handler, Context};
 
 use std::env as stdenv;
 use std::io::BufWriter;
@@ -116,8 +116,11 @@ async fn main() -> anyhow::Result<()> {
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
-    let mut evm = EVM::new();
-    evm.database(cache_db);
+
+    let ctx = Context::new_with_db(cache_db);
+    //ctx.evm.env = Box::new(env.clone());
+    let handler = Handler::mainnet_with_spec(SpecId::FRONTIER);
+    let mut evm = revm::Evm::new(ctx, handler);
 
     let mut env = Env::default();
     if let Some(number) = block.number {
@@ -184,7 +187,7 @@ async fn main() -> anyhow::Result<()> {
             None => TransactTo::create(),
         };
 
-        evm.env = env.clone();
+        evm.context.evm.env = Box::new(env.clone());
 
         /*
         // Construct the file writer to write the trace to
@@ -210,11 +213,11 @@ async fn main() -> anyhow::Result<()> {
         */
         //evm.transact_commit().unwrap();
         let result = evm.transact().unwrap();
-        evm.db().unwrap().commit(result.state.clone());
+        evm.context.evm.db.commit(result.state.clone());
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
     }
-    for (k, v) in &evm.db.as_ref().unwrap().accounts {
+    for (k, v) in &evm.context.evm.db.accounts {
         println!("state: {}=>{:?}", k, v);
         if !v.storage.is_empty() {
             for (k, v) in v.storage.iter() {
