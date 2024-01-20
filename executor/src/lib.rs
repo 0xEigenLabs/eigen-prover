@@ -1,21 +1,22 @@
-use log::info;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
-    interpreter::gas::ZERO,
+    //interpreter::gas::ZERO,
     primitives::{
         Address, Bytes, Env, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256,
     },
-    Database, DatabaseCommit, EVM,
+    Database,
+    DatabaseCommit,
+    EVM,
 };
 
 use alloc::collections::BTreeMap;
 use anyhow::Result;
-use ethers_core::types::{BlockId, H160};
+use ethers_core::types::BlockId;
 use ethers_providers::Middleware;
 use ethers_providers::{Http, Provider};
-use models::*;
+//use models::*;
 use ruint::Uint;
-use std::{default, sync::Arc};
+use std::sync::Arc;
 
 extern crate alloc;
 
@@ -179,11 +180,11 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
         evm.env = env.clone();
 
-        let mut gas_limit_Uint = Uint::ZERO;
-        local_fill!(gas_limit_Uint, Some(block.gas_limit), U256::from_limbs);
+        let mut gas_limit_uint = Uint::ZERO;
+        local_fill!(gas_limit_uint, Some(block.gas_limit), U256::from_limbs);
         let tx_data = tx.input.0.clone();
         transaction_parts.data.push(tx_data.into());
-        transaction_parts.gas_limit.push(gas_limit_Uint);
+        transaction_parts.gas_limit.push(gas_limit_uint);
         transaction_parts.gas_price = Some(env.tx.gas_price);
         transaction_parts.nonce = U256::from(tx.nonce.as_u64());
         transaction_parts.secret_key = B256::default();
@@ -194,27 +195,11 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         transaction_parts.max_priority_fee_per_gas =
             Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()));
 
-        // if let Some(access_list) = tx.access_list {
-        //     env.tx.access_list = access_list
-        //         .0
-        //         .into_iter()
-        //         .map(|item| {
-        //             let new_keys: Vec<U256> = item
-        //                 .storage_keys
-        //                 .into_iter()
-        //                 .map(|h256| U256::from_le_bytes(h256.0))
-        //                 .collect();
-        //             (Address::from(item.address.as_fixed_bytes()), new_keys)
-        //         })
-        //         .collect();
-        // } else {
-        //     env.tx.access_list = Default::default();
-        // }
         let access_list_vec = tx.access_list.as_ref().map(|access_list| {
             access_list
                 .0
                 .iter()
-                .map(|item| AccessListItem {
+                .map(|item| models::AccessListItem {
                     address: Address::from(item.address.as_fixed_bytes()),
                     storage_keys: item
                         .storage_keys
@@ -264,7 +249,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         }
     }
 
-    let mut test_post = BTreeMap::new();
+    let test_post = BTreeMap::new();
     for res in &all_result {
         let (txbytes, data, value, ResultAndState { result, state }) = res;
         {
@@ -349,10 +334,10 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
     let mut base_fee = Uint::ZERO;
     local_fill!(base_fee, block.base_fee_per_gas, U256::from_limbs);
     test_env.current_base_fee = Some(base_fee);
-    //test_env.previous_hash = FixedBytes::from(block.parent_hash);
+    test_env.previous_hash = FixedBytes(block.parent_hash.0);
     // local_fill!(test_env.current_random, block.random);
     // local_fill!(test_env.current_beacon_root, block.beacon_root);
-    //test_env.current_withdrawals_root = Some(FixedBytes::from(block.withdrawals_root.unwrap()));
+    test_env.current_withdrawals_root = Some(FixedBytes(block.withdrawals_root.unwrap().0));
 
     let mut gas_used = Uint::ZERO;
     local_fill!(gas_used, Some(block.gas_used), U256::from_limbs);
@@ -385,7 +370,7 @@ mod tests {
 
     //use revm::inspectors::TracerEip3155;
 
-    use models::*;
+    //use models::*;
 
     #[tokio::test]
     async fn test_execute_one() {
