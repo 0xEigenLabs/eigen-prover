@@ -10,8 +10,7 @@ use crate::agg_prove::AggProver;
 use crate::batch_prove::BatchProver;
 use crate::final_prove::FinalProver;
 use crate::traits::StageProver;
-use algebraic::errors::EigenError;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -328,8 +327,8 @@ impl Pipeline {
             .join(task_id.clone())
             .join("status.finished");
         let status: bool = std::fs::read_to_string(p)?.parse().map_err(|e| {
-            log::error!("load_checkpoint: {:?}", e);
-            EigenError::InvalidValue("load checkpoint failed".to_string())
+            log::error!("load_checkpoint");
+            anyhow!("load checkpoint failed, {:?}", e)
         })?;
         Ok(status)
     }
@@ -341,7 +340,7 @@ impl Pipeline {
                 w.insert(task_id.clone(), ProveStage::BatchProve(task_id.clone()));
                 self.save_checkpoint(task_id, false)
             }
-            _ => bail!(EigenError::Unknown("Task queue is full".to_string())),
+            _ => bail!("Task queue is full".to_string()),
         }
     }
 
@@ -357,7 +356,7 @@ impl Pipeline {
                 );
                 self.save_checkpoint(task_id, false)
             }
-            _ => bail!(EigenError::Unknown("Task queue is full".to_string())),
+            _ => bail!("Task queue is full".to_string()),
         }
     }
 
@@ -377,7 +376,7 @@ impl Pipeline {
                 );
                 self.save_checkpoint(task_id, false)
             }
-            _ => bail!(EigenError::Unknown("Task queue is full".to_string())),
+            _ => bail!("Task queue is full".to_string()),
         }
     }
 
@@ -397,7 +396,7 @@ impl Pipeline {
     pub fn get_proof(&mut self, task_id: String, _timeout: u64) -> Result<String> {
         match self.load_checkpoint(task_id) {
             Ok(true) => Ok("".to_string()),
-            _ => bail!(EigenError::InvalidValue("get_proof failed".to_string())),
+            _ => bail!("get_proof failed".to_string()),
         }
     }
 
