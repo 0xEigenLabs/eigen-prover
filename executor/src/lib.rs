@@ -128,7 +128,7 @@ pub fn execute_one(unit: &TestUnit, addr: Address, chain_id: u64) -> Result<Vec<
                 .with_cached_prestate(cache)
                 .with_bundle_update()
                 .build();
-            let mut evm = revm::EVM::new();
+            let mut evm = revm::new();
             evm.database(&mut state);
             evm.env = env.clone();
 
