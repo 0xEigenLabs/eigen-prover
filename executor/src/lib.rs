@@ -2,11 +2,11 @@ use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
     //interpreter::gas::ZERO,
     primitives::{
-        Address, Bytes, Env, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256,
+        Address, Bytes, Env, FixedBytes, HashMap, ResultAndState, SpecId, TransactTo, B256, U256,
     },
     Database,
     DatabaseCommit,
-    EVM,
+    handler::Handler, Context,
 };
 
 use alloc::collections::BTreeMap;
@@ -93,8 +93,10 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
-    let mut evm = EVM::new();
-    evm.database(cache_db);
+    let ctx = Context::new_with_db(cache_db);
+    //ctx.evm.env = Box::new(env.clone());
+    let handler = Handler::mainnet_with_spec(SpecId::FRONTIER);
+    let mut evm = revm::Evm::new(ctx, handler);
 
     let mut env = Env::default();
     if let Some(number) = block.number {
@@ -178,7 +180,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             None => TransactTo::create(),
         };
 
-        evm.env = env.clone();
+        evm.context.evm.env = Box::new(env.clone());
 
         let mut gas_limit_uint = Uint::ZERO;
         local_fill!(gas_limit_uint, Some(block.gas_limit), U256::from_limbs);
@@ -235,12 +237,12 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         */
         //evm.transact_commit().unwrap();
         let result = evm.transact().unwrap();
-        evm.db().unwrap().commit(result.state.clone());
+        evm.context.evm.db.commit(result.state.clone());
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
     }
 
-    for (k, v) in &evm.db.as_ref().unwrap().accounts {
+    for (k, v) in &evm.context.evm.db.accounts {
         println!("state: {}=>{:?}", k, v);
         if !v.storage.is_empty() {
             for (k, v) in v.storage.iter() {
@@ -274,24 +276,24 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             // txbytes: Option<Bytes>,
             println!("txbytes: {:?}", txbytes);
 
-            // test_post.insert(
-            //     models::SpecName::Shanghai,
-            //     vec![models::Test {
-            //         expect_exception: Some("err".to_string()),
-            //         indexes: models::TxPartIndices {
-            //             data: 0,
-            //             gas: result.gas_used() as usize,
-            //             value: value.as_u64,
-            //         },
-            //         post_state: state
-            //             .into_iter()
-            //             .map(|(address, account)| (address, account.info))
-            //             .collect(),
-            //         logs: result.logs(),
-            //         txbytes: txbytes,
-            //         hash: todo!(),
-            //     }],
-            // );
+            test_post.insert(
+                models::SpecName::Shanghai,
+                vec![models::Test {
+                    expect_exception: Some("err".to_string()),
+                    indexes: models::TxPartIndices {
+                        data: 0,
+                        gas: result.gas_used() as usize,
+                        value: value.as_u64,
+                    },
+                    post_state: state
+                        .into_iter()
+                        .map(|(address, account)| (address, account.info))
+                        .collect(),
+                    logs: result.logs(),
+                    txbytes: txbytes,
+                    hash: todo!(),
+                }],
+            );
         }
     }
 
