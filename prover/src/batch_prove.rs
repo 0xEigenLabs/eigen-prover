@@ -4,6 +4,7 @@ use anyhow::Result;
 use dsl_compile::circom_compiler;
 use starky::prove::stark_prove;
 use starky::{compressor12_exec::exec, compressor12_setup::setup};
+use zkvm::zkvm_evm_prove_one;
 
 #[derive(Default)]
 pub struct BatchProver {}
@@ -25,6 +26,22 @@ impl StageProver for BatchProver {
         let r1_circom = &ctx.recursive1_circom; // output
         let r1_stark = &ctx.recursive1_stark; // output
         log::info!("batch_context: {:?}", ctx);
+        // given that the l2batch data has been stored in sp.zkin.
+        let serde_data = std::fs::read_to_string(sp.zkin.clone())?;
+        // the circom: $output/main_proof.bin_1
+        // the zkin(stark proof): $output/main_proof.bin_0
+        zkvm_evm_prove_one(serde_data, &ctx.evm_output)?;
+
+        std::fs::rename(
+            format!("{}/main_proof.bin_1", ctx.evm_output),
+            c12_circom.circom_file.clone(),
+        )?;
+        std::fs::rename(
+            format!("{}/main_proof.bin_0", ctx.evm_output),
+            c12_stark.zkin.clone(),
+        )?;
+
+        /*
         stark_prove(
             &ctx.batch_struct,
             &sp.piljson,
@@ -36,6 +53,7 @@ impl StageProver for BatchProver {
             &c12_stark.zkin,
             "", // prover address
         )?;
+        */
 
         // 2. Compile circom circuit to r1cs, and generate witness
         circom_compiler(
