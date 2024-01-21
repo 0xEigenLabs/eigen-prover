@@ -49,7 +49,7 @@ impl Write for FlushWriter {
     }
 }
 
-/// Usage: NO=457 cargo run --release --example prove_block
+/// Usage: NO=457 cargo run --release --example exec_block
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let env_block_number = stdenv::var("NO").unwrap_or(String::from("0"));
