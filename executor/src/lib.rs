@@ -98,10 +98,6 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
         }
     }
 
-    let mut evm = revm::Evm::builder()
-        .with_db(&mut cache_db)
-        .spec_id(SpecId::FRONTIER)
-        .build();
     let mut env = Env::default();
     if let Some(number) = block.number {
         let nn = number.0[0];
@@ -145,7 +141,6 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
 
     // Fill in CfgEnv
     env.cfg.chain_id = chain_id;
-
     let mut all_result = vec![];
     for tx in block.transactions {
         env.tx.caller = Address::from(tx.from.as_fixed_bytes());
@@ -185,7 +180,11 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
             None => TransactTo::create(),
         };
 
-        evm.context.evm.env = Box::new(env.clone());
+        let mut evm = revm::Evm::builder()
+            .with_db(&mut cache_db)
+            .modify_env(|e| *e = env.clone())
+            .spec_id(SpecId::FRONTIER)
+            .build();
 
         let mut gas_limit_uint = Uint::ZERO;
         local_fill!(gas_limit_uint, Some(block.gas_limit), U256::from_limbs);
@@ -245,15 +244,19 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
         evm.context.evm.db.commit(result.state.clone());
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
-    }
 
-    for (k, v) in &evm.context.evm.db.accounts {
-        println!("state: {}=>{:?}", k, v);
-        if !v.storage.is_empty() {
-            for (k, v) in v.storage.iter() {
-                println!("slot => storage: {}=>{}", k, v);
+        for (k, v) in &evm.context.evm.db.accounts {
+            println!("state: {}=>{:?}", k, v);
+            if !v.storage.is_empty() {
+                for (k, v) in v.storage.iter() {
+                    println!("slot => storage: {}=>{}", k, v);
+                }
             }
         }
+
+        let account_json =
+            serde_json::to_string(&evm.context.evm.db.accounts).expect("Failed to serialize");
+        std::fs::write("account.json", account_json).expect("Failed to write to file");
     }
 
     let mut test_post = BTreeMap::new();
@@ -298,7 +301,7 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
                 // TODO: get specID
                 models::SpecName::Shanghai,
                 vec![models::Test {
-                    expect_exception: Some("success".to_string()),
+                    expect_exception: None,
                     indexes: models::TxPartIndices {
                         data: 0,
                         gas: 0,
