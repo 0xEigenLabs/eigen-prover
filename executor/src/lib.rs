@@ -133,7 +133,7 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
         gas_price: None,
         nonce: U256::default(),
         secret_key: B256::default(),
-        sender: Address::default(),
+        sender: Some(Address::default()),
         to: None,
         value: vec![],
         max_fee_per_gas: None,
@@ -195,7 +195,7 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
         transaction_parts.gas_price = Some(env.tx.gas_price);
         transaction_parts.nonce = U256::from(tx.nonce.as_u64());
         transaction_parts.secret_key = B256::default();
-        transaction_parts.sender = Address::from(tx.from.as_fixed_bytes());
+        transaction_parts.sender = Some(Address::from(tx.from.as_fixed_bytes()));
         transaction_parts.to = Some(Address::from(tx.to.unwrap().as_fixed_bytes()));
         transaction_parts.value.push(env.tx.value);
         transaction_parts.max_fee_per_gas = Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()));
@@ -365,13 +365,15 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
     test_env.parent_excess_blob_gas = Some(gas_used);
 
     let test_unit = models::TestUnit {
-        info: "info".into(),
+        info: None,
         env: test_env,
         // pre: HashMap<Address, AccountInfo, BuildHasherDefault<AHasher>, Global>
         pre: test_pre,
         // post: BTreeMap<SpecName, Vec<Test, Global>, Global>
         post: test_post,
+        chain_id: Some(chain_id),
         transaction: transaction_parts,
+        out: None,
     };
 
     // println!("test_unit: {:#?}", test_unit);

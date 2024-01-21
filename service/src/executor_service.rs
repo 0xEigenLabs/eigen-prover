@@ -10,7 +10,7 @@ pub mod executor_service {
     tonic::include_proto!("executor.v1");
 }
 use executor::execute_one;
-use revm::primitives::{address, ResultAndState};
+use revm::primitives::ResultAndState;
 #[derive(Debug, Default)]
 pub struct ExecutorServiceSVC {}
 
@@ -38,10 +38,9 @@ impl ExecutorService for ExecutorServiceSVC {
                 String::default()
             }
         };
-        let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
         // let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
-        //let block_number = batch_l2_data.parse::<u64>().unwrap();
-        let block_number = 2;
+        let block_number = batch_l2_data.parse::<u64>().unwrap();
+        //let block_number = 2;
         let _res = execute_one(block_number, 1).await;
         let mut response = executor_service::ProcessBatchResponse::default();
         let last_element = match _res {
