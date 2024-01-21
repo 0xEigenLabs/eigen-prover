@@ -380,38 +380,3 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
 
     Ok(all_result)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::execute_one;
-    use revm::primitives::address;
-
-    //use runtime::{print, get_prover_input, coprocessors::{get_data, get_data_len}};
-
-    //use revm::inspectors::TracerEip3155;
-
-    //use models::*;
-
-    #[tokio::test]
-    async fn test_execute_one() {
-        // let test_file = "test-vectors/blockInfo.json";
-        // let suite_json = std::fs::read_to_string(test_file).unwrap();
-        // println!("suite json: {:?}", suite_json);
-
-        let _addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
-        // let t: TestUnit = serde_json::from_str(&suite_json).unwrap();
-        // println!("TestUnit t: {:?}", t);
-
-        let num: u64 = 3;
-        let res = execute_one(num, 1).await;
-
-        match res {
-            Ok(_) => {
-                println!("exec sueccess");
-            }
-            Err(e) => {
-                eprintln!("Error occurred: {}", e);
-            }
-        }
-    }
-}
