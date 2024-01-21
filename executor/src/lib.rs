@@ -63,9 +63,17 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
         println!("acc_info: {} => {:?}", from_acc, acc_info);
         accs_info.push(acc_info.clone());
+
+        let account_info = models::AccountInfo {
+            balance:acc_info.balance,
+            code: acc_info.code.clone().unwrap().bytecode,
+            nonce: acc_info.nonce,
+            // TODO: fill storage
+            storage: HashMap::new(),
+        };
         test_pre.insert(
             from_acc,
-            serde_json::from_str(serde_json::to_string(&acc_info.clone())?.as_str())?,
+            account_info,
         );
         cache_db.insert_account_info(from_acc, acc_info);
 
@@ -141,6 +149,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
     // Fill in CfgEnv
     env.cfg.chain_id = chain_id;
+    
     let mut all_result = vec![];
     for tx in block.transactions {
         env.tx.caller = Address::from(tx.from.as_fixed_bytes());
@@ -251,7 +260,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         }
     }
 
-    let test_post = BTreeMap::new();
+    let mut test_post = BTreeMap::new();
     for res in &all_result {
         let (txbytes, data, value, ResultAndState { result, state }) = res;
         {
@@ -276,24 +285,35 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             // txbytes: Option<Bytes>,
             println!("txbytes: {:?}", txbytes);
 
-            // test_post.insert(
-            //     models::SpecName::Shanghai,
-            //     vec![models::Test {
-            //         expect_exception: Some("err".to_string()),
-            //         indexes: models::TxPartIndices {
-            //             data: 0,
-            //             gas: result.gas_used() as usize,
-            //             value: value.as_u64,
-            //         },
-            //         post_state: state
-            //             .into_iter()
-            //             .map(|(address, account)| (address, account.info))
-            //             .collect(),
-            //         logs: result.logs(),
-            //         txbytes: txbytes,
-            //         hash: todo!(),
-            //     }],
-            // );
+            let mut new_state: HashMap<Address, models::AccountInfo> = HashMap::new();
+
+            for (address, account) in state.iter() {
+                let account_info = models::AccountInfo {
+                    balance:account.info.balance,
+                    code: account.info.code.clone().unwrap().bytecode,
+                    nonce: account.info.nonce,
+                    // TODO: fill storage
+                    storage: HashMap::new(),
+                };
+
+                new_state.insert(address.clone(), account_info);
+            }
+            test_post.insert(
+                // todo: get specID
+                models::SpecName::Shanghai,
+                vec![models::Test {
+                    expect_exception: Some("success".to_string()),
+                    indexes: models::TxPartIndices {
+                        data: 0,
+                        gas: 0,
+                        value: 0
+                    },
+                    post_state: new_state,
+                    logs: FixedBytes::default(),
+                    txbytes: Some(Bytes::from_iter(txbytes)),
+                    hash: FixedBytes::default(),
+                }],
+            );
         }
     }
 
@@ -357,8 +377,8 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
     };
 
     println!("test_unit: {:#?}", test_unit);
-    // let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
-    // std::fs::write("output.json", json_string).expect("Failed to write to file");
+    let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
+    std::fs::write("output.json", json_string).expect("Failed to write to file");
 
     Ok(all_result)
 }
