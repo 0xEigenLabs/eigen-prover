@@ -9,7 +9,6 @@ use revm::db::{CacheDB, EmptyDB, EthersDB};
 use revm::primitives::{Address, Env, ResultAndState, SpecId, TransactTo, U256};
 use revm::Database;
 use revm::DatabaseCommit;
-use revm::{handler::Handler, Context};
 
 use std::env as stdenv;
 use std::io::BufWriter;
@@ -117,10 +116,10 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let ctx = Context::new_with_db(cache_db);
-    //ctx.evm.env = Box::new(env.clone());
-    let handler = Handler::mainnet_with_spec(SpecId::FRONTIER);
-    let mut evm = revm::Evm::new(ctx, handler);
+    let mut evm = revm::Evm::builder()
+        .with_db(&mut cache_db)
+        .spec_id(SpecId::FRONTIER)
+        .build();
 
     let mut env = Env::default();
     if let Some(number) = block.number {

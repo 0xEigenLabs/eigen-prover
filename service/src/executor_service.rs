@@ -42,7 +42,7 @@ impl ExecutorService for ExecutorServiceSVC {
         // let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
         //let block_number = batch_l2_data.parse::<u64>().unwrap();
         let block_number = 2;
-        let _res = execute_one(block_number, addr, 1).await;
+        let _res = execute_one(block_number, 1).await;
         let mut response = executor_service::ProcessBatchResponse::default();
         let last_element = match _res {
             Ok(res) => {

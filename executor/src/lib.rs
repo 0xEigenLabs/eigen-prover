@@ -6,7 +6,6 @@ use revm::{
     },
     Database,
     DatabaseCommit,
-    handler::Handler, Context,
 };
 
 use alloc::collections::BTreeMap;
@@ -37,7 +36,7 @@ macro_rules! local_fill {
     };
 }
 
-pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> ExecResult {
+pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
     let client = Provider::<Http>::try_from("http://localhost:8545").unwrap();
     let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
@@ -65,16 +64,13 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         accs_info.push(acc_info.clone());
 
         let account_info = models::AccountInfo {
-            balance:acc_info.balance,
+            balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
             nonce: acc_info.nonce,
             // TODO: fill storage
             storage: HashMap::new(),
         };
-        test_pre.insert(
-            from_acc,
-            account_info,
-        );
+        test_pre.insert(from_acc, account_info);
         cache_db.insert_account_info(from_acc, acc_info);
 
         if tx.to.is_some() {
@@ -101,11 +97,11 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
-    let ctx = Context::new_with_db(cache_db);
-    //ctx.evm.env = Box::new(env.clone());
-    let handler = Handler::mainnet_with_spec(SpecId::FRONTIER);
-    let mut evm = revm::Evm::new(ctx, handler);
 
+    let mut evm = revm::Evm::builder()
+        .with_db(&mut cache_db)
+        .spec_id(SpecId::FRONTIER)
+        .build();
     let mut env = Env::default();
     if let Some(number) = block.number {
         let nn = number.0[0];
@@ -149,7 +145,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
     // Fill in CfgEnv
     env.cfg.chain_id = chain_id;
-    
+
     let mut all_result = vec![];
     for tx in block.transactions {
         env.tx.caller = Address::from(tx.from.as_fixed_bytes());
@@ -289,28 +285,30 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
             for (address, account) in state.iter() {
                 let account_info = models::AccountInfo {
-                    balance:account.info.balance,
+                    balance: account.info.balance,
                     code: account.info.code.clone().unwrap().bytecode,
                     nonce: account.info.nonce,
                     // TODO: fill storage
                     storage: HashMap::new(),
                 };
 
-                new_state.insert(address.clone(), account_info);
+                new_state.insert(*address, account_info);
             }
             test_post.insert(
-                // todo: get specID
+                // TODO: get specID
                 models::SpecName::Shanghai,
                 vec![models::Test {
                     expect_exception: Some("success".to_string()),
                     indexes: models::TxPartIndices {
                         data: 0,
                         gas: 0,
-                        value: 0
+                        value: 0,
                     },
                     post_state: new_state,
+                    // TODO: fill logs
                     logs: FixedBytes::default(),
                     txbytes: Some(Bytes::from_iter(txbytes)),
+                    // TODO: fill hash
                     hash: FixedBytes::default(),
                 }],
             );
@@ -319,19 +317,19 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
 
     let mut test_env = models::Env {
         current_coinbase: Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap()),
-        current_difficulty: U256::from(10000),
-        current_gas_limit: U256::from(5000),
-        current_number: U256::from(1),
-        current_timestamp: U256::from(1642492800),
-        current_base_fee: Some(U256::from(1000)),
+        current_difficulty: U256::default(),
+        current_gas_limit: U256::default(),
+        current_number: U256::default(),
+        current_timestamp: U256::default(),
+        current_base_fee: Some(U256::default()),
         previous_hash: B256::default(),
 
         current_random: Some(B256::default()),
         current_beacon_root: Some(B256::default()),
         current_withdrawals_root: Some(B256::default()),
 
-        parent_blob_gas_used: Some(U256::from(20000)),
-        parent_excess_blob_gas: Some(U256::from(5000)),
+        parent_blob_gas_used: Some(U256::default()),
+        parent_excess_blob_gas: Some(U256::default()),
     };
     test_env.current_coinbase = Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap());
     local_fill!(
@@ -367,7 +365,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
     test_env.parent_excess_blob_gas = Some(gas_used);
 
     let test_unit = models::TestUnit {
-        info: "sss".into(),
+        info: "info".into(),
         env: test_env,
         // pre: HashMap<Address, AccountInfo, BuildHasherDefault<AHasher>, Global>
         pre: test_pre,
@@ -376,7 +374,7 @@ pub async fn execute_one(block_number: u64, _addr: Address, chain_id: u64) -> Ex
         transaction: transaction_parts,
     };
 
-    println!("test_unit: {:#?}", test_unit);
+    // println!("test_unit: {:#?}", test_unit);
     let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
     std::fs::write("output.json", json_string).expect("Failed to write to file");
 
@@ -400,12 +398,12 @@ mod tests {
         // let suite_json = std::fs::read_to_string(test_file).unwrap();
         // println!("suite json: {:?}", suite_json);
 
-        let addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
+        let _addr = address!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
         // let t: TestUnit = serde_json::from_str(&suite_json).unwrap();
         // println!("TestUnit t: {:?}", t);
 
         let num: u64 = 3;
-        let res = execute_one(num, addr, 1).await;
+        let res = execute_one(num, 1).await;
 
         match res {
             Ok(_) => {
