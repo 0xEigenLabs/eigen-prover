@@ -1,3 +1,4 @@
+#![allow(clippy::redundant_closure)]
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
     //interpreter::gas::ZERO,
@@ -260,7 +261,7 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
     }
 
     let mut test_post = BTreeMap::new();
-    for res in &all_result {
+    for (idx, res) in all_result.iter().enumerate() {
         let (txbytes, data, value, ResultAndState { result, state }) = res;
         {
             // 1. expect_exception: Option<String>,
@@ -297,23 +298,30 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
 
                 new_state.insert(*address, account_info);
             }
+
+            let post_value = test_post
+                .entry(models::SpecName::Shanghai)
+                .or_insert_with(|| Vec::new());
+            let mut new_post_value = std::mem::take(post_value);
+            new_post_value.push(models::Test {
+                expect_exception: None,
+                indexes: models::TxPartIndices {
+                    data: idx,
+                    gas: idx,
+                    value: idx,
+                },
+                post_state: new_state,
+                // TODO: fill logs
+                logs: FixedBytes::default(),
+                txbytes: Some(Bytes::from_iter(txbytes)),
+                // TODO: fill hash
+                hash: FixedBytes::default(),
+            });
+
             test_post.insert(
                 // TODO: get specID
                 models::SpecName::Shanghai,
-                vec![models::Test {
-                    expect_exception: None,
-                    indexes: models::TxPartIndices {
-                        data: 0,
-                        gas: 0,
-                        value: 0,
-                    },
-                    post_state: new_state,
-                    // TODO: fill logs
-                    logs: FixedBytes::default(),
-                    txbytes: Some(Bytes::from_iter(txbytes)),
-                    // TODO: fill hash
-                    hash: FixedBytes::default(),
-                }],
+                new_post_value,
             );
         }
     }
