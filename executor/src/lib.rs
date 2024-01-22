@@ -37,7 +37,7 @@ macro_rules! local_fill {
     };
 }
 
-pub async fn execute_one(block_number: u64, chain_id: u64, slot_path: String) -> ExecResult {
+pub async fn execute_one(block_number: u64, chain_id: u64, slot_path: &str) -> ExecResult {
     let client = Provider::<Http>::try_from("http://localhost:8545").unwrap();
     let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
@@ -263,7 +263,7 @@ pub async fn execute_one(block_number: u64, chain_id: u64, slot_path: String) ->
             let new_account_slot_json =
                 serde_json::to_string(&account_slot).expect("Failed to serialize");
             std::fs::write(format!("{}/{}.json", slot_path, k), new_account_slot_json)
-                .expect("Failed to write to file");
+                .unwrap_or_else(|_| panic!("Failed to write to file, slot_path: {}", slot_path))
         }
     }
 

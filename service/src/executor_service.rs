@@ -4,6 +4,7 @@
 use executor_service::executor_service_server::ExecutorService;
 use executor_service::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse};
 use log::debug;
+use std::env as stdenv;
 //use models::*;
 use tonic::{Request, Response, Status};
 pub mod executor_service {
@@ -40,8 +41,8 @@ impl ExecutorService for ExecutorServiceSVC {
         };
         // let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
         let block_number = batch_l2_data.parse::<u64>().unwrap();
-        let slot_path = std::fs::read_to_string("conf/path.toml").unwrap();
-        let _res = execute_one(block_number, 1, slot_path).await;
+        let slot_path = stdenv::var("SLOT").unwrap_or(String::from("/tmp/storage"));
+        let _res = execute_one(block_number, 1, &slot_path).await;
         let mut response = executor_service::ProcessBatchResponse::default();
         let last_element = match _res {
             Ok(res) => {
