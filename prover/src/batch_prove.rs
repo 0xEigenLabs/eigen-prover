@@ -30,7 +30,7 @@ impl StageProver for BatchProver {
         let serde_data = std::fs::read_to_string(sp.zkin.clone())?;
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
-        zkvm_evm_prove_one(serde_data, &ctx.evm_output)?;
+        zkvm_evm_prove_one("evm", serde_data, &ctx.evm_output)?;
 
         std::fs::rename(
             format!("{}/main_proof.bin_1", ctx.evm_output),
