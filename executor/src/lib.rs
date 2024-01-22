@@ -1,4 +1,9 @@
 #![allow(clippy::redundant_closure)]
+use alloc::collections::BTreeMap;
+use anyhow::Result;
+use ethers_core::types::BlockId;
+use ethers_providers::Middleware;
+use ethers_providers::{Http, Provider};
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
     //interpreter::gas::ZERO,
@@ -8,16 +13,10 @@ use revm::{
     Database,
     DatabaseCommit,
 };
-
-use alloc::collections::BTreeMap;
-use anyhow::Result;
-use ethers_core::types::BlockId;
-use ethers_providers::Middleware;
-use ethers_providers::{Http, Provider};
+use ruint::uint;
 //use models::*;
 use ruint::Uint;
 use std::sync::Arc;
-
 extern crate alloc;
 
 use alloc::vec::Vec;
@@ -35,6 +34,12 @@ macro_rules! local_fill {
             $left = Address::from(right.as_fixed_bytes())
         }
     };
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct AccountStorage {
+    pub slot: Uint<256, 4>,
+    pub storage: Uint<256, 4>,
 }
 
 pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
@@ -56,14 +61,11 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
     let mut cache_db = CacheDB::new(EmptyDB::default());
 
     let mut test_pre = HashMap::new();
-    let mut accs_info = vec![];
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
         println!("acc_info: {} => {:?}", from_acc, acc_info);
-        accs_info.push(acc_info.clone());
-
         let account_info = models::AccountInfo {
             balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
@@ -95,6 +97,19 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
                 }
             }
             */
+            uint! {
+                let storages_json_path = format!("storage/{}.json", to_acc);
+                let storages_json = std::fs::read_to_string(storages_json_path).unwrap();
+                let storages: Vec<AccountStorage> = serde_json::from_str(&storages_json).unwrap();
+                for storage in storages {
+                    if !acc_info.code.as_ref().unwrap().is_empty() {
+                        println!("slot:{}, value: {:?}", storage.slot, storage.storage);
+                        cache_db
+                            .insert_account_storage(to_acc, U256::from(storage.slot), U256::from(storage.storage))
+                            .unwrap();
+                    }
+                }
+            }
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
@@ -196,7 +211,9 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
         transaction_parts.nonce = U256::from(tx.nonce.as_u64());
         transaction_parts.secret_key = B256::default();
         transaction_parts.sender = Some(Address::from(tx.from.as_fixed_bytes()));
-        transaction_parts.to = Some(Address::from(tx.to.unwrap().as_fixed_bytes()));
+        transaction_parts.to = tx
+            .to
+            .map(|to_address| Address::from(to_address.as_fixed_bytes()));
         transaction_parts.value.push(env.tx.value);
         transaction_parts.max_fee_per_gas = Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()));
         transaction_parts.max_priority_fee_per_gas =
@@ -248,16 +265,21 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
 
         for (k, v) in &evm.context.evm.db.accounts {
             println!("state: {}=>{:?}", k, v);
+            let mut account_storage = vec![];
             if !v.storage.is_empty() {
                 for (k, v) in v.storage.iter() {
                     println!("slot => storage: {}=>{}", k, v);
+                    account_storage.push(AccountStorage {
+                        slot: *k,
+                        storage: *v,
+                    });
                 }
             }
+            let account_storage_json =
+                serde_json::to_string(&account_storage).expect("Failed to serialize");
+            std::fs::write(format!("storage/{}.json", k), account_storage_json)
+                .expect("Failed to write to file");
         }
-
-        let account_json =
-            serde_json::to_string(&evm.context.evm.db.accounts).expect("Failed to serialize");
-        std::fs::write("account.json", account_json).expect("Failed to write to file");
     }
 
     let mut test_post = BTreeMap::new();
@@ -290,7 +312,12 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
             for (address, account) in state.iter() {
                 let account_info = models::AccountInfo {
                     balance: account.info.balance,
-                    code: account.info.code.clone().unwrap().bytecode,
+                    code: account
+                        .info
+                        .code
+                        .clone()
+                        .map(|code| code.bytecode)
+                        .unwrap_or_default(),
                     nonce: account.info.nonce,
                     // TODO: fill storage
                     storage: HashMap::new(),
