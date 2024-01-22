@@ -4,6 +4,7 @@ use anyhow::Result;
 use ethers_core::types::BlockId;
 use ethers_providers::Middleware;
 use ethers_providers::{Http, Provider};
+use revm::primitives::HashSet;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
     //interpreter::gas::ZERO,
@@ -36,13 +37,7 @@ macro_rules! local_fill {
     };
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct AccountStorage {
-    pub slot: Uint<256, 4>,
-    pub storage: Uint<256, 4>,
-}
-
-pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
+pub async fn execute_one(block_number: u64, chain_id: u64, slot_path: String) -> ExecResult {
     let client = Provider::<Http>::try_from("http://localhost:8545").unwrap();
     let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
@@ -81,11 +76,14 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
             let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
             println!("to_info: {} => {:?}", to_acc, acc_info);
             // setup storage
-            /*
-            uint!{
-                for slot in [0x2_U256, 0x82440beeb8ea7bdc8fb6c47af3bdfbce49c97853988e80d3269a2ccae791587a_U256] {
+
+            uint! {
+                let account_slot_path = format!("{}/{}.json", slot_path, to_acc);
+                let account_slot_json = std::fs::read_to_string(account_slot_path).unwrap_or_default();
+                let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(&account_slot_json).unwrap_or_default();
+                for slot in account_slot {
                     let slot = U256::from(slot);
-                    if acc_info.code.as_ref().unwrap().len() > 0 {
+                    if !acc_info.code.as_ref().unwrap().is_empty() {
                         // query value of storage slot at account address
                         let value = ethersdb.storage(to_acc, slot).unwrap();
                         println!("slot:{}, value: {:?}", slot, value);
@@ -96,20 +94,7 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
                     }
                 }
             }
-            */
-            uint! {
-                let storages_json_path = format!("storage/{}.json", to_acc);
-                let storages_json = std::fs::read_to_string(storages_json_path).unwrap();
-                let storages: Vec<AccountStorage> = serde_json::from_str(&storages_json).unwrap();
-                for storage in storages {
-                    if !acc_info.code.as_ref().unwrap().is_empty() {
-                        println!("slot:{}, value: {:?}", storage.slot, storage.storage);
-                        cache_db
-                            .insert_account_storage(to_acc, U256::from(storage.slot), U256::from(storage.storage))
-                            .unwrap();
-                    }
-                }
-            }
+
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
@@ -265,19 +250,19 @@ pub async fn execute_one(block_number: u64, chain_id: u64) -> ExecResult {
 
         for (k, v) in &evm.context.evm.db.accounts {
             println!("state: {}=>{:?}", k, v);
-            let mut account_storage = vec![];
+            let account_slot_path = format!("{}/{}.json", slot_path, k);
+            let account_slot_json = std::fs::read_to_string(&account_slot_path).unwrap_or_default();
+            let mut account_slot: HashSet<Uint<256, 4>> =
+                serde_json::from_str(&account_slot_json).unwrap_or_default();
             if !v.storage.is_empty() {
                 for (k, v) in v.storage.iter() {
                     println!("slot => storage: {}=>{}", k, v);
-                    account_storage.push(AccountStorage {
-                        slot: *k,
-                        storage: *v,
-                    });
+                    account_slot.insert(*k);
                 }
             }
-            let account_storage_json =
-                serde_json::to_string(&account_storage).expect("Failed to serialize");
-            std::fs::write(format!("storage/{}.json", k), account_storage_json)
+            let new_account_slot_json =
+                serde_json::to_string(&account_slot).expect("Failed to serialize");
+            std::fs::write(format!("{}/{}.json", slot_path, k), new_account_slot_json)
                 .expect("Failed to write to file");
         }
     }
