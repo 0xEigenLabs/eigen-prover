@@ -2,8 +2,8 @@ use crate::traits::StageProver;
 use crate::BatchContext;
 use anyhow::Result;
 use dsl_compile::circom_compiler;
+use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
-use starky::{compressor12_exec::exec, compressor12_setup::setup};
 use zkvm::zkvm_evm_prove_one;
 
 #[derive(Default)]

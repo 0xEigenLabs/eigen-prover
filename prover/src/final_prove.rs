@@ -3,7 +3,8 @@ use crate::FinalContext;
 use anyhow::Result;
 use dsl_compile::circom_compiler;
 use groth16::api::{groth16_prove, groth16_setup, groth16_verify};
-use starky::{compressor12_exec::exec, compressor12_setup::setup, prove::stark_prove};
+use recursion::{compressor12_exec::exec, compressor12_setup::setup};
+use starky::prove::stark_prove;
 
 pub struct FinalProver {}
 impl FinalProver {
