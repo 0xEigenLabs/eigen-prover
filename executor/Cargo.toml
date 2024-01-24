@@ -25,10 +25,10 @@ anyhow =  "1.0"
 revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
 #revm = { path = "../../revm/crates/revm", default-features = false, features = [ "serde", "ethersdb" ] }
 
-powdr = { git = "https://github.com/powdr-labs/powdr", branch = "continuations-data-input" }
-backend = { git = "https://github.com/powdr-labs/powdr", branch = "continuations-data-input", package = "backend" }
+powdr-backend = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
+powdr-ast = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
 
-models = { git = "https://github.com/eigmax/powdr_revm", branch = "continuations", package = "models" }
+models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
 hex = "0.4.3"
 
 ethers-providers = { version = "2.0", features = ["ws"] }
