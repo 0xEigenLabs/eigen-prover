@@ -15,7 +15,6 @@ tonic = "0.10.2"
 anyhow =  "1.0"
 hex = "0.4.3"
 log = "0.4.0"
-env_logger = "0.10"
 num-bigint = "0.4.4"
 num-traits = "0.2.16"
 prost = "0.12.3"
@@ -24,3 +23,4 @@ tokio = { version = "1.0.0", features = ["rt", "rt-multi-thread", "macros"] }
 
 [build-dependencies]
 tonic-build = "0.10.2"
+env_logger = "0.10"

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 
-itertools = "0.12.0"
+#itertools = "0.12.0"
 # serialization
 
 serde = { version = "1.0", features = [ "derive" ] }
@@ -25,8 +25,8 @@ anyhow =  "1.0"
 revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
 #revm = { path = "../../revm/crates/revm", default-features = false, features = [ "serde", "ethersdb" ] }
 
-powdr-backend = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
-powdr-ast = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
+#powdr-backend = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
+#powdr-ast = { git = "https://github.com/powdr-labs/powdr", branch = "main" }
 
 models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
 hex = "0.4.3"
