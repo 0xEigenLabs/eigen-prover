@@ -6,29 +6,20 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
-itertools = "0.12.0"
-# serialization
-
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0.108"
 
 thiserror = "1.0"
 log = "0.4.0"
 
-#compiler = { git = "https://github.com/powdr-labs/powdr.git", branch = "main", package = "compiler" }
-#riscv = { git = "https://github.com/powdr-labs/powdr.git", branch = "main", package = "riscv" }
-#number = { git = "https://github.com/powdr-labs/powdr.git", branch = "main", package = "number" }
-#backend = { git = "https://github.com/powdr-labs/powdr.git", branch = "main", package = "backend" }
 anyhow =  "1.0"
-#revm = { version = "3.5.0", features = ["std", "ethersdb", "serde"] }
 revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
-#revm = { path = "../../revm/crates/revm", default-features = false, features = [ "serde", "ethersdb" ] }
+powdr-pipeline =       { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-riscv =          { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main" }
 
-powdr = { git = "https://github.com/powdr-labs/powdr", branch = "continuations-data-input" }
-backend = { git = "https://github.com/powdr-labs/powdr", branch = "continuations-data-input", package = "backend" }
-
-models = { git = "https://github.com/eigmax/powdr_revm", branch = "continuations", package = "models" }
+models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
 hex = "0.4.3"
 
 ethers-providers = { version = "2.0", features = ["ws"] }

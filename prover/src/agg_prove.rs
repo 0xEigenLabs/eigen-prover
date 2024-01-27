@@ -2,9 +2,10 @@ use crate::traits::StageProver;
 use crate::{AggContext, BatchContext};
 use anyhow::Result;
 use dsl_compile::circom_compiler;
-use starky::{
-    compressor12_exec::exec, compressor12_setup::setup, prove::stark_prove, zkin_join::join_zkin,
-};
+use recursion::{compressor12_exec::exec, compressor12_setup::setup};
+
+use starky::prove::stark_prove;
+use starky::zkin_join::join_zkin;
 
 pub struct AggProver {}
 impl AggProver {
