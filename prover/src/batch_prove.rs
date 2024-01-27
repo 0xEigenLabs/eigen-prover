@@ -28,10 +28,10 @@ impl StageProver for BatchProver {
         log::info!("batch_context: {:?}", ctx);
         // given that the l2batch data has been stored in sp.zkin.
         let serde_data = std::fs::read_to_string(sp.zkin.clone())?;
+        log::info!("====serde_data: {:#?}", serde_data);
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
-        zkvm_evm_prove_one("evm", serde_data, &ctx.evm_output)?;
-
+        zkvm_evm_prove_one("lr", serde_data, &ctx.evm_output)?;
         std::fs::rename(
             format!("{}/main_proof.bin_1", ctx.evm_output),
             c12_circom.circom_file.clone(),

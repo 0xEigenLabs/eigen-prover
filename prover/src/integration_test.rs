@@ -2,7 +2,6 @@ use crate::Pipeline;
 use std::env;
 
 #[test]
-#[ignore]
 fn integration_test() -> anyhow::Result<()> {
     env::set_var("RUST_LOG", "info");
     env_logger::try_init().unwrap_or_default();
@@ -10,7 +9,7 @@ fn integration_test() -> anyhow::Result<()> {
     // init pipeline.
     let mut pipeline = Pipeline::new(
         env::var("WORKSPACE").unwrap_or("data".to_string()),
-        env::var("TASK_NAME").unwrap_or("fibonacci".to_string()),
+        env::var("TASK_NAME").unwrap_or("lr".to_string()),
     );
     let task1 = pipeline.batch_prove("0".into()).unwrap();
     pipeline.prove().unwrap();

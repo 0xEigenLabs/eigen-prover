@@ -207,7 +207,7 @@ impl BatchContext {
                 const_file: format!("{}/{}.const", executor_dir, task_name),
                 commit_file: format!("{}/{}.cm", executor_dir, task_name),
                 exec_file: "".to_string(),
-                zkin: "".to_string(),
+                zkin: format!("{}/test.json", basedir),
                 curve_type: "GL".to_string(),
             },
 
