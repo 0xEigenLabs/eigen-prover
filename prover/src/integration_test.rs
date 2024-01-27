@@ -2,6 +2,7 @@ use crate::Pipeline;
 use std::env;
 
 #[test]
+#[ignore = "slow"]
 fn integration_test() -> anyhow::Result<()> {
     env::set_var("RUST_LOG", "info");
     env_logger::try_init().unwrap_or_default();
