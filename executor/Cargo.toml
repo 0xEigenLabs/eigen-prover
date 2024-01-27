@@ -14,6 +14,10 @@ log = "0.4.0"
 
 anyhow =  "1.0"
 revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
+powdr-pipeline =       { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-riscv =          { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main" }
 
 models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
 hex = "0.4.3"
