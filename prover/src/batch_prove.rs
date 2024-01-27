@@ -31,8 +31,14 @@ impl StageProver for BatchProver {
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
         zkvm_evm_prove_one(&ctx.task_name, serde_data, &ctx.evm_output)?;
-        log::debug!("circom file path: {:?}", format!("{}/{}_chunk_0_proof.bin_1", ctx.evm_output, ctx.task_name));
-        log::debug!("zkin file path: {:?}", format!("{}/{}_chunk_0_proof.bin_0", ctx.evm_output, ctx.task_name));
+        log::debug!(
+            "circom file path: {:?}",
+            format!("{}/{}_chunk_0_proof.bin_1", ctx.evm_output, ctx.task_name)
+        );
+        log::debug!(
+            "zkin file path: {:?}",
+            format!("{}/{}_chunk_0_proof.bin_0", ctx.evm_output, ctx.task_name)
+        );
         std::fs::copy(
             format!("{}/{}_chunk_0_proof.bin_1", ctx.evm_output, ctx.task_name),
             c12_circom.circom_file.clone(),

@@ -211,7 +211,7 @@ impl BatchContext {
                 curve_type: "GL".to_string(),
             },
 
-            evm_output: format!("{basedir}/{task_path}/evm",),
+            evm_output: format!("{basedir}/{task_path}/{task_name}",),
             c12_stark: StarkProveArgs::new(basedir, &task_path, &c12_task_name, "GL"),
             c12_circom: CircomCompileArgs::new(basedir, &task_path, &c12_task_name, "GL"),
 

@@ -49,9 +49,9 @@ basedir/
 ## Testing
 
 ```bash
-RUST_BACKTRACE=1 RUST_LOG=info \
+RUST_MIN_STACK=2073741821 RUST_BACKTRACE=1 RUST_LOG=debug \
 CIRCOMLIB=../executor/node_modules/circomlib/circuits \
 STARK_VERIFIER_GL=../executor/node_modules/pil-stark/circuits.gl \
-STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128  \
-cargo test --release -- --nocapture
+STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128 \
+cargo test --release integration_test -- --nocapture
 ```
