@@ -46,6 +46,8 @@ message ProcessBatchResponse {
     repeated ProcessTransactionResponse responses = 13;
     ExecutorError error = 14;
     map<string, InfoReadWrite> read_write_addresses = 15;
+    string execute_task_id = 16;
+    uint32 cnt_chunks = 17;
 }
 
 // Trace configuration request params

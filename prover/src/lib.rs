@@ -48,7 +48,7 @@ fn load_link(curve_type: &str) -> Vec<String> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ProveStage {
-    BatchProve(String),
+    BatchProve(String, String),
     AggProve(String, String, String),
     FinalProve(String, String, String),
 }
@@ -171,6 +171,7 @@ pub struct BatchContext {
     basedir: String,
     task_id: String,
     task_name: String,
+    pub chunk_id: String,
 
     batch_stark: StarkProveArgs,
 
@@ -186,9 +187,9 @@ pub struct BatchContext {
 }
 
 impl BatchContext {
-    pub fn new(basedir: &str, task_id: &str, task_name: &str) -> Self {
+    pub fn new(basedir: &str, task_id: &str, task_name: &str, chunk_id: &str) -> Self {
         let executor_dir = format!("{}/executor/{}", basedir, task_id);
-        let task_path = ProveStage::BatchProve(task_id.to_string()).path();
+        let task_path = ProveStage::BatchProve(task_id.to_string(), chunk_id.to_string()).path();
         let c12_task_name = format!("{}.c12", task_name);
 
         let r1_task_name = format!("{}.recursive1", task_name);
@@ -212,6 +213,7 @@ impl BatchContext {
             },
 
             evm_output: format!("{basedir}/{task_path}/evm",),
+            chunk_id: chunk_id.to_string(),
             c12_stark: StarkProveArgs::new(basedir, &task_path, &c12_task_name, "GL"),
             c12_circom: CircomCompileArgs::new(basedir, &task_path, &c12_task_name, "GL"),
 
@@ -262,7 +264,7 @@ impl AggContext {
 impl ProveStage {
     fn path(&self) -> String {
         let stage = match self {
-            Self::BatchProve(task_id) => format!("proof/{task_id}/batch_proof"),
+            Self::BatchProve(task_id, _) => format!("proof/{task_id}/batch_proof"),
             Self::AggProve(task_id, _, _) => format!("proof/{task_id}/agg_proof"),
             Self::FinalProve(task_id, _, _) => format!("proof/{task_id}/snark_proof"),
         };
@@ -335,11 +337,14 @@ impl Pipeline {
         Ok(status)
     }
 
-    pub fn batch_prove(&mut self, task_id: String) -> Result<String> {
+    pub fn batch_prove(&mut self, task_id: String, chunk_id: String) -> Result<String> {
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(task_id.clone());
-                w.insert(task_id.clone(), ProveStage::BatchProve(task_id.clone()));
+                w.insert(
+                    task_id.clone(),
+                    ProveStage::BatchProve(task_id.clone(), chunk_id.clone()),
+                );
                 self.save_checkpoint(task_id, false)
             }
             _ => bail!("Task queue is full".to_string()),
@@ -406,9 +411,13 @@ impl Pipeline {
         if let Some(task_id) = self.queue.pop_front() {
             match self.task_map.get_mut().unwrap().get(&task_id) {
                 Some(v) => match v {
-                    ProveStage::BatchProve(task_id) => {
-                        let ctx =
-                            BatchContext::new(&self.basedir, task_id, &self.task_name.clone());
+                    ProveStage::BatchProve(task_id, chunk_id) => {
+                        let ctx = BatchContext::new(
+                            &self.basedir,
+                            task_id,
+                            &self.task_name.clone(),
+                            chunk_id,
+                        );
                         BatchProver::new().batch_prove(&ctx)?;
                     }
                     ProveStage::AggProve(task_id, input, input2) => {

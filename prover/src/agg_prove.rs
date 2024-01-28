@@ -19,8 +19,12 @@ impl StageProver for AggProver {
         log::info!("start aggregate prove");
 
         // 1. Compile circom circuit to r1cs, and generate witness
-        let batch_ctx = BatchContext::new(&ctx.basedir, &ctx.input, &ctx.task_name);
-        let batch2_ctx = BatchContext::new(&ctx.basedir, &ctx.input2, &ctx.task_name);
+        let task_id_slice: Vec<_> = ctx.input.split("_chunk_").collect();
+        let task_id2_slice: Vec<_> = ctx.input2.split("_chunk_").collect();
+        let batch_ctx =
+            BatchContext::new(&ctx.basedir, &ctx.input, &ctx.task_name, task_id_slice[1]);
+        let batch2_ctx =
+            BatchContext::new(&ctx.basedir, &ctx.input2, &ctx.task_name, task_id2_slice[1]);
 
         log::info!("batch_ctx: {:?}", batch_ctx);
         log::info!("batch2_ctx: {:?}", batch2_ctx);

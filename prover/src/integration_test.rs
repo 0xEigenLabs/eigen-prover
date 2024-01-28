@@ -12,11 +12,11 @@ fn integration_test() -> anyhow::Result<()> {
         env::var("WORKSPACE").unwrap_or("data".to_string()),
         env::var("TASK_NAME").unwrap_or("fibonacci".to_string()),
     );
-    let task1 = pipeline.batch_prove("0".into()).unwrap();
+    let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
 
-    let task2 = pipeline.batch_prove("1".into()).unwrap();
+    let task2 = pipeline.batch_prove("0".into(), "1".into()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task2: {task2}");
 
