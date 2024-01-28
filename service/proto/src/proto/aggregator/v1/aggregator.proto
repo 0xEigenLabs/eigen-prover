@@ -61,6 +61,8 @@ message GetStatusRequest {}
  */
 message GenBatchProofRequest {
     InputProver input = 1;
+    string execute_task_id = 2;
+    string chunk_id = 3;
 }
 
 /**

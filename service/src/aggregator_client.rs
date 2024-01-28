@@ -97,10 +97,15 @@ pub async fn run_client() -> Result<()> {
                     let _public_input = input.public_inputs.unwrap();
                     let _contract_bytecode = input.contracts_bytecode;
                     let _db = input.db;
-                    let req_id = received.id.clone();
-                    // TODO: use the input
-                    let task_id = uuid::Uuid::new_v4();
-                    let result = match PIPELINE.lock().unwrap().batch_prove(req_id.clone()) {
+                    //let req_id = received.id.clone(); // execute_task_id_chunk_chunk_id
+                    let execute_task_id = req.execute_task_id;
+                    let chunk_id = req.chunk_id;
+                    let task_id = format!("{}_chunk_{}", execute_task_id, chunk_id);
+                    let result = match PIPELINE
+                        .lock()
+                        .unwrap()
+                        .batch_prove(execute_task_id, chunk_id)
+                    {
                         Ok(_) => aggregator_service::Result::Ok,
                         _ => aggregator_service::Result::Error,
                     };
