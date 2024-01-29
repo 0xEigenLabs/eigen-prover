@@ -18,6 +18,9 @@ powdr-pipeline =       { git = "https://github.com/eigmax/powdr", branch = "main
 powdr-riscv =          { git = "https://github.com/eigmax/powdr", branch = "main" }
 powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main" }
 powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-backend =        { git = "https://github.com/eigmax/powdr", branch = "main" }
+
+zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "execute_then_prove" }
 
 models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
 hex = "0.4.3"

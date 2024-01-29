@@ -4,6 +4,7 @@ use anyhow::Result;
 use ethers_core::types::BlockId;
 use ethers_providers::Middleware;
 use ethers_providers::{Http, Provider};
+use powdr_number::FieldElement;
 use revm::primitives::HashSet;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
@@ -19,8 +20,10 @@ use ruint::uint;
 use ruint::Uint;
 use std::sync::Arc;
 extern crate alloc;
-
 use alloc::vec::Vec;
+use std::path::Path;
+use std::{fs, io::Write};
+use zkvm::zkvm_evm_generate_chunks;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 
@@ -37,7 +40,14 @@ macro_rules! local_fill {
     };
 }
 
-pub async fn execute_one(block_number: u64, chain_id: u64, slot_path: &str) -> ExecResult {
+pub async fn execute_one(
+    block_number: u64,
+    chain_id: u64,
+    slot_path: &str,
+    task: &str,
+    task_id: &str,
+    base_dir: &str,
+) -> (ExecResult, usize) {
     let client = Provider::<Http>::try_from("http://localhost:8545").unwrap();
     let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
@@ -401,7 +411,28 @@ pub async fn execute_one(block_number: u64, chain_id: u64, slot_path: &str) -> E
 
     // println!("test_unit: {:#?}", test_unit);
     let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
+    let suite_json = json_string.clone();
     std::fs::write("output.json", json_string).expect("Failed to write to file");
 
-    Ok(all_result)
+    let output_path = format!("{}/{}/{}", base_dir, task_id, task);
+    log::info!("output_path: {}", output_path);
+    let bootloader_inputs =
+        zkvm_evm_generate_chunks(task, &suite_json, output_path.clone().as_str()).unwrap();
+    let cnt_chunks: usize = bootloader_inputs.len();
+    log::info!("Generated {} chunks", cnt_chunks);
+    // save the chunks
+    let bi_files: Vec<_> = (0..cnt_chunks)
+        .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
+        .collect();
+    println!("bi_files: {:#?}", bi_files);
+    bootloader_inputs
+        .iter()
+        .zip(&bi_files)
+        .for_each(|(data, filename)| {
+            let mut f = fs::File::create(filename).unwrap();
+            for d in data {
+                f.write_all(&d.to_bytes_le()[0..8]).unwrap();
+            }
+        });
+    (Ok(all_result), cnt_chunks)
 }

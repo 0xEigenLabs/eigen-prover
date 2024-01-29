@@ -41,8 +41,21 @@ impl ExecutorService for ExecutorServiceSVC {
         };
         // let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
         let block_number = batch_l2_data.parse::<u64>().unwrap();
-        let slot_path = stdenv::var("SLOT").unwrap_or(String::from("/tmp/storage"));
-        let _res = execute_one(block_number, 1, &slot_path).await;
+
+        let task = stdenv::var("TASK").unwrap_or(String::from("evm"));
+        let slot_path = stdenv::var("SLOT").unwrap_or(format!("/mnt/data/{}/storage", task));
+        let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/mnt/data"));
+        let execute_task_id = uuid::Uuid::new_v4();
+
+        let (_res, cnt_chunks) = execute_one(
+            block_number,
+            1,
+            &slot_path,
+            &task,
+            execute_task_id.to_string().as_str(),
+            base_dir.as_str(),
+        )
+        .await;
         let mut response = executor_service::ProcessBatchResponse::default();
         let last_element = match _res {
             Ok(res) => {
@@ -59,6 +72,8 @@ impl ExecutorService for ExecutorServiceSVC {
 
         debug!("execute_one last_element: {:?}", last_element);
 
+        response.execute_task_id = execute_task_id.to_string();
+        response.cnt_chunks = cnt_chunks as u32;
         let (txbytes, data, value, ResultAndState { result, state }) = last_element.unwrap();
         {
             // 1. expect_exception: Option<String>,
