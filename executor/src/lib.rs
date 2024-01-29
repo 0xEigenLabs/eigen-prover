@@ -436,3 +436,27 @@ pub async fn execute_one(
         });
     (Ok(all_result), cnt_chunks)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fmt::format;
+
+    use alloc::task;
+
+    use super::*;
+
+    #[test]
+    fn test_zkvm_evm_generate_chunks() {
+        env_logger::try_init().unwrap_or_default();
+        //let test_file = "test-vectors/blockInfo.json";
+        let test_file = "test-vectors/solidityExample.json";
+        let suite_json = fs::read_to_string(test_file).unwrap();
+        let task = "evm";
+        let task_id = "0";
+        let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
+        let bootloader_inputs =
+            zkvm_evm_generate_chunks(task, &suite_json, output_path.clone().as_str()).unwrap();
+        let cnt_chunks: usize = bootloader_inputs.len();
+        log::info!("Generated {} chunks", cnt_chunks);
+    }
+}

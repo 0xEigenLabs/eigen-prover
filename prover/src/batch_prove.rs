@@ -21,6 +21,13 @@ impl StageProver for BatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
     fn batch_prove(&self, ctx: &BatchContext) -> Result<()> {
         log::info!("start batch prove");
+        log::info!(
+            "taskname:{}, taskid:{}, chunkid:{}",
+            ctx.task_name,
+            ctx.task_id,
+            ctx.chunk_id
+        );
+        log::info!("basedir:{}", ctx.basedir);
         // 1. stark prove: generate `.circom` file.
         let sp = &ctx.batch_stark;
         let c12_circom = &ctx.c12_circom;
@@ -34,7 +41,7 @@ impl StageProver for BatchProver {
         // the zkin(stark proof): $output/main_proof.bin_0
         let output_path = &ctx.evm_output;
         let bootloader_input_path = format!(
-            "{}/{}/{}/{}_chunks_{}.data",
+            "{}/proof/{}/batch_proof/{}/{}_chunks_{}.data",
             &ctx.basedir, ctx.task_id, ctx.task_name, ctx.task_name, ctx.chunk_id
         );
         log::debug!("bootloader_input_path: {}", bootloader_input_path);
