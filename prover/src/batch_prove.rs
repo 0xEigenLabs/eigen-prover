@@ -39,12 +39,11 @@ impl StageProver for BatchProver {
         let serde_data = std::fs::read_to_string(sp.zkin.clone())?;
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
-        let output_path = &ctx.evm_output;
         let bootloader_input_path = format!(
-            "{}/proof/{}/batch_proof/{}/{}_chunks_{}.data",
+            "{}/proof/{}/{}/{}_chunks_{}.data",
             &ctx.basedir, ctx.task_id, ctx.task_name, ctx.task_name, ctx.chunk_id
         );
-        log::debug!("bootloader_input_path: {}", bootloader_input_path);
+        log::info!("bootloader_input_path: {}", bootloader_input_path);
         let mut f = fs::File::open(bootloader_input_path.clone()).unwrap();
         let metadata = fs::metadata(bootloader_input_path.clone()).unwrap();
         let file_size = metadata.len() as usize;
@@ -61,7 +60,7 @@ impl StageProver for BatchProver {
             &serde_data,
             bi,
             ctx.chunk_id.parse()?,
-            output_path,
+            &ctx.evm_output,
         )
         .unwrap();
         log::info!(

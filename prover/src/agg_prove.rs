@@ -21,10 +21,18 @@ impl StageProver for AggProver {
         // 1. Compile circom circuit to r1cs, and generate witness
         let task_id_slice: Vec<_> = ctx.input.split("_chunk_").collect();
         let task_id2_slice: Vec<_> = ctx.input2.split("_chunk_").collect();
-        let batch_ctx =
-            BatchContext::new(&ctx.basedir, &ctx.input, &ctx.task_name, task_id_slice[1]);
-        let batch2_ctx =
-            BatchContext::new(&ctx.basedir, &ctx.input2, &ctx.task_name, task_id2_slice[1]);
+        let batch_ctx = BatchContext::new(
+            &ctx.basedir,
+            task_id_slice[0],
+            &ctx.task_name,
+            task_id_slice[1],
+        );
+        let batch2_ctx = BatchContext::new(
+            &ctx.basedir,
+            task_id2_slice[0],
+            &ctx.task_name,
+            task_id2_slice[1],
+        );
 
         log::info!("batch_ctx: {:?}", batch_ctx);
         log::info!("batch2_ctx: {:?}", batch2_ctx);
@@ -49,12 +57,12 @@ impl StageProver for AggProver {
 
         // 2. compress inputs
         let zkin = format!(
-            "{}/proof/{}/batch_proof/{}.recursive1.zkin.json",
-            ctx.basedir, ctx.input, ctx.task_name,
+            "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
+            ctx.basedir, task_id_slice[0], task_id_slice[1], ctx.task_name,
         );
         let zkin2 = format!(
-            "{}/proof/{}/batch_proof/{}.recursive1.zkin.json",
-            ctx.basedir, ctx.input2, ctx.task_name,
+            "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
+            ctx.basedir, task_id2_slice[0], task_id2_slice[1], ctx.task_name,
         );
 
         log::info!("join {} {} -> {}", zkin, zkin2, ctx.agg_zkin);

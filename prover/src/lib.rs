@@ -212,7 +212,7 @@ impl BatchContext {
                 curve_type: "GL".to_string(),
             },
 
-            evm_output: format!("{basedir}/{task_path}/{task_name}",),
+            evm_output: format!("{basedir}/{task_path}/../{task_name}",),
             chunk_id: chunk_id.to_string(),
             c12_stark: StarkProveArgs::new(basedir, &task_path, &c12_task_name, "GL"),
             c12_circom: CircomCompileArgs::new(basedir, &task_path, &c12_task_name, "GL"),
@@ -264,7 +264,9 @@ impl AggContext {
 impl ProveStage {
     fn path(&self) -> String {
         let stage = match self {
-            Self::BatchProve(task_id, _) => format!("proof/{task_id}/batch_proof"),
+            Self::BatchProve(task_id, chunk_id) => {
+                format!("proof/{task_id}/batch_proof_{chunk_id}")
+            }
             Self::AggProve(task_id, _, _) => format!("proof/{task_id}/agg_proof"),
             Self::FinalProve(task_id, _, _) => format!("proof/{task_id}/snark_proof"),
         };

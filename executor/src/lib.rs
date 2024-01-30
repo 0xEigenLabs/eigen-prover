@@ -458,5 +458,19 @@ mod tests {
             zkvm_evm_generate_chunks(task, &suite_json, output_path.clone().as_str()).unwrap();
         let cnt_chunks: usize = bootloader_inputs.len();
         log::info!("Generated {} chunks", cnt_chunks);
+        // save the chunks
+        let bi_files: Vec<_> = (0..cnt_chunks)
+            .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
+            .collect();
+        println!("bi_files: {:#?}", bi_files);
+        bootloader_inputs
+            .iter()
+            .zip(&bi_files)
+            .for_each(|(data, filename)| {
+                let mut f = fs::File::create(filename).unwrap();
+                for d in data {
+                    f.write_all(&d.to_bytes_le()[0..8]).unwrap();
+                }
+            });
     }
 }
