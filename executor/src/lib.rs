@@ -439,10 +439,6 @@ pub async fn execute_one(
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::format;
-
-    use alloc::task;
-
     use super::*;
 
     #[test]
