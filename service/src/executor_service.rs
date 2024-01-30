@@ -10,7 +10,7 @@ use tonic::{Request, Response, Status};
 pub mod executor_service {
     tonic::include_proto!("executor.v1");
 }
-use executor::execute_one;
+use executor::batch_process;
 use revm::primitives::ResultAndState;
 #[derive(Debug, Default)]
 pub struct ExecutorServiceSVC {}
@@ -46,10 +46,12 @@ impl ExecutorService for ExecutorServiceSVC {
         let slot_path = stdenv::var("SLOT").unwrap_or(format!("/mnt/data/{}/storage", task));
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/mnt/data"));
         let execute_task_id = uuid::Uuid::new_v4();
-
-        let (_res, cnt_chunks) = execute_one(
+        let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
+        let url = stdenv::var("URL").unwrap_or(String::from("http://localhost:8545"));
+        let (_res, cnt_chunks) = batch_process(
+            &url,
             block_number,
-            1,
+            chain_id.parse::<u64>().unwrap(),
             &slot_path,
             &task,
             execute_task_id.to_string().as_str(),
@@ -70,7 +72,7 @@ impl ExecutorService for ExecutorServiceSVC {
             }
         };
 
-        debug!("execute_one last_element: {:?}", last_element);
+        debug!("batch_process last_element: {:?}", last_element);
 
         response.execute_task_id = execute_task_id.to_string();
         response.cnt_chunks = cnt_chunks as u32;

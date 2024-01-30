@@ -40,7 +40,8 @@ macro_rules! local_fill {
     };
 }
 
-pub async fn execute_one(
+pub async fn batch_process(
+    url: &str,
     block_number: u64,
     chain_id: u64,
     slot_path: &str,
@@ -48,7 +49,7 @@ pub async fn execute_one(
     task_id: &str,
     base_dir: &str,
 ) -> (ExecResult, usize) {
-    let client = Provider::<Http>::try_from("http://localhost:8545").unwrap();
+    let client = Provider::<Http>::try_from(url).unwrap();
     let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
         Ok(Some(block)) => block,
@@ -56,7 +57,7 @@ pub async fn execute_one(
         Err(error) => panic!("Error: {:?}", error),
     };
 
-    println!("Fetched block number: {:?}", block.number.unwrap());
+    log::info!("Fetched block number: {:?}", block.number.unwrap());
     let previous_block_number = block_number - 1;
 
     let prev_id: BlockId = previous_block_number.into();
@@ -70,7 +71,7 @@ pub async fn execute_one(
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
-        println!("acc_info: {} => {:?}", from_acc, acc_info);
+        log::info!("acc_info: {} => {:?}", from_acc, acc_info);
         let account_info = models::AccountInfo {
             balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
@@ -84,7 +85,7 @@ pub async fn execute_one(
         if tx.to.is_some() {
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
             let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
-            println!("to_info: {} => {:?}", to_acc, acc_info);
+            log::info!("to_info: {} => {:?}", to_acc, acc_info);
             // setup storage
 
             uint! {
@@ -96,7 +97,7 @@ pub async fn execute_one(
                     if !acc_info.code.as_ref().unwrap().is_empty() {
                         // query value of storage slot at account address
                         let value = ethersdb.storage(to_acc, slot).unwrap();
-                        println!("slot:{}, value: {:?}", slot, value);
+                        log::info!("slot:{}, value: {:?}", slot, value);
 
                         cache_db
                             .insert_account_storage(to_acc, slot, value)
@@ -127,7 +128,7 @@ pub async fn execute_one(
     }
 
     let txs = block.transactions.len();
-    println!("Found {txs} transactions.");
+    log::info!("Found {txs} transactions.");
 
     let _elapsed = std::time::Duration::ZERO;
 
@@ -259,14 +260,14 @@ pub async fn execute_one(
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
 
         for (k, v) in &evm.context.evm.db.accounts {
-            println!("state: {}=>{:?}", k, v);
+            log::info!("state: {}=>{:?}", k, v);
             let account_slot_path = format!("{}/{}.json", slot_path, k);
             let account_slot_json = std::fs::read_to_string(&account_slot_path).unwrap_or_default();
             let mut account_slot: HashSet<Uint<256, 4>> =
                 serde_json::from_str(&account_slot_json).unwrap_or_default();
             if !v.storage.is_empty() {
                 for (k, v) in v.storage.iter() {
-                    println!("slot => storage: {}=>{}", k, v);
+                    log::info!("slot => storage: {}=>{}", k, v);
                     account_slot.insert(*k);
                 }
             }
@@ -282,25 +283,25 @@ pub async fn execute_one(
         let (txbytes, data, value, ResultAndState { result, state }) = res;
         {
             // 1. expect_exception: Option<String>,
-            println!("expect_exception: {:?}", result.is_success());
+            log::info!("expect_exception: {:?}", result.is_success());
             // indexes: TxPartIndices,
-            println!(
+            log::info!(
                 "indexes: data{:?}, value: {}, gas: {}",
                 data,
                 value,
                 result.gas_used()
             );
-            println!("output: {:?}", result.output());
+            log::info!("output: {:?}", result.output());
 
             // TODO: hash: B256, // post state root
             //let hash = serde_json::to_vec(&state).unwrap();
             //println!("hash: {:?}", state);
             // post_state: HashMap<Address, AccountInfo>,
-            println!("post_state: {:?}", state);
+            log::info!("post_state: {:?}", state);
             // logs: B256,
-            println!("logs: {:?}", result.logs());
+            log::info!("logs: {:?}", result.logs());
             // txbytes: Option<Bytes>,
-            println!("txbytes: {:?}", txbytes);
+            log::info!("txbytes: {:?}", txbytes);
 
             let mut new_state: HashMap<Address, models::AccountInfo> = HashMap::new();
 
@@ -412,10 +413,11 @@ pub async fn execute_one(
     // println!("test_unit: {:#?}", test_unit);
     let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
     let suite_json = json_string.clone();
-    std::fs::write("output.json", json_string).expect("Failed to write to file");
 
     let output_path = format!("{}/{}/{}", base_dir, task_id, task);
     log::info!("output_path: {}", output_path);
+    std::fs::write(format!("{}/batch.json", output_path), json_string)
+        .expect("Failed to write to file");
     let bootloader_inputs =
         zkvm_evm_generate_chunks(task, &suite_json, output_path.clone().as_str()).unwrap();
     let cnt_chunks: usize = bootloader_inputs.len();
@@ -424,7 +426,7 @@ pub async fn execute_one(
     let bi_files: Vec<_> = (0..cnt_chunks)
         .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
         .collect();
-    println!("bi_files: {:#?}", bi_files);
+    log::info!("bi_files: {:#?}", bi_files);
     bootloader_inputs
         .iter()
         .zip(&bi_files)
@@ -458,7 +460,7 @@ mod tests {
         let bi_files: Vec<_> = (0..cnt_chunks)
             .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
             .collect();
-        println!("bi_files: {:#?}", bi_files);
+        log::info!("bi_files: {:#?}", bi_files);
         bootloader_inputs
             .iter()
             .zip(&bi_files)
