@@ -2,7 +2,7 @@ use crate::Pipeline;
 use std::env;
 
 #[test]
-#[ignore]
+#[ignore = "slow"]
 fn integration_test() -> anyhow::Result<()> {
     env::set_var("RUST_LOG", "info");
     env_logger::try_init().unwrap_or_default();
@@ -10,7 +10,7 @@ fn integration_test() -> anyhow::Result<()> {
     // init pipeline.
     let mut pipeline = Pipeline::new(
         env::var("WORKSPACE").unwrap_or("data".to_string()),
-        env::var("TASK_NAME").unwrap_or("fibonacci".to_string()),
+        env::var("TASK_NAME").unwrap_or("evm".to_string()),
     );
     let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
     pipeline.prove().unwrap();
@@ -20,7 +20,9 @@ fn integration_test() -> anyhow::Result<()> {
     pipeline.prove().unwrap();
     log::info!("task2: {task2}");
 
-    let task3 = pipeline.aggregate_prove(task1, task2).unwrap();
+    let task3 = pipeline
+        .aggregate_prove("0_chunk_0".to_string(), "0_chunk_1".to_string())
+        .unwrap();
     pipeline.prove().unwrap();
     log::info!("agg task: {task3}");
 

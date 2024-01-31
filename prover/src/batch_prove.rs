@@ -1,11 +1,13 @@
 use crate::traits::StageProver;
 use crate::BatchContext;
 use anyhow::Result;
+use powdr_number::{FieldElement, GoldilocksField};
+
 use dsl_compile::circom_compiler;
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
-use zkvm::zkvm_evm_prove_one;
-
+use std::{fs, io::Read};
+use zkvm::zkvm_evm_prove_only;
 #[derive(Default)]
 pub struct BatchProver {}
 
@@ -19,6 +21,13 @@ impl StageProver for BatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
     fn batch_prove(&self, ctx: &BatchContext) -> Result<()> {
         log::info!("start batch prove");
+        log::info!(
+            "taskname:{}, taskid:{}, chunkid:{}",
+            ctx.task_name,
+            ctx.task_id,
+            ctx.chunk_id
+        );
+        log::info!("basedir:{}", ctx.basedir);
         // 1. stark prove: generate `.circom` file.
         let sp = &ctx.batch_stark;
         let c12_circom = &ctx.c12_circom;
@@ -30,14 +39,56 @@ impl StageProver for BatchProver {
         let serde_data = std::fs::read_to_string(sp.zkin.clone())?;
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
-        zkvm_evm_prove_one("evm", serde_data, &ctx.evm_output)?;
+        let bootloader_input_path = format!(
+            "{}/proof/{}/{}/{}_chunks_{}.data",
+            &ctx.basedir, ctx.task_id, ctx.task_name, ctx.task_name, ctx.chunk_id
+        );
+        log::info!("bootloader_input_path: {}", bootloader_input_path);
+        let mut f = fs::File::open(bootloader_input_path.clone()).unwrap();
+        let metadata = fs::metadata(bootloader_input_path.clone()).unwrap();
+        let file_size = metadata.len() as usize;
+        assert!(file_size % 8 == 0);
+        let mut buffer = vec![0; file_size];
+        f.read_exact(&mut buffer).unwrap();
+        let mut bi = vec![GoldilocksField::default(); file_size / 8];
+        bi.iter_mut().zip(buffer.chunks(8)).for_each(|(out, bin)| {
+            *out = GoldilocksField::from_bytes_le(bin);
+        });
 
-        std::fs::rename(
-            format!("{}/main_proof.bin_1", ctx.evm_output),
+        zkvm_evm_prove_only(
+            &ctx.task_name,
+            &serde_data,
+            bi,
+            ctx.chunk_id.parse()?,
+            &ctx.evm_output,
+        )
+        .unwrap();
+        log::info!(
+            "circom file path: {:?}",
+            format!(
+                "{}/{}_chunk_{}_proof.bin_1",
+                ctx.evm_output, ctx.task_name, &ctx.chunk_id
+            )
+        );
+        log::info!(
+            "zkin file path: {:?}",
+            format!(
+                "{}/{}_chunk_{}_proof.bin_0",
+                ctx.evm_output, ctx.task_name, &ctx.chunk_id
+            )
+        );
+        std::fs::copy(
+            format!(
+                "{}/{}_chunk_{}_proof.bin_1",
+                ctx.evm_output, ctx.task_name, &ctx.chunk_id
+            ),
             c12_circom.circom_file.clone(),
         )?;
-        std::fs::rename(
-            format!("{}/main_proof.bin_0", ctx.evm_output),
+        std::fs::copy(
+            format!(
+                "{}/{}_chunk_{}_proof.bin_0",
+                ctx.evm_output, ctx.task_name, &ctx.chunk_id
+            ),
             c12_stark.zkin.clone(),
         )?;
 
