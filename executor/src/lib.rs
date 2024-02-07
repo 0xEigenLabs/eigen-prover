@@ -133,7 +133,7 @@ pub async fn batch_process(
     let _elapsed = std::time::Duration::ZERO;
 
     // Create the traces directory if it doesn't exist
-    std::fs::create_dir_all("traces").expect("Failed to create traces directory");
+    std::fs::create_dir_all("traces").unwrap_or_else(|_| panic!("Failed to create trace file"));
 
     let mut transaction_parts = models::TransactionParts {
         data: vec![],
@@ -273,7 +273,8 @@ pub async fn batch_process(
             }
             let new_account_slot_json =
                 serde_json::to_string(&account_slot).expect("Failed to serialize");
-            std::fs::create_dir_all(slot_path).expect("Failed to create directory");
+            std::fs::create_dir_all(slot_path)
+                .unwrap_or_else(|_| panic!("Failed to write to file, slot_path: {}", slot_path));
             std::fs::write(format!("{}/{}.json", slot_path, k), new_account_slot_json)
                 .unwrap_or_else(|_| panic!("Failed to write to file, slot_path: {}", slot_path))
         }
@@ -417,7 +418,8 @@ pub async fn batch_process(
 
     let output_path = format!("{}/{}/{}", base_dir, task_id, task);
     log::info!("output_path: {}", output_path);
-    std::fs::create_dir_all(output_path.clone()).expect("Failed to create directory");
+    std::fs::create_dir_all(output_path.clone())
+        .unwrap_or_else(|_| panic!("Failed to write to file, output_path: {}", output_path));
     std::fs::write(format!("{}/batch.json", output_path), json_string)
         .expect("Failed to write to file");
 
