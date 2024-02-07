@@ -420,8 +420,20 @@ pub async fn batch_process(
     std::fs::create_dir_all(output_path.clone()).expect("Failed to create directory");
     std::fs::write(format!("{}/batch.json", output_path), json_string)
         .expect("Failed to write to file");
-    let bootloader_inputs =
-        zkvm_evm_generate_chunks(task, &suite_json, output_path.clone().as_str()).unwrap();
+
+    let project_root_path = project_root::get_project_root().expect("REASON");
+    let workspace = format!(
+        "{}/executor/vm/{}",
+        project_root_path.to_str().unwrap(),
+        task
+    );
+    log::info!("workspace: {}", workspace);
+    let bootloader_inputs = zkvm_evm_generate_chunks(
+        workspace.as_str(),
+        &suite_json,
+        output_path.clone().as_str(),
+    )
+    .unwrap();
     let cnt_chunks: usize = bootloader_inputs.len();
     log::info!("Generated {} chunks", cnt_chunks);
     // save the chunks
