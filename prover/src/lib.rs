@@ -139,7 +139,7 @@ impl FinalContext {
             basedir: basedir.clone(),
             task_id,
             prover_addr,
-            task_name: task_name.clone(),
+            task_name,
             final_stark_struct: format!("{}/final.stark_struct.json", basedir),
             final_stark: StarkProveArgs::new(&basedir, &prev_task_path, &final_task_name, &curve),
             recursive2_stark: StarkProveArgs::new(&basedir, &prev_task_path, &r2_task_name, &curve),
@@ -263,14 +263,13 @@ impl AggContext {
 
 impl ProveStage {
     fn path(&self) -> String {
-        let stage = match self {
+        match self {
             Self::BatchProve(task_id, chunk_id) => {
                 format!("proof/{task_id}/batch_proof_{chunk_id}")
             }
             Self::AggProve(task_id, _, _) => format!("proof/{task_id}/agg_proof"),
             Self::FinalProve(task_id, _, _) => format!("proof/{task_id}/snark_proof"),
-        };
-        stage.to_string()
+        }
     }
 
     /// keep track of task status
@@ -330,7 +329,7 @@ impl Pipeline {
 
         let p = Path::new(&self.basedir)
             .join("proof")
-            .join(task_id.clone())
+            .join(task_id)
             .join("status.finished");
         let status: bool = std::fs::read_to_string(p)?.parse().map_err(|e| {
             log::error!("load_checkpoint");
@@ -345,7 +344,7 @@ impl Pipeline {
                 self.queue.push_back(task_id.clone());
                 w.insert(
                     task_id.clone(),
-                    ProveStage::BatchProve(task_id.clone(), chunk_id.clone()),
+                    ProveStage::BatchProve(task_id.clone(), chunk_id),
                 );
                 self.save_checkpoint(task_id, false)
             }

@@ -430,12 +430,8 @@ pub async fn batch_process(
         task
     );
     log::info!("workspace: {}", workspace);
-    let bootloader_inputs = zkvm_evm_generate_chunks(
-        workspace.as_str(),
-        &suite_json,
-        output_path.clone().as_str(),
-    )
-    .unwrap();
+    let bootloader_inputs =
+        zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
     let cnt_chunks: usize = bootloader_inputs.len();
     log::info!("Generated {} chunks", cnt_chunks);
     // save the chunks
@@ -469,7 +465,7 @@ mod tests {
         let task_id = "0";
         let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
         let bootloader_inputs =
-            zkvm_evm_generate_chunks(task, &suite_json, output_path.clone().as_str()).unwrap();
+            zkvm_evm_generate_chunks(task, &suite_json, output_path.as_str()).unwrap();
         let cnt_chunks: usize = bootloader_inputs.len();
         log::info!("Generated {} chunks", cnt_chunks);
         // save the chunks
