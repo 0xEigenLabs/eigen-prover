@@ -423,7 +423,8 @@ pub async fn batch_process(
     std::fs::write(format!("{}/batch.json", output_path), json_string)
         .expect("Failed to write to file");
 
-    let project_root_path = project_root::get_project_root().expect("REASON");
+    let project_root_path = project_root::get_project_root()
+        .unwrap_or_else(|_| panic!("Failed to get project root path"));
     let workspace = format!(
         "{}/executor/vm/{}",
         project_root_path.to_str().unwrap(),
@@ -464,8 +465,10 @@ mod tests {
         let task = "evm";
         let task_id = "0";
         let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
+        let workspace = format!("vm/{}", task);
         let bootloader_inputs =
-            zkvm_evm_generate_chunks(task, &suite_json, output_path.as_str()).unwrap();
+            zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str())
+                .unwrap();
         let cnt_chunks: usize = bootloader_inputs.len();
         log::info!("Generated {} chunks", cnt_chunks);
         // save the chunks
