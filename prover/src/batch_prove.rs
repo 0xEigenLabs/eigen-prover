@@ -45,7 +45,7 @@ impl StageProver for BatchProver {
         );
         log::info!("bootloader_input_path: {}", bootloader_input_path);
         let mut f = fs::File::open(bootloader_input_path.clone()).unwrap();
-        let metadata = fs::metadata(bootloader_input_path.clone()).unwrap();
+        let metadata = fs::metadata(bootloader_input_path).unwrap();
         let file_size = metadata.len() as usize;
         assert!(file_size % 8 == 0);
         let mut buffer = vec![0; file_size];

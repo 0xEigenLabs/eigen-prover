@@ -705,8 +705,6 @@ impl SMT {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::database::Database;
-    use num_bigint::BigUint;
     use num_traits::Num;
     use utils::*;
 
@@ -774,8 +772,8 @@ mod tests {
         let val = BigUint::from(123u64);
         let val2 = BigUint::from(1234u64);
         let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
-        let r2 = smt.set(&r1.new_root, &sca, val2.clone(), true).unwrap();
-        let r3 = smt.set(&r2.new_root, &sca, val.clone(), true).unwrap();
+        let r2 = smt.set(&r1.new_root, &sca, val2, true).unwrap();
+        let r3 = smt.set(&r2.new_root, &sca, val, true).unwrap();
         assert!(SMT::node_is_eq(&r1.new_root, &r3.new_root));
     }
 
@@ -784,11 +782,11 @@ mod tests {
         let mut smt = setup();
         let sca = scalar_to_h4(&BigUint::from(7u64));
         let val = BigUint::from(2u64);
-        let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
+        let r1 = smt.set(&SMT::EMPTY, &sca, val, true).unwrap();
 
         let sca2 = scalar_to_h4(&BigUint::from(15u64));
         let val2 = BigUint::from(3u64);
-        let r2 = smt.set(&r1.new_root, &sca2, val2.clone(), true).unwrap();
+        let r2 = smt.set(&r1.new_root, &sca2, val2, true).unwrap();
 
         let r3 = smt
             .set(&r2.new_root, &sca, BigUint::from(0u64), true)
@@ -804,15 +802,15 @@ mod tests {
         let mut smt = setup();
         let sca = scalar_to_h4(&BigUint::from(7u64));
         let val = BigUint::from(123u64);
-        let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).unwrap();
+        let r1 = smt.set(&SMT::EMPTY, &sca, val, true).unwrap();
 
         let sca2 = scalar_to_h4(&BigUint::from(15u64));
         let val2 = BigUint::from(1235u64);
-        let r2 = smt.set(&r1.new_root, &sca2, val2.clone(), true).unwrap();
+        let r2 = smt.set(&r1.new_root, &sca2, val2, true).unwrap();
 
         let sca3 = scalar_to_h4(&BigUint::from(9u64));
         let val3 = BigUint::from(1236u64);
-        let r3 = smt.set(&r2.new_root, &sca3, val3.clone(), true).unwrap();
+        let r3 = smt.set(&r2.new_root, &sca3, val3, true).unwrap();
 
         let r4 = smt
             .set(&r3.new_root, &sca, BigUint::from(0u64), true)
@@ -876,7 +874,7 @@ mod tests {
         key[0] = Fr::from(10);
         let value = BigUint::from(13u64);
         // insert found
-        let sr = smt.set(&sr.new_root, &key, value.clone(), true);
+        let sr = smt.set(&sr.new_root, &key, value, true);
         log::debug!("insert found, sr: {:?}", sr);
         assert!(sr.is_ok());
 
@@ -886,7 +884,7 @@ mod tests {
         let mut key = [Fr::ONE; 4];
         key[0] = Fr::from(11);
         let value = BigUint::from(0u64);
-        let sr = smt.set(&sr.new_root, &key, value.clone(), true);
+        let sr = smt.set(&sr.new_root, &key, value, true);
         assert!(sr.is_ok());
         log::debug!("delete not found, sr: {:?}", sr);
         let sr = sr.unwrap();
@@ -906,7 +904,7 @@ mod tests {
         let mut key = [Fr::ONE; 4];
         key[0] = Fr::from(10);
         let value = BigUint::from(0u64);
-        let sr = smt.set(&sr.new_root, &key, value.clone(), true);
+        let sr = smt.set(&sr.new_root, &key, value, true);
         assert!(sr.is_ok());
         log::debug!("delete found, sr: {:?}", sr);
         let sr = sr.unwrap();

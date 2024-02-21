@@ -20,7 +20,7 @@ pub fn prepend_zeros(s: &str, n: usize) -> String {
 }
 
 pub fn normalize_to_n_format(s: &str, n: usize) -> String {
-    prepend_zeros(&remove_0x(s), n).to_string()
+    prepend_zeros(&remove_0x(s), n)
 }
 
 pub fn normalize_to_0xn_format(s: &str, n: usize) -> String {
@@ -118,7 +118,6 @@ pub fn string2fe(os: &str) -> Fr {
 #[cfg(test)]
 mod test {
     use crate::scalar::*;
-    use plonky::field_gl::Fr;
     #[test]
     fn test_prepend_zeros() {
         assert_eq!(prepend_zeros("abc", 10), "0000000abc".to_string());

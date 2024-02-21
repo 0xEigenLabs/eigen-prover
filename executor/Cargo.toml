@@ -21,7 +21,6 @@ powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main
 powdr-backend =        { git = "https://github.com/eigmax/powdr", branch = "main" }
 
 zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-
 models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
 hex = "0.4.3"
 
@@ -34,6 +33,9 @@ tokio = { version = "1.35", features = [
 futures = { version = "0.3.30" }
 ruint = "1.11.1"
 ruint-macro = "1.1.0"
+project-root = "0.2.2"
+
+indicatif = "0.17"
 
 [dev-dependencies]
 env_logger = "0.10"

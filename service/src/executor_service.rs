@@ -42,9 +42,9 @@ impl ExecutorService for ExecutorServiceSVC {
         // let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
         let block_number = batch_l2_data.parse::<u64>().unwrap();
 
-        let task = stdenv::var("TASK").unwrap_or(String::from("evm"));
-        let slot_path = stdenv::var("SLOT").unwrap_or(format!("/mnt/data/{}/storage", task));
-        let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/mnt/data"));
+        let task = stdenv::var("TASK").unwrap_or(String::from("lr"));
+        let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
+        let slot_path = stdenv::var("SLOT").unwrap_or(format!("{}/{}/storage", base_dir, task));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
         let url = stdenv::var("URL").unwrap_or(String::from("http://localhost:8545"));

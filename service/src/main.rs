@@ -10,8 +10,8 @@ mod statedb;
 #[macro_use]
 extern crate lazy_static;
 
+use crate::statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
-use statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use tokio::{
     signal::unix::{signal, SignalKind},
     spawn,
@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // let state_db_addr: SocketAddr = runtime_config.state_db_addr.parse().expect("Invalid state_db_addr");
     // let executor_addr: SocketAddr = runtime_config.executor_addr.parse().expect("Invalid executor_addr");
-    let sdb = statedb::StateDBServiceSVC::default();
+    let sdb = crate::statedb::StateDBServiceSVC::default();
     let executor = executor_service::ExecutorServiceSVC::default();
 
     log::info!("Launching sigterm handler");

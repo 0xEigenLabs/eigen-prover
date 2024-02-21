@@ -8,19 +8,19 @@ use powdr_number::FieldElement;
 use revm::primitives::HashSet;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
+    inspector_handle_register,
+    inspectors::TracerEip3155,
     //interpreter::gas::ZERO,
-    primitives::{
-        Address, Bytes, Env, FixedBytes, HashMap, ResultAndState, SpecId, TransactTo, B256, U256,
-    },
+    primitives::{Address, Bytes, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256},
     Database,
     DatabaseCommit,
+    Evm,
 };
 use ruint::uint;
 //use models::*;
 use ruint::Uint;
 use std::sync::Arc;
 extern crate alloc;
-use alloc::vec::Vec;
 use std::path::Path;
 use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
@@ -110,22 +110,27 @@ pub async fn batch_process(
         }
     }
 
-    let mut env = Env::default();
-    if let Some(number) = block.number {
-        let nn = number.0[0];
-        env.block.number = U256::from(nn);
-    }
-    local_fill!(env.block.coinbase, block.author);
-    local_fill!(env.block.timestamp, Some(block.timestamp), U256::from_limbs);
-    local_fill!(
-        env.block.difficulty,
-        Some(block.difficulty),
-        U256::from_limbs
-    );
-    local_fill!(env.block.gas_limit, Some(block.gas_limit), U256::from_limbs);
-    if let Some(base_fee) = block.base_fee_per_gas {
-        local_fill!(env.block.basefee, Some(base_fee), U256::from_limbs);
-    }
+    let mut evm = Evm::builder()
+        .with_db(&mut cache_db)
+        .with_external_context(TracerEip3155::new(Box::new(std::io::stdout()), true, true))
+        .modify_block_env(|b| {
+            if let Some(number) = block.number {
+                let nn = number.0[0];
+                b.number = U256::from(nn);
+            }
+            local_fill!(b.coinbase, block.author);
+            local_fill!(b.timestamp, Some(block.timestamp), U256::from_limbs);
+            local_fill!(b.difficulty, Some(block.difficulty), U256::from_limbs);
+            local_fill!(b.gas_limit, Some(block.gas_limit), U256::from_limbs);
+            if let Some(base_fee) = block.base_fee_per_gas {
+                local_fill!(b.basefee, Some(base_fee), U256::from_limbs);
+            }
+        })
+        .modify_cfg_env(|c| {
+            c.chain_id = chain_id;
+        })
+        .append_handler_register(inspector_handle_register)
+        .build();
 
     let txs = block.transactions.len();
     log::info!("Found {txs} transactions.");
@@ -133,7 +138,7 @@ pub async fn batch_process(
     let _elapsed = std::time::Duration::ZERO;
 
     // Create the traces directory if it doesn't exist
-    std::fs::create_dir_all("traces").expect("Failed to create traces directory");
+    std::fs::create_dir_all("traces").unwrap_or_else(|_| panic!("Failed to create trace file"));
 
     let mut transaction_parts = models::TransactionParts {
         data: vec![],
@@ -152,50 +157,49 @@ pub async fn batch_process(
     };
 
     // Fill in CfgEnv
-    env.cfg.chain_id = chain_id;
     let mut all_result = vec![];
     for tx in block.transactions {
-        env.tx.caller = Address::from(tx.from.as_fixed_bytes());
-        env.tx.gas_limit = tx.gas.as_u64();
-        local_fill!(env.tx.gas_price, tx.gas_price, U256::from_limbs);
-        local_fill!(env.tx.value, Some(tx.value), U256::from_limbs);
-        env.tx.data = tx.input.0.clone().into();
-
-        let mut gas_priority_fee = U256::ZERO;
-        local_fill!(
-            gas_priority_fee,
-            tx.max_priority_fee_per_gas,
-            U256::from_limbs
-        );
-        env.tx.gas_priority_fee = Some(gas_priority_fee);
-        env.tx.chain_id = Some(chain_id);
-        env.tx.nonce = Some(tx.nonce.as_u64());
-        if let Some(access_list) = tx.access_list.clone() {
-            env.tx.access_list = access_list
-                .0
-                .into_iter()
-                .map(|item| {
-                    let new_keys: Vec<U256> = item
-                        .storage_keys
+        evm = evm
+            .modify()
+            .modify_tx_env(|etx| {
+                etx.caller = Address::from(tx.from.as_fixed_bytes());
+                etx.gas_limit = tx.gas.as_u64();
+                local_fill!(etx.gas_price, tx.gas_price, U256::from_limbs);
+                local_fill!(etx.value, Some(tx.value), U256::from_limbs);
+                etx.data = tx.input.0.clone().into();
+                let mut gas_priority_fee = U256::ZERO;
+                local_fill!(
+                    gas_priority_fee,
+                    tx.max_priority_fee_per_gas,
+                    U256::from_limbs
+                );
+                etx.gas_priority_fee = Some(gas_priority_fee);
+                etx.chain_id = Some(chain_id);
+                etx.nonce = Some(tx.nonce.as_u64());
+                if let Some(access_list) = tx.access_list.clone() {
+                    etx.access_list = access_list
+                        .0
                         .into_iter()
-                        .map(|h256| U256::from_le_bytes(h256.0))
+                        .map(|item| {
+                            let new_keys: Vec<U256> = item
+                                .storage_keys
+                                .into_iter()
+                                .map(|h256| U256::from_le_bytes(h256.0))
+                                .collect();
+                            (Address::from(item.address.as_fixed_bytes()), new_keys)
+                        })
                         .collect();
-                    (Address::from(item.address.as_fixed_bytes()), new_keys)
-                })
-                .collect();
-        } else {
-            env.tx.access_list = Default::default();
-        }
+                } else {
+                    etx.access_list = Default::default();
+                }
 
-        env.tx.transact_to = match tx.to {
-            Some(to_address) => TransactTo::Call(Address::from(to_address.as_fixed_bytes())),
-            None => TransactTo::create(),
-        };
-
-        let mut evm = revm::Evm::builder()
-            .with_db(&mut cache_db)
-            .modify_env(|e| *e = env.clone())
-            .spec_id(SpecId::FRONTIER)
+                etx.transact_to = match tx.to {
+                    Some(to_address) => {
+                        TransactTo::Call(Address::from(to_address.as_fixed_bytes()))
+                    }
+                    None => TransactTo::create(),
+                };
+            })
             .build();
 
         let mut gas_limit_uint = Uint::ZERO;
@@ -203,14 +207,20 @@ pub async fn batch_process(
         let tx_data = tx.input.0.clone();
         transaction_parts.data.push(tx_data.into());
         transaction_parts.gas_limit.push(gas_limit_uint);
-        transaction_parts.gas_price = Some(env.tx.gas_price);
+
+        let mut tx_gas_price = Uint::ZERO;
+        local_fill!(tx_gas_price, tx.gas_price, U256::from_limbs);
+        transaction_parts.gas_price = Some(tx_gas_price);
         transaction_parts.nonce = U256::from(tx.nonce.as_u64());
         transaction_parts.secret_key = B256::default();
         transaction_parts.sender = Some(Address::from(tx.from.as_fixed_bytes()));
         transaction_parts.to = tx
             .to
             .map(|to_address| Address::from(to_address.as_fixed_bytes()));
-        transaction_parts.value.push(env.tx.value);
+
+        let mut tx_value = Uint::ZERO;
+        local_fill!(tx_value, Some(tx.value), U256::from_limbs);
+        transaction_parts.value.push(tx_value);
         transaction_parts.max_fee_per_gas = Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()));
         transaction_parts.max_priority_fee_per_gas =
             Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()));
@@ -255,7 +265,9 @@ pub async fn batch_process(
         */
         //evm.transact_commit().unwrap();
         let result = evm.transact().unwrap();
+        log::info!("evm transact result: {:?}", result.result);
         evm.context.evm.db.commit(result.state.clone());
+        let env = evm.context.evm.env.clone();
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
 
@@ -273,6 +285,8 @@ pub async fn batch_process(
             }
             let new_account_slot_json =
                 serde_json::to_string(&account_slot).expect("Failed to serialize");
+            std::fs::create_dir_all(slot_path)
+                .unwrap_or_else(|_| panic!("Failed to write to file, slot_path: {}", slot_path));
             std::fs::write(format!("{}/{}.json", slot_path, k), new_account_slot_json)
                 .unwrap_or_else(|_| panic!("Failed to write to file, slot_path: {}", slot_path))
         }
@@ -416,10 +430,21 @@ pub async fn batch_process(
 
     let output_path = format!("{}/{}/{}", base_dir, task_id, task);
     log::info!("output_path: {}", output_path);
+    std::fs::create_dir_all(output_path.clone())
+        .unwrap_or_else(|_| panic!("Failed to write to file, output_path: {}", output_path));
     std::fs::write(format!("{}/batch.json", output_path), json_string)
         .expect("Failed to write to file");
+
+    let project_root_path = project_root::get_project_root()
+        .unwrap_or_else(|_| panic!("Failed to get project root path"));
+    let workspace = format!(
+        "{}/executor/vm/{}",
+        project_root_path.to_str().unwrap(),
+        task
+    );
+    log::info!("workspace: {}", workspace);
     let bootloader_inputs =
-        zkvm_evm_generate_chunks(task, &suite_json, output_path.clone().as_str()).unwrap();
+        zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
     let cnt_chunks: usize = bootloader_inputs.len();
     log::info!("Generated {} chunks", cnt_chunks);
     // save the chunks
@@ -452,8 +477,10 @@ mod tests {
         let task = "evm";
         let task_id = "0";
         let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
+        let workspace = format!("vm/{}", task);
         let bootloader_inputs =
-            zkvm_evm_generate_chunks(task, &suite_json, output_path.clone().as_str()).unwrap();
+            zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str())
+                .unwrap();
         let cnt_chunks: usize = bootloader_inputs.len();
         log::info!("Generated {} chunks", cnt_chunks);
         // save the chunks

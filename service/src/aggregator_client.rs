@@ -19,7 +19,7 @@ use std::env::var;
 use std::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
-use tonic::{self, Request};
+use tonic::Request;
 
 use prover::Pipeline;
 
