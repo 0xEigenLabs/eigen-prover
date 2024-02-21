@@ -2,7 +2,6 @@ use crate::models::{Nodes, Program};
 use crate::schema::state::nodes::dsl::nodes;
 use crate::schema::state::program::dsl::program;
 use anyhow::bail;
-use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use plonky::field_gl::Fr;

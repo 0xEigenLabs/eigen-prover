@@ -705,8 +705,6 @@ impl SMT {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::database::Database;
-    use num_bigint::BigUint;
     use num_traits::Num;
     use utils::*;
 

@@ -21,7 +21,6 @@ use ruint::uint;
 use ruint::Uint;
 use std::sync::Arc;
 extern crate alloc;
-use alloc::vec::Vec;
 use std::path::Path;
 use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;

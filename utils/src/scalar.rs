@@ -118,7 +118,6 @@ pub fn string2fe(os: &str) -> Fr {
 #[cfg(test)]
 mod test {
     use crate::scalar::*;
-    use plonky::field_gl::Fr;
     #[test]
     fn test_prepend_zeros() {
         assert_eq!(prepend_zeros("abc", 10), "0000000abc".to_string());
