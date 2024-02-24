@@ -65,6 +65,7 @@ impl StageProver for FinalProver {
             &r2.piljson,
             true,
             false,
+            false,
             &r2.const_file,
             &r2.commit_file,
             &cc.circom_file,
