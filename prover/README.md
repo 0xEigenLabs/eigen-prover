@@ -56,3 +56,7 @@ STARK_VERIFIER_GL=../executor/node_modules/pil-stark/circuits.gl \
 STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128 \
 cargo test --release integration_test -- --nocapture
 ```
+
+Taking Fibonacci as an example, the recursive proof process is shown in the figure below.
+
+![proving-architecture](../docs/proving-architecture.png)
