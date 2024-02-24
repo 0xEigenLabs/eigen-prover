@@ -99,6 +99,7 @@ impl StageProver for AggProver {
             &r1_stark.piljson,
             true,
             false,
+            false,
             &r1_stark.const_file,
             &r1_stark.commit_file,
             &cc.circom_file,

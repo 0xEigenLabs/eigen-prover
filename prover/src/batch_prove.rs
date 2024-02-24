@@ -147,6 +147,7 @@ impl StageProver for BatchProver {
             &ctx.c12_struct,
             &c12_stark.piljson,
             true,
+            false,
             true,
             &c12_stark.const_file,
             &c12_stark.commit_file,
