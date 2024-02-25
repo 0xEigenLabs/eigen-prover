@@ -16,6 +16,8 @@ use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use statedb::database::Database as StateDB;
+
 macro_rules! local_fill {
     ($left:expr, $right:expr, $fun:expr) => {
         if let Some(right) = $right {
@@ -58,7 +60,6 @@ async fn main() -> anyhow::Result<()> {
     //)?;
     let client = Provider::<Http>::try_from("http://localhost:8545").unwrap();
     let client = Arc::new(client);
-    let slot_path = stdenv::var("SLOT").unwrap_or(String::from("/tmp/storage"));
     // Params
     let chain_id: u64 = 1;
     let env_block_number = stdenv::var("NO").unwrap_or(String::from("0"));
@@ -80,6 +81,9 @@ async fn main() -> anyhow::Result<()> {
     //let mut cache_db = CacheDB::new(ethersdb);
     let mut cache_db = CacheDB::new(EmptyDB::default());
     // get pre
+
+    let mut db = StateDB::new(None);
+
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
@@ -94,10 +98,12 @@ async fn main() -> anyhow::Result<()> {
             // setup storage
 
             uint! {
-                let account_slot_path = format!("{}/{}.json", slot_path, to_acc);
-                println!("account_slot_path: {:?}", account_slot_path);
-                let account_slot_json = std::fs::read_to_string(account_slot_path).unwrap_or_default();
-                let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(&account_slot_json).unwrap_or_default();
+                let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
+                let account_slot_json_str = account_slot_json.as_str();
+                if !account_slot_json_str.is_empty() {
+                    println!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
+                }
+                let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
                 for slot in account_slot {
                     let slot = U256::from(slot);
                     if !acc_info.code.as_ref().unwrap().is_empty() {
@@ -218,10 +224,11 @@ async fn main() -> anyhow::Result<()> {
 
         for (k, v) in &evm.context.evm.db.accounts {
             log::info!("state: {}=>{:?}", k, v);
-            let account_slot_path = format!("{}/{}.json", slot_path, k);
-            let account_slot_json = std::fs::read_to_string(&account_slot_path).unwrap_or_default();
+            let account_slot_json = db.read_nodes(k.to_string().as_str()).unwrap_or_default();
+            let account_slot_json_str = account_slot_json.as_str();
+
             let mut account_slot: HashSet<Uint<256, 4>> =
-                serde_json::from_str(&account_slot_json).unwrap_or_default();
+                serde_json::from_str(account_slot_json_str).unwrap_or_default();
             if !v.storage.is_empty() {
                 for (k, v) in v.storage.iter() {
                     log::info!("slot => storage: {}=>{}", k, v);
@@ -230,12 +237,13 @@ async fn main() -> anyhow::Result<()> {
             }
             let new_account_slot_json =
                 serde_json::to_string(&account_slot).expect("Failed to serialize");
-            std::fs::create_dir_all(slot_path.clone())
-                .unwrap_or_else(|_| panic!("Failed to write to file, slot_path: {}", slot_path));
-            std::fs::write(format!("{}/{}.json", slot_path, k), new_account_slot_json)
-                .unwrap_or_else(|_| panic!("Failed to write to file, slot_path: {}", slot_path))
-        }
 
+            let write_res =
+                db.write_nodes(k.to_string().as_str(), new_account_slot_json.as_str(), true);
+            if write_res.is_err() {
+                panic!("Failed to write nodes: {:?}", write_res);
+            }
+        }
         console_bar.inc(1);
     }
     for (k, v) in &evm.context.evm.db.accounts {
