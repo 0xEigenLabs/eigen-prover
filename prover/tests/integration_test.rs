@@ -1,5 +1,6 @@
-use crate::Pipeline;
 use std::env;
+
+use prover::pipeline::Pipeline;
 
 #[test]
 #[ignore = "slow"]

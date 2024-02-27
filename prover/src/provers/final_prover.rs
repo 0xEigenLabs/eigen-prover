@@ -1,20 +1,23 @@
-use crate::traits::StageProver;
-use crate::FinalContext;
+use super::Prover;
+use crate::contexts::FinalContext;
+
 use anyhow::Result;
 use dsl_compile::circom_compiler;
 use groth16::api::{groth16_prove, groth16_setup, groth16_verify};
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
 
+#[derive(Default)]
 pub struct FinalProver {}
+
 impl FinalProver {
     pub fn new() -> Self {
-        FinalProver {}
+        Self::default()
     }
 }
 
-impl StageProver for FinalProver {
-    fn final_prove(&self, ctx: &FinalContext) -> Result<()> {
+impl Prover<FinalContext> for FinalProver {
+    fn prove(&self, ctx: &FinalContext) -> Result<()> {
         log::info!("start final_stark prove");
 
         // 1. compress setup
