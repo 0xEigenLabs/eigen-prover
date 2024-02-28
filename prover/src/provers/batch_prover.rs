@@ -1,5 +1,6 @@
-use crate::traits::StageProver;
-use crate::BatchContext;
+use super::Prover;
+use crate::contexts::BatchContext;
+
 use anyhow::Result;
 use powdr_number::{FieldElement, GoldilocksField};
 
@@ -8,18 +9,19 @@ use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
 use std::{fs, io::Read};
 use zkvm::zkvm_evm_prove_only;
+
 #[derive(Default)]
 pub struct BatchProver {}
 
 impl BatchProver {
     pub fn new() -> Self {
-        BatchProver {}
+        Self::default()
     }
 }
 
-impl StageProver for BatchProver {
+impl Prover<BatchContext> for BatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
-    fn batch_prove(&self, ctx: &BatchContext) -> Result<()> {
+    fn prove(&self, ctx: &BatchContext) -> Result<()> {
         log::info!("start batch prove");
         log::info!(
             "taskname:{}, taskid:{}, chunkid:{}",

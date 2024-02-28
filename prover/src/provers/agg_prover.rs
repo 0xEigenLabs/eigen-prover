@@ -1,5 +1,7 @@
-use crate::traits::StageProver;
-use crate::{AggContext, BatchContext};
+use super::Prover;
+use crate::contexts::AggContext;
+use crate::contexts::BatchContext;
+
 use anyhow::Result;
 use dsl_compile::circom_compiler;
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
@@ -7,15 +9,17 @@ use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
 use starky::zkin_join::join_zkin;
 
+#[derive(Default)]
 pub struct AggProver {}
+
 impl AggProver {
     pub fn new() -> Self {
-        AggProver {}
+        Self::default()
     }
 }
 
-impl StageProver for AggProver {
-    fn agg_prove(&self, ctx: &AggContext) -> Result<()> {
+impl Prover<AggContext> for AggProver {
+    fn prove(&self, ctx: &AggContext) -> Result<()> {
         log::info!("start aggregate prove");
 
         // 1. Compile circom circuit to r1cs, and generate witness

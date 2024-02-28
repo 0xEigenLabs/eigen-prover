@@ -21,7 +21,7 @@ use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::Request;
 
-use prover::Pipeline;
+use prover::pipeline::Pipeline;
 
 pub mod aggregator_service {
     tonic::include_proto!("aggregator.v1"); // The string specified here must match the proto package name
