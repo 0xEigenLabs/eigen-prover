@@ -44,7 +44,6 @@ impl ExecutorService for ExecutorServiceSVC {
 
         let task = stdenv::var("TASK").unwrap_or(String::from("lr"));
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
-        let slot_path = stdenv::var("SLOT").unwrap_or(format!("{}/{}/storage", base_dir, task));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
         let url = stdenv::var("URL").unwrap_or(String::from("http://localhost:8545"));
@@ -52,7 +51,6 @@ impl ExecutorService for ExecutorServiceSVC {
             &url,
             block_number,
             chain_id.parse::<u64>().unwrap(),
-            &slot_path,
             &task,
             execute_task_id.to_string().as_str(),
             base_dir.as_str(),
