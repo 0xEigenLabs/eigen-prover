@@ -13,7 +13,7 @@ thiserror = "1.0"
 log = "0.4.0"
 
 anyhow =  "1.0"
-revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
+revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
 powdr-pipeline =       { git = "https://github.com/eigmax/powdr", branch = "main" }
 powdr-riscv =          { git = "https://github.com/eigmax/powdr", branch = "main" }
 powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main" }

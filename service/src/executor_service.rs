@@ -6,18 +6,25 @@ use executor_service::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse}
 use log::debug;
 use std::env as stdenv;
 //use models::*;
+use ethers_providers::{Http, Provider};
+use std::sync::Arc;
 use tonic::{Request, Response, Status};
 pub mod executor_service {
     tonic::include_proto!("executor.v1");
 }
 use executor::batch_process;
 use revm::primitives::ResultAndState;
-#[derive(Debug, Default)]
-pub struct ExecutorServiceSVC {}
+#[derive(Debug)]
+pub struct ExecutorServiceSVC {
+    client: Arc<Provider<Http>>,
+}
 
 impl ExecutorServiceSVC {
     pub fn new() -> Self {
-        ExecutorServiceSVC {}
+        let url = std::env::var("URL").unwrap_or(String::from("http://localhost:8545"));
+        let client = Provider::<Http>::try_from(url).unwrap();
+        let client = Arc::new(client);
+        ExecutorServiceSVC { client }
     }
 }
 
@@ -46,9 +53,8 @@ impl ExecutorService for ExecutorServiceSVC {
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
-        let url = stdenv::var("URL").unwrap_or(String::from("http://localhost:8545"));
         let (_res, cnt_chunks) = batch_process(
-            &url,
+            self.client.clone(),
             block_number,
             chain_id.parse::<u64>().unwrap(),
             &task,
