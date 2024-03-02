@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let state_db_addr: SocketAddr = runtime_config.state_db_addr.parse().expect("Invalid state_db_addr");
     // let executor_addr: SocketAddr = runtime_config.executor_addr.parse().expect("Invalid executor_addr");
     let sdb = crate::statedb::StateDBServiceSVC::default();
-    let executor = executor_service::ExecutorServiceSVC::default();
+    let executor = executor_service::ExecutorServiceSVC::new();
 
     log::info!("Launching sigterm handler");
     let (signal_tx, signal_rx) = oneshot::channel();

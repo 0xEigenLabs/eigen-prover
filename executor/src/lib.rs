@@ -2,8 +2,7 @@
 use alloc::collections::BTreeMap;
 use anyhow::Result;
 use ethers_core::types::BlockId;
-use ethers_providers::Middleware;
-use ethers_providers::{Http, Provider};
+use ethers_providers::{Http, Middleware, Provider};
 use powdr_number::FieldElement;
 use revm::primitives::HashSet;
 use revm::{
@@ -43,15 +42,15 @@ macro_rules! local_fill {
 }
 
 pub async fn batch_process(
-    url: &str,
+    client: Arc<Provider<Http>>,
     block_number: u64,
     chain_id: u64,
     task: &str,
     task_id: &str,
     base_dir: &str,
 ) -> (ExecResult, usize) {
-    let client = Provider::<Http>::try_from(url).unwrap();
-    let client = Arc::new(client);
+    //let client = Provider::<Http>::try_from(url).unwrap();
+    //let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
         Ok(Some(block)) => block,
         Ok(None) => panic!("Block not found"),
