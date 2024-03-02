@@ -8,19 +8,10 @@ This repo aims to build components:
 
 ## Conf
 executor: 50071
+
 statedb: 50061
+
 prover_server listen at 50081
-
-## Server
-
-Use [grpc server](https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md)
-
-```
-cd service
-DATABASE_URL="postgresql://prover_user:prover_pass@127.0.0.1:5432/prover_db" \
-PROVER_FORK_ID=4  NODE_ADDR=http://127.0.0.1:50081 TASK_NAME=XXXXX RUST_LOG=debug cargo run --release
-```
-Change the TASK\_NAME to your task name.
 
 ## StateDB
 
@@ -37,6 +28,22 @@ cargo run --example nodes
 
 # delete
 bash -x install_db.sh delete state root
+```
+
+## Server
+Use [grpc server](https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md)
+
+```
+cd service
+RUST_LOG=info cargo run -- --nocapture --release
+```
+
+If you want to test the executor, you need to run a hardhat node locally, and the number of blocks is greater than or equal to the block_number in /service/examples/exec.rs
+
+open another terminal
+```
+cd service
+RUST_LOG=info cargo run --example exec -- --nocapture
 ```
 
 ### Sqlite
