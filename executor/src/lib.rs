@@ -15,6 +15,9 @@ use revm::{
     DatabaseCommit,
     Evm,
 };
+
+mod storage;
+
 use ruint::uint;
 //use models::*;
 use ruint::Uint;
@@ -23,8 +26,6 @@ extern crate alloc;
 use std::path::Path;
 use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
-
-use statedb::database::Database as StateDB;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 
@@ -66,7 +67,7 @@ pub async fn batch_process(
 
     let mut cache_db = CacheDB::new(EmptyDB::default());
 
-    let mut db = StateDB::new(None);
+    let mut db = storage::new();
 
     let mut test_pre = HashMap::new();
     for tx in &block.transactions {
