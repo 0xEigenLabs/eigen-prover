@@ -46,12 +46,12 @@ impl Prover<BatchContext> for BatchProver {
             &ctx.basedir, ctx.task_id, ctx.task_name, ctx.task_name, ctx.chunk_id
         );
         log::info!("bootloader_input_path: {}", bootloader_input_path);
-        let mut f = fs::File::open(bootloader_input_path.clone()).unwrap();
-        let metadata = fs::metadata(bootloader_input_path).unwrap();
+        let mut f = fs::File::open(bootloader_input_path.clone())?;
+        let metadata = fs::metadata(bootloader_input_path)?;
         let file_size = metadata.len() as usize;
         assert!(file_size % 8 == 0);
         let mut buffer = vec![0; file_size];
-        f.read_exact(&mut buffer).unwrap();
+        f.read_exact(&mut buffer)?;
         let mut bi = vec![GoldilocksField::default(); file_size / 8];
         bi.iter_mut().zip(buffer.chunks(8)).for_each(|(out, bin)| {
             *out = GoldilocksField::from_bytes_le(bin);
@@ -63,8 +63,7 @@ impl Prover<BatchContext> for BatchProver {
             bi,
             ctx.chunk_id.parse()?,
             &ctx.evm_output,
-        )
-        .unwrap();
+        )?;
         log::info!(
             "circom file path: {:?}",
             format!(
@@ -117,18 +116,21 @@ impl Prover<BatchContext> for BatchProver {
             c12_circom.output.clone(),
             false, // no_simplification
             false, // reduced_simplification
-        )
-        .unwrap();
+        )?;
         log::info!("end batch prove");
 
         log::info!("start c12 prove: {:?}", c12_stark);
         log::info!("1. compress setup");
+        let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
+        let force_bits = force_bits
+            .parse::<usize>()
+            .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
         setup(
             &c12_stark.r1cs_file,
             &c12_stark.pil_file,
             &c12_stark.const_file,
             &c12_stark.exec_file,
-            0,
+            force_bits,
         )?;
 
         let wasm_file = format!(

@@ -46,6 +46,8 @@ cd service
 RUST_LOG=info cargo run --example exec -- --nocapture
 ```
 
+You can also use `CONF_PATH` environment variable to setup config path, and make sure the config file in that is named `base_config.toml`.
+
 ### Sqlite
 
 Not support

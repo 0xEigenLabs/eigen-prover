@@ -71,14 +71,17 @@ impl Prover<AggContext> for AggProver {
 
         log::info!("join {} {} -> {}", zkin, zkin2, ctx.agg_zkin);
         join_zkin(&zkin, &zkin2, &ctx.agg_zkin)?;
-
+        let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
+        let force_bits = force_bits
+            .parse::<usize>()
+            .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
         // 3. compress setup
         setup(
             &r1_stark.r1cs_file,
             &r1_stark.pil_file,
             &r1_stark.const_file,
             &r1_stark.exec_file,
-            0,
+            force_bits,
         )?;
 
         // 4. compress exec

@@ -23,11 +23,11 @@ use tokio::{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    let runtime_config = config::RuntimeConfig::from_toml("conf/base_config.toml").unwrap();
+    let conf_path = std::env::var("CONF_DIR").unwrap_or("conf".to_string());
+    let conf_path = std::path::Path::new(&conf_path).join("base_config.toml");
+    let runtime_config = config::RuntimeConfig::from_toml(conf_path).expect("Config is missing");
     let addr = runtime_config.addr.as_str().parse()?;
 
-    // let state_db_addr: SocketAddr = runtime_config.state_db_addr.parse().expect("Invalid state_db_addr");
-    // let executor_addr: SocketAddr = runtime_config.executor_addr.parse().expect("Invalid executor_addr");
     let sdb = crate::statedb::StateDBServiceSVC::default();
     let executor = executor_service::ExecutorServiceSVC::new();
 
