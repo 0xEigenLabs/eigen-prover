@@ -46,12 +46,12 @@ impl Prover<BatchContext> for BatchProver {
             &ctx.basedir, ctx.task_id, ctx.task_name, ctx.task_name, ctx.chunk_id
         );
         log::info!("bootloader_input_path: {}", bootloader_input_path);
-        let mut f = fs::File::open(bootloader_input_path.clone()).unwrap();
-        let metadata = fs::metadata(bootloader_input_path).unwrap();
+        let mut f = fs::File::open(bootloader_input_path.clone())?;
+        let metadata = fs::metadata(bootloader_input_path)?;
         let file_size = metadata.len() as usize;
         assert!(file_size % 8 == 0);
         let mut buffer = vec![0; file_size];
-        f.read_exact(&mut buffer).unwrap();
+        f.read_exact(&mut buffer)?;
         let mut bi = vec![GoldilocksField::default(); file_size / 8];
         bi.iter_mut().zip(buffer.chunks(8)).for_each(|(out, bin)| {
             *out = GoldilocksField::from_bytes_le(bin);
@@ -63,8 +63,7 @@ impl Prover<BatchContext> for BatchProver {
             bi,
             ctx.chunk_id.parse()?,
             &ctx.evm_output,
-        )
-        .unwrap();
+        )?;
         log::info!(
             "circom file path: {:?}",
             format!(
@@ -117,8 +116,7 @@ impl Prover<BatchContext> for BatchProver {
             c12_circom.output.clone(),
             false, // no_simplification
             false, // reduced_simplification
-        )
-        .unwrap();
+        )?;
         log::info!("end batch prove");
 
         log::info!("start c12 prove: {:?}", c12_stark);
