@@ -123,12 +123,16 @@ impl Prover<BatchContext> for BatchProver {
 
         log::info!("start c12 prove: {:?}", c12_stark);
         log::info!("1. compress setup");
+        let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
+        let force_bits = force_bits
+            .parse::<usize>()
+            .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
         setup(
             &c12_stark.r1cs_file,
             &c12_stark.pil_file,
             &c12_stark.const_file,
             &c12_stark.exec_file,
-            0,
+            force_bits,
         )?;
 
         let wasm_file = format!(
