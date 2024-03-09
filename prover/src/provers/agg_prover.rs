@@ -25,27 +25,26 @@ impl Prover<AggContext> for AggProver {
         // 1. Compile circom circuit to r1cs, and generate witness
         let task_id_slice: Vec<_> = ctx.input.split("_chunk_").collect();
         let task_id2_slice: Vec<_> = ctx.input2.split("_chunk_").collect();
-        let batch_ctx = BatchContext::new(
-            &ctx.basedir,
-            task_id_slice[0],
-            &ctx.task_name,
-            task_id_slice[1],
-        );
-        let batch2_ctx = BatchContext::new(
-            &ctx.basedir,
-            task_id2_slice[0],
-            &ctx.task_name,
-            task_id2_slice[1],
-        );
+        assert_eq!(task_id_slice[0], task_id2_slice[0]);
 
-        log::info!("batch_ctx: {:?}", batch_ctx);
-        log::info!("batch2_ctx: {:?}", batch2_ctx);
+        let start: usize = task_id_slice[1].parse::<usize>().unwrap();
+        let end: usize = task_id2_slice[1].parse::<usize>().unwrap();
+        let mut batch_ctx = vec![];
+        for i in start..=end {
+            batch_ctx.push(BatchContext::new(
+                &ctx.basedir,
+                task_id_slice[0],
+                &ctx.task_name,
+                &format!("{}", i),
+            ));
+            log::info!("batch_ctx[{}]: {:?}", i, batch_ctx[i]);
+        }
 
         let sp = &ctx.agg_stark;
         let cc = &ctx.agg_circom;
 
-        let r1_stark = &batch_ctx.recursive1_stark;
-        let r1_circom = &batch_ctx.recursive1_circom;
+        let r1_stark = &batch_ctx[0].recursive1_stark;
+        let r1_circom = &batch_ctx[0].recursive1_circom;
 
         log::info!("agg_stark: {:?}", sp);
         log::info!("agg_circom: {:?}", cc);
@@ -62,11 +61,14 @@ impl Prover<AggContext> for AggProver {
         // 2. compress inputs
         let zkin = format!(
             "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
-            ctx.basedir, task_id_slice[0], task_id_slice[1], ctx.task_name,
+            ctx.basedir, task_id_slice[0], start, ctx.task_name,
         );
         let zkin2 = format!(
             "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
-            ctx.basedir, task_id2_slice[0], task_id2_slice[1], ctx.task_name,
+            ctx.basedir,
+            task_id_slice[0],
+            start + 1,
+            ctx.task_name,
         );
 
         log::info!("join {} {} -> {}", zkin, zkin2, ctx.agg_zkin);
@@ -113,6 +115,41 @@ impl Prover<AggContext> for AggProver {
             &sp.zkin,
             "",
         )?;
+
+        for i in 2..=end {
+            let zkin = format!(
+                "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
+                ctx.basedir, task_id_slice[0], i, ctx.task_name,
+            );
+            let zkin_out = format!(
+                "{}/proof/{}/batch_proof_{}/{}_input.recursive1.zkin.json",
+                ctx.basedir, task_id_slice[0], i, ctx.task_name,
+            );
+
+            log::info!("join {} {} -> {}", sp.zkin, zkin, zkin_out);
+            join_zkin(&sp.zkin, &zkin, &zkin_out)?;
+
+            exec(
+                &zkin_out,
+                &wasm_file,
+                &r1_stark.pil_file,
+                &r1_stark.exec_file,
+                &r1_stark.commit_file,
+            )?;
+
+            stark_prove(
+                &ctx.agg_struct,
+                &r1_stark.piljson,
+                true,
+                false,
+                false,
+                &r1_stark.const_file,
+                &r1_stark.commit_file,
+                &cc.circom_file,
+                &sp.zkin,
+                "",
+            )?;
+        }
 
         log::info!("end aggregate prove");
         Ok(())

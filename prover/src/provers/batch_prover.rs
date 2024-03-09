@@ -31,14 +31,15 @@ impl Prover<BatchContext> for BatchProver {
         );
         log::info!("basedir:{}", ctx.basedir);
         // 1. stark prove: generate `.circom` file.
-        let sp = &ctx.batch_stark;
+        let batch_stark = &ctx.batch_stark;
+        let batch_circom = &ctx.batch_circom;
         let c12_circom = &ctx.c12_circom;
         let c12_stark = &ctx.c12_stark;
         let r1_circom = &ctx.recursive1_circom; // output
         let r1_stark = &ctx.recursive1_stark; // output
         log::info!("batch_context: {:?}", ctx);
-        // given that the l2batch data has been stored in sp.zkin.
-        let serde_data = std::fs::read_to_string(sp.zkin.clone())?;
+        // given that the l2batch data has been stored in ctx.l2_data.
+        let serde_data = std::fs::read_to_string(ctx.l2_data.clone())?;
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
         let bootloader_input_path = format!(
@@ -83,14 +84,14 @@ impl Prover<BatchContext> for BatchProver {
                 "{}/{}_chunk_{}_proof.bin_1",
                 ctx.evm_output, ctx.task_name, &ctx.chunk_id
             ),
-            c12_circom.circom_file.clone(),
+            batch_circom.circom_file.clone(),
         )?;
         std::fs::copy(
             format!(
                 "{}/{}_chunk_{}_proof.bin_0",
                 ctx.evm_output, ctx.task_name, &ctx.chunk_id
             ),
-            c12_stark.zkin.clone(),
+            batch_stark.zkin.clone(),
         )?;
 
         /*
@@ -109,6 +110,56 @@ impl Prover<BatchContext> for BatchProver {
 
         // 2. Compile circom circuit to r1cs, and generate witness
         circom_compiler(
+            batch_circom.circom_file.clone(),
+            "goldilocks".to_string(), // prime
+            "full".to_string(),       // full_simplification
+            batch_circom.link_directories.clone(),
+            batch_circom.output.clone(),
+            false, // no_simplification
+            false, // reduced_simplification
+        )?;
+
+        log::info!("batch proof: compress setup");
+        setup(
+            &batch_stark.r1cs_file,
+            &batch_stark.pil_file,
+            &batch_stark.const_file,
+            &batch_stark.exec_file,
+            0,
+        )?;
+
+        let wasm_file = format!(
+            "{}/{}.verifier_js/{}.verifier.wasm",
+            batch_circom.output, ctx.task_name, ctx.task_name
+        );
+        log::info!("batch proof. compress exec: {wasm_file}");
+        exec(
+            &batch_stark.zkin,
+            &wasm_file,
+            &batch_stark.pil_file,
+            &batch_stark.exec_file,
+            &batch_stark.commit_file,
+        )?;
+
+        // 3. stark prove
+        stark_prove(
+            &ctx.batch_struct,
+            &batch_stark.piljson,
+            true,
+            false,
+            true,
+            &batch_stark.const_file,
+            &batch_stark.commit_file,
+            &c12_circom.circom_file,
+            &c12_stark.zkin,
+            "",
+        )?;
+        log::info!("end batch prove");
+
+        log::info!("start c12 prove: {:?}", c12_stark);
+
+        // 2. Compile circom circuit to r1cs, and generate witness
+        circom_compiler(
             c12_circom.circom_file.clone(),
             "goldilocks".to_string(), // prime
             "full".to_string(),       // full_simplification
@@ -117,14 +168,12 @@ impl Prover<BatchContext> for BatchProver {
             false, // no_simplification
             false, // reduced_simplification
         )?;
-        log::info!("end batch prove");
 
-        log::info!("start c12 prove: {:?}", c12_stark);
-        log::info!("1. compress setup");
         let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
         let force_bits = force_bits
             .parse::<usize>()
             .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
+        log::info!("proof: compress setup, force_bits {force_bits}");
         setup(
             &c12_stark.r1cs_file,
             &c12_stark.pil_file,
@@ -137,7 +186,7 @@ impl Prover<BatchContext> for BatchProver {
             "{}/{}.c12_js/{}.c12.wasm",
             c12_circom.output, ctx.task_name, ctx.task_name
         );
-        log::info!("2. compress exec: {wasm_file}");
+        log::info!("c12 proof: compress exec {wasm_file}");
         exec(
             &c12_stark.zkin,
             &wasm_file,
@@ -159,6 +208,7 @@ impl Prover<BatchContext> for BatchProver {
             &r1_stark.zkin,
             "",
         )?;
+
         log::info!("end c12 prove");
         Ok(())
     }
