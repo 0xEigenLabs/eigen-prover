@@ -145,9 +145,9 @@ impl Prover<BatchContext> for BatchProver {
         stark_prove(
             &ctx.batch_struct,
             &batch_stark.piljson,
-            true,
             false,
-            true,
+            false,
+            false,
             &batch_stark.const_file,
             &batch_stark.commit_file,
             &c12_circom.circom_file,

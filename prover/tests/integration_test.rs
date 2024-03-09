@@ -25,21 +25,21 @@ fn integration_test() -> anyhow::Result<()> {
     pipeline.prove().unwrap();
     log::info!("task2: {task3}");
 
-    let task3 = pipeline
+    let task4 = pipeline
         .aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string())
         .unwrap();
     pipeline.prove().unwrap();
-    log::info!("agg task: {task3}");
+    log::info!("agg task: {task4}");
 
-    let task4 = pipeline
+    let task5 = pipeline
         .final_prove(
-            task3,
+            task4,
             "BN128".into(),
             "273030697313060285579891744179749754319274977764".into(),
         )
         .unwrap();
     pipeline.prove().unwrap();
-    log::info!("final task: {task4}");
+    log::info!("final task: {task5}");
 
     Ok(())
 }

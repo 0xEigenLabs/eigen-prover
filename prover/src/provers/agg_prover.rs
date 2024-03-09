@@ -103,6 +103,10 @@ impl Prover<AggContext> for AggProver {
 
         // 5. stark prove
         log::info!("recursive2: {:?} -> {:?}", r1_stark, cc);
+        let prev_zkin_out = format!(
+            "{}/proof/{}/batch_proof_{}/{}_input.recursive1.zkin.json",
+            ctx.basedir, task_id_slice[0], 0, ctx.task_name,
+        );
         stark_prove(
             &ctx.agg_struct,
             &r1_stark.piljson,
@@ -112,10 +116,11 @@ impl Prover<AggContext> for AggProver {
             &r1_stark.const_file,
             &r1_stark.commit_file,
             &cc.circom_file,
-            &sp.zkin,
+            &prev_zkin_out,
             "",
         )?;
 
+        #[allow(clippy::needless_range_loop)]
         for i in 2..=end {
             let zkin = format!(
                 "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
@@ -125,16 +130,17 @@ impl Prover<AggContext> for AggProver {
                 "{}/proof/{}/batch_proof_{}/{}_input.recursive1.zkin.json",
                 ctx.basedir, task_id_slice[0], i, ctx.task_name,
             );
+            let r_stark = &batch_ctx[i].recursive1_stark;
 
-            log::info!("join {} {} -> {}", sp.zkin, zkin, zkin_out);
-            join_zkin(&sp.zkin, &zkin, &zkin_out)?;
+            log::info!("join {} {} -> {}", prev_zkin_out, zkin, zkin_out);
+            join_zkin(&prev_zkin_out, &zkin, &zkin_out)?;
 
             exec(
                 &zkin_out,
                 &wasm_file,
                 &r1_stark.pil_file,
                 &r1_stark.exec_file,
-                &r1_stark.commit_file,
+                &r_stark.commit_file,
             )?;
 
             stark_prove(
@@ -144,12 +150,13 @@ impl Prover<AggContext> for AggProver {
                 false,
                 false,
                 &r1_stark.const_file,
-                &r1_stark.commit_file,
+                &r_stark.commit_file,
                 &cc.circom_file,
-                &sp.zkin,
+                &prev_zkin_out,
                 "",
             )?;
         }
+        std::fs::copy(prev_zkin_out, sp.zkin.clone())?;
 
         log::info!("end aggregate prove");
         Ok(())

@@ -66,7 +66,7 @@ impl Prover<FinalContext> for FinalProver {
         stark_prove(
             &ctx.final_stark_struct,
             &r2.piljson,
-            true,
+            false,
             false,
             false,
             &r2.const_file,

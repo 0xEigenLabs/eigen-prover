@@ -82,8 +82,9 @@ impl Pipeline {
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
-                w.insert(key.clone(), Stage::Aggregate(task_id.clone(), task, task2));
-                self.save_checkpoint(&key, false)
+                w.insert(key.clone(), Stage::Aggregate(key.clone(), task, task2));
+                self.save_checkpoint(&key, false)?;
+                Ok(task_id)
             }
             _ => bail!("Task queue is full".to_string()),
         }
@@ -102,9 +103,10 @@ impl Pipeline {
                 self.queue.push_back(key.clone());
                 w.insert(
                     key.clone(),
-                    Stage::Final(key.clone(), curve_name, prover_addr),
+                    Stage::Final(task_id.clone(), curve_name, prover_addr), // use task_id first, then compute the right task_name in final context
                 );
-                self.save_checkpoint(&key, false)
+                self.save_checkpoint(&key, false)?;
+                Ok(task_id)
             }
             _ => bail!("Task queue is full".to_string()),
         }
