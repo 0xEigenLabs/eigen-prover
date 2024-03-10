@@ -1,10 +1,10 @@
-use statedb::statedb_client::statedb_service::Fea;
-use statedb::statedb_client::StateDBClientCli;
+use proto::state::Fea;
+use state::client::StateClient;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "http://0.0.0.0:50061".to_string();
-    let client = StateDBClientCli::new(addr).await.unwrap();
+    let client = StateClient::new(addr).await.unwrap();
 
     let old_root = Fea {
         fe0: 0,

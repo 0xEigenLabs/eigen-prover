@@ -6,33 +6,21 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = "0.8.1"
-prost = "0.11.0"
-tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread", "signal"] }
-tokio-stream = { version = "0.1" }
-revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
-serde_json = "1.0.108"
-# biz
-statedb = { path = "../statedb" }
-executor = { path = "../executor" }
-prover = { path = "../prover" }
-plonky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-utils =  { path = "../utils" }
-models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
-lazy_static = "1.4.0"
-ethers-providers = { version = "2.0", features = ["ws"] }
-anyhow =  "1.0"
-# config
-serde = "1.0.92"
-serde_derive = "1.0.92"
-toml = "0.5.1"
-uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
-
-#log
-log = "0.4.0"
-env_logger = "0.10"
-
-[build-dependencies]
-tonic-build = "0.8.0"
+anyhow.workspace = true
+env_logger.workspace = true
+ethers-providers.workspace = true
+executor.workspace = true
+lazy_static.workspace = true
+log.workspace = true
+plonky .workspace = true
+proto.workspace = true
+prover.workspace = true
+revm .workspace = true
+serde.workspace = true
+state.workspace = true
+tokio-stream.workspace = true
+tokio.workspace = true
+toml.workspace = true
+tonic.workspace = true
+utils.workspace = true
+uuid.workspace = true

@@ -1,14 +1,8 @@
-use statedb_service::state_db_service_client::StateDbServiceClient;
-use statedb_service::Fea;
-use statedb_service::SetRequest;
-
-pub mod statedb_service {
-    tonic::include_proto!("statedb.v1");
-}
+use proto::state::{state_service_client::StateServiceClient, Fea, SetRequest};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = StateDbServiceClient::connect("http://0.0.0.0:50061").await?;
+    let mut client = StateServiceClient::connect("http://0.0.0.0:50061").await?;
 
     let request = tonic::Request::new(SetRequest {
         old_root: Some(Fea {

@@ -2,9 +2,9 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 
-package statedb.v1;
+package state.v1;
 
-option go_package = "github.com/0xEigenLabs/eigen-prover/service/pb";
+option go_package = "github.com/0xEigenLabs/eigen-prover/proto";
 
 message Version {
     string v0_0_1 = 1;
@@ -20,7 +20,7 @@ message Version {
  * GetProgram: get the byte data for a specific key
  * Flush: wait for all the pendings writes to the DB are done
  */
-service StateDBService {
+service StateService {
     rpc Set(SetRequest) returns (SetResponse) {}
     rpc Get(GetRequest) returns (GetResponse) {}
     rpc SetProgram(SetProgramRequest) returns (SetProgramResponse) {}

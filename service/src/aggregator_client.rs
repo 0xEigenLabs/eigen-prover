@@ -1,10 +1,13 @@
 #![allow(clippy::all)]
 #![allow(unknown_lints)]
-use aggregator_service::aggregator_service_client::AggregatorServiceClient;
-use aggregator_service::{
-    aggregator_message,
+
+use anyhow::{anyhow, Result};
+use proto::aggregator::{
+    aggregator_message::Request::*,
+    aggregator_service_client::AggregatorServiceClient,
     get_status_response,
     prover_message,
+    prover_message::Response::*,
     CancelResponse,
     GenAggregatedProofResponse,
     GenBatchProofResponse,
@@ -14,7 +17,6 @@ use aggregator_service::{
     ProverMessage,
     // PublicInputs, InputProver,
 };
-use anyhow::{anyhow, Result};
 use std::env::var;
 use std::sync::Mutex;
 use tokio::sync::mpsc;
@@ -22,10 +24,6 @@ use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::Request;
 
 use prover::pipeline::Pipeline;
-
-pub mod aggregator_service {
-    tonic::include_proto!("aggregator.v1"); // The string specified here must match the proto package name
-}
 
 lazy_static! {
     static ref PIPELINE: Mutex<Pipeline> = Mutex::new(Pipeline::new(
@@ -67,14 +65,14 @@ pub async fn run_client() -> Result<()> {
         log::debug!("debug new req {}", req_id.clone());
         if let Some(request) = received.request {
             let resp = match request {
-                aggregator_message::Request::GetStatusRequest(_req) => {
+                GetStatusRequest(_req) => {
                     // step 1: get prover status
                     let status = match PIPELINE.lock().unwrap().get_status() {
                         Ok(_) => get_status_response::Status::Idle,
                         _ => get_status_response::Status::Unspecified,
                     };
                     // TODO: cpu and mem usage: https://github.com/GuillaumeGomez/sysinfo
-                    prover_message::Response::GetStatusResponse(GetStatusResponse {
+                    GetStatusResponse(GetStatusResponse {
                         status: status.into(),
                         last_computed_request_id: "".to_string(),
                         last_computed_end_time: 0,
@@ -91,7 +89,7 @@ pub async fn run_client() -> Result<()> {
                         fork_id: *PROVER_FORK_ID,
                     })
                 }
-                aggregator_message::Request::GenBatchProofRequest(req) => {
+                GenBatchProofRequest(req) => {
                     // step 2: submit input to prover, and get task id
                     let input = req.input.unwrap();
                     let _public_input = input.public_inputs.unwrap();
@@ -106,32 +104,30 @@ pub async fn run_client() -> Result<()> {
                         .unwrap()
                         .batch_prove(execute_task_id, chunk_id)
                     {
-                        Ok(_) => aggregator_service::Result::Ok,
-                        _ => aggregator_service::Result::Error,
+                        Ok(_) => proto::aggregator::Result::Ok,
+                        _ => proto::aggregator::Result::Error,
                     };
-                    prover_message::Response::GenBatchProofResponse(GenBatchProofResponse {
+                    GenBatchProofResponse(GenBatchProofResponse {
                         id: task_id.to_string(),
                         result: result.into(),
                     })
                 }
 
-                aggregator_message::Request::GenAggregatedProofRequest(req) => {
+                GenAggregatedProofRequest(req) => {
                     // step 4: submit 2 proofs to aggregate, and goto step 3 again
                     let (id, result) = match PIPELINE.lock().unwrap().aggregate_prove(
                         req.recursive_proof_1.clone(),
                         req.recursive_proof_2.clone(),
                     ) {
-                        Ok(id) => (id, aggregator_service::Result::Ok),
-                        _ => ("".into(), aggregator_service::Result::Error),
+                        Ok(id) => (id, proto::aggregator::Result::Ok),
+                        _ => ("".into(), proto::aggregator::Result::Error),
                     };
-                    prover_message::Response::GenAggregatedProofResponse(
-                        GenAggregatedProofResponse {
-                            id: id,
-                            result: result.into(),
-                        },
-                    )
+                    GenAggregatedProofResponse(GenAggregatedProofResponse {
+                        id: id,
+                        result: result.into(),
+                    })
                 }
-                aggregator_message::Request::GenFinalProofRequest(req) => {
+                GenFinalProofRequest(req) => {
                     // step 5: wrap the stark proof to snark, and goto step 3 again
                     let task_id = uuid::Uuid::new_v4();
                     let req_id = received.id.clone();
@@ -140,39 +136,39 @@ pub async fn run_client() -> Result<()> {
                         req.recursive_proof.clone(),
                         req.aggregator_addr.clone(),
                     ) {
-                        Ok(_) => aggregator_service::Result::Ok,
-                        _ => aggregator_service::Result::Error,
+                        Ok(_) => proto::aggregator::Result::Ok,
+                        _ => proto::aggregator::Result::Error,
                     };
-                    prover_message::Response::GenFinalProofResponse(GenFinalProofResponse {
+                    GenFinalProofResponse(GenFinalProofResponse {
                         id: task_id.to_string(),
                         result: result.into(),
                     })
                 }
-                aggregator_message::Request::CancelRequest(req) => {
+                CancelRequest(req) => {
                     let result = match PIPELINE.lock().unwrap().cancel(req.id.clone()) {
-                        Ok(_) => aggregator_service::Result::Ok,
-                        _ => aggregator_service::Result::Error,
+                        Ok(_) => proto::aggregator::Result::Ok,
+                        _ => proto::aggregator::Result::Error,
                     };
                     prover_message::Response::CancelResponse(CancelResponse {
                         result: result.into(),
                     })
                 }
-                aggregator_message::Request::GetProofRequest(req) => {
+                GetProofRequest(req) => {
                     // step 3: fetch proving progress by task id, and get the proof data
                     let (_proof, res) = match PIPELINE
                         .lock()
                         .unwrap()
                         .get_proof(req.id.clone(), req.timeout)
                     {
-                        Ok(proof) => (proof, aggregator_service::Result::Ok),
-                        _ => ("".to_string(), aggregator_service::Result::Error),
+                        Ok(proof) => (proof, proto::aggregator::Result::Ok),
+                        _ => ("".to_string(), proto::aggregator::Result::Error),
                     };
 
                     // TODO: check if it a final proof or recursive proof by status file
                     // get_proof_response::Proof::RecursiveProof()
                     // get_proof_response::Proof::FinalProof()
 
-                    prover_message::Response::GetProofResponse(GetProofResponse {
+                    GetProofResponse(GetProofResponse {
                         id: req.id.clone(),
                         result: res.into(),
                         result_string: "".into(),

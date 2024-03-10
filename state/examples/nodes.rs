@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use statedb::database::{Database, DEFAULT_ROOT_KEY};
+use state::database::{Database, DEFAULT_ROOT_KEY};
 
 #[tokio::main]
 async fn main() {

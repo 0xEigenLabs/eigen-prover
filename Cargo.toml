@@ -1,9 +1,73 @@
 [workspace]
 members = [
-  "statedb",
+  "executor",
+  "proto",
   "prover",
   "service",
-  "executor"
+  "state",
+  "utils",
 ]
 
 resolver = "2"
+
+[workspace.dependencies]
+
+# basic
+anyhow =  "1.0"
+futures = { version = "0.3.30" }
+hex = "0.4.3"
+indicatif = "0.17"
+lazy_static = "1.4.0"
+num-bigint = "0.4.4"
+num-traits = "0.2.16"
+project-root = "0.2.2"
+ruint = "1.11.1"
+ruint-macro = "1.1.0"
+thiserror = "1.0"
+uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
+
+
+# biz
+algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+ethers-core = { version = "2.0" }
+ethers-providers = { version = "2.0", features = ["ws"] }
+groth16 = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main"  }
+models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
+plonky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+recursion = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
+starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+
+powdr-backend =        { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-pipeline =       { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-riscv =          { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main" }
+
+# config
+serde = { version = "1.0.92", features = ["derive"] }
+serde_json = "1.0.108"
+toml = "0.8.10"
+
+# foundation
+prost = "0.12.3"
+sqlx = { version = "0.7", features = [ "runtime-tokio", "tls-rustls" ] }
+tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread", "signal"] }
+tokio-stream = { version = "0.1" }
+tonic = "0.11.0"
+
+# local
+executor = { path = "executor" }
+proto = { path = "proto" }
+prover = { path = "prover" }
+state = { path = "state" }
+utils =  { path = "utils" }
+
+#logging
+env_logger = "0.11.3"
+log = "0.4.0"
+
+# build dependencies
+tonic-build = "0.11.0"

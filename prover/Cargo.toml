@@ -6,29 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-recursion = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-plonky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-groth16 = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main"  }
-algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main"  }
-dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-
-powdr-backend =        { git = "https://github.com/eigmax/powdr", branch = "main" }
-powdr-pipeline =       { git = "https://github.com/eigmax/powdr", branch = "main" }
-powdr-riscv =          { git = "https://github.com/eigmax/powdr", branch = "main" }
-powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main" }
-powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main" }
-
-
-uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
-
-serde = { version = "1.0", features = ["derive"] }
-
-# serde_json is just for the example, not required in general
-serde_json = "1.0"
-anyhow = "1.0"
-log = "0.4.0"
+anyhow.workspace = true
+dsl_compile.workspace = true
+groth16.workspace = true
+log.workspace = true
+powdr-number.workspace = true
+recursion.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+starky.workspace = true
+uuid.workspace = true
+zkvm.workspace = true
 
 [dev-dependencies]
-env_logger = "0.10"
+env_logger.workspace = true

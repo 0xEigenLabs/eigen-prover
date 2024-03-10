@@ -1,6 +1,6 @@
 use ethers_providers::{Http, Provider};
 use executor::batch_process;
-use statedb::database::{Database, DEFAULT_ROOT_KEY};
+use state::database::{Database, DEFAULT_ROOT_KEY};
 use std::sync::Arc;
 
 #[tokio::main]
