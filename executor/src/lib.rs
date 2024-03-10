@@ -91,7 +91,7 @@ pub async fn batch_process(
             // setup storage
 
             uint! {
-                let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
+                let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).await.unwrap_or_default();
                 let account_slot_json_str = account_slot_json.as_str();
                 if !account_slot_json_str.is_empty() {
                     println!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
@@ -278,7 +278,10 @@ pub async fn batch_process(
 
         for (k, v) in &evm.context.evm.db.accounts {
             log::info!("state: {}=>{:?}", k, v);
-            let account_slot_json = db.read_nodes(k.to_string().as_str()).unwrap_or_default();
+            let account_slot_json = db
+                .read_nodes(k.to_string().as_str())
+                .await
+                .unwrap_or_default();
             let account_slot_json_str = account_slot_json.as_str();
             let mut account_slot: HashSet<Uint<256, 4>> =
                 serde_json::from_str(account_slot_json_str).unwrap_or_default();
@@ -291,8 +294,9 @@ pub async fn batch_process(
             let new_account_slot_json =
                 serde_json::to_string(&account_slot).expect("Failed to serialize");
 
-            let write_res =
-                db.write_nodes(k.to_string().as_str(), new_account_slot_json.as_str(), true);
+            let write_res = db
+                .write_nodes(k.to_string().as_str(), new_account_slot_json.as_str(), true)
+                .await;
             if write_res.is_err() {
                 log::error!("Failed to write nodes: {:?}", write_res);
             }

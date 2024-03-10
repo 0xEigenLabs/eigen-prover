@@ -53,7 +53,7 @@ impl Database {
         }
     }
 
-    pub fn read_program(&mut self, key: &str) -> Result<String> {
+    pub async fn read_program(&mut self, key: &str) -> Result<String> {
         log::debug!("read nodes: {}", key);
         let key: Vec<u8> = key.into();
         let result = program
@@ -68,7 +68,7 @@ impl Database {
         }
     }
 
-    pub fn read_nodes(&mut self, key: &str) -> Result<String> {
+    pub async fn read_nodes(&mut self, key: &str) -> Result<String> {
         log::debug!("read nodes: {}", key);
         let key: Vec<u8> = key.into();
         let result = nodes
@@ -83,14 +83,19 @@ impl Database {
         }
     }
 
-    pub fn read_remote(&mut self, is_program: bool, key: &str) -> Result<String> {
+    pub async fn read_remote(&mut self, is_program: bool, key: &str) -> Result<String> {
         match is_program {
-            true => self.read_program(key),
-            _ => self.read_nodes(key),
+            true => self.read_program(key).await,
+            _ => self.read_nodes(key).await,
         }
     }
 
-    pub fn write_program(&mut self, key: &str, value: &Vec<u8>, update: bool) -> Result<usize> {
+    pub async fn write_program(
+        &mut self,
+        key: &str,
+        value: &Vec<u8>,
+        update: bool,
+    ) -> Result<usize> {
         let new_pro = Program {
             hash: key.to_string().into(),
             data: value.clone(),
@@ -111,7 +116,7 @@ impl Database {
         Ok(res)
     }
 
-    pub fn write_nodes(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
+    pub async fn write_nodes(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
         log::debug!("write node: {}=>{}", key, value);
         let new_pro = Nodes {
             hash: key.to_string().into(),
@@ -132,7 +137,7 @@ impl Database {
         Ok(res)
     }
 
-    pub fn write_remote(
+    pub async fn write_remote(
         &mut self,
         is_program: bool,
         key: &str,
@@ -140,25 +145,28 @@ impl Database {
         update: bool,
     ) -> Result<usize> {
         match is_program {
-            true => self.write_program(key, &value.to_string().into(), update),
-            _ => self.write_nodes(key, value, update),
+            true => {
+                self.write_program(key, &value.to_string().into(), update)
+                    .await
+            }
+            _ => self.write_nodes(key, value, update).await,
         }
     }
 
-    pub fn write(&mut self, key: &str, value: &Vec<Fr>, update: bool) -> Result<usize> {
+    pub async fn write(&mut self, key: &str, value: &Vec<Fr>, update: bool) -> Result<usize> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let mut value_str = String::from("");
         for v in value {
             value_str.push_str(&prepend_zeros(&to_hex(v), 16));
         }
         log::debug!("write: {} => {}", key, value_str);
-        self.write_remote(false, &key, &value_str, update)
+        self.write_remote(false, &key, &value_str, update).await
     }
 
-    pub fn read(&mut self, key: &[Fr; 4]) -> Result<Vec<Fr>> {
+    pub async fn read(&mut self, key: &[Fr; 4]) -> Result<Vec<Fr>> {
         let key = h4_to_string(key);
         let key = normalize_to_n_format(&key, 64).to_lowercase();
-        let s_data = self.read_remote(false, &key)?;
+        let s_data = self.read_remote(false, &key).await?;
         log::debug!("read: {} => {}", key, s_data);
 
         assert_eq!(s_data.len() % 16, 0);
@@ -171,14 +179,15 @@ impl Database {
         Ok(res)
     }
 
-    pub fn set_program(&mut self, key: &str, data: &Vec<u8>, update: bool) -> Result<usize> {
+    pub async fn set_program(&mut self, key: &str, data: &Vec<u8>, update: bool) -> Result<usize> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         self.write_remote(true, &key, &hex::encode(data), update)
+            .await
     }
 
-    pub fn get_program(&mut self, key: &str) -> Result<Vec<u8>> {
+    pub async fn get_program(&mut self, key: &str) -> Result<Vec<u8>> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
-        let hex_data = self.read_remote(true, &key)?;
+        let hex_data = self.read_remote(true, &key).await?;
         Ok(hex::decode(hex_data)?)
     }
 }

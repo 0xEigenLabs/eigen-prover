@@ -13,7 +13,8 @@ use statedb_service::{
     SetProgramResponse, SetRequest, SetResponse, SiblingList,
 };
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tonic::{Request, Response, Status};
 use utils::scalar::{h4_to_string, str_to_biguint};
 
@@ -23,14 +24,14 @@ pub mod statedb_service {
 
 #[derive(Debug, Default)]
 pub struct StateDBServiceSVC {
-    smt: Arc<Mutex<SMT>>,
+    smt: Arc<RwLock<SMT>>,
 }
 
 impl StateDBServiceSVC {
     pub fn new(url: String) -> Self {
         let db = Database::new(Some(url));
         StateDBServiceSVC {
-            smt: Arc::new(Mutex::new(SMT::new(db))),
+            smt: Arc::new(RwLock::new(SMT::new(db))),
         }
     }
 }
@@ -123,11 +124,8 @@ impl StateDbService for StateDBServiceSVC {
         let msg = request.get_ref();
         let root = fea_to_fr(msg.root.as_ref().unwrap());
         let key = fea_to_fr(msg.key.as_ref().unwrap());
-        let mut si = self.smt.lock().map_err(|e| {
-            error!("Get smt instance error due to data race, {:?}", e);
-            tonic::Status::resource_exhausted("SMT data race")
-        })?;
-        let r = si.get(&root, &key).unwrap();
+        let mut si = self.smt.write().await;
+        let r = si.get(&root, &key).await.unwrap();
         let reply = smt_get_result_to_proto(&r);
         Ok(Response::new(reply)) // Send back our formatted greeting
     }
@@ -143,11 +141,11 @@ impl StateDbService for StateDBServiceSVC {
         let old_root = fea_to_fr(msg.old_root.as_ref().unwrap());
         let key = fea_to_fr(msg.key.as_ref().unwrap());
         let new_value = str_to_biguint(&msg.value);
-        let mut si = self.smt.lock().map_err(|e| {
-            error!("Get smt instance error due to data race, {:?}", e);
-            tonic::Status::resource_exhausted("SMT data race")
-        })?;
-        let r = si.set(&old_root, &key, new_value, msg.persistent).unwrap();
+        let mut si = self.smt.write().await;
+        let r = si
+            .set(&old_root, &key, new_value, msg.persistent)
+            .await
+            .unwrap();
         let reply = smt_set_result_to_proto(&r);
         Ok(Response::new(reply)) // Send back our formatted greeting
     }
@@ -160,14 +158,11 @@ impl StateDbService for StateDBServiceSVC {
         debug!("Got a request: {:?}", request);
         let msg = request.get_ref();
 
-        let mut si = self.smt.lock().map_err(|e| {
-            error!("Get smt instance error due to data race, {:?}", e);
-            tonic::Status::resource_exhausted("SMT data race")
-        })?;
+        let mut si = self.smt.write().await;
         let key = fea_to_fr(msg.key.as_ref().unwrap());
         let key = h4_to_string(&key);
 
-        let r = si.db_mut().set_program(&key, &msg.data, true);
+        let r = si.db_mut().set_program(&key, &msg.data, true).await;
 
         let reply = SetProgramResponse {
             result: Some(ResultCode {
@@ -189,14 +184,11 @@ impl StateDbService for StateDBServiceSVC {
         debug!("Got a request: {:?}", request);
 
         let msg = request.get_ref();
-        let mut si = self.smt.lock().map_err(|e| {
-            error!("Get smt instance error due to data race, {:?}", e);
-            tonic::Status::resource_exhausted("SMT data race")
-        })?;
+        let mut si = self.smt.write().await;
         let key = fea_to_fr(msg.key.as_ref().unwrap());
         let key = h4_to_string(&key);
 
-        let r = si.db_mut().get_program(&key);
+        let r = si.db_mut().get_program(&key).await;
 
         let reply = match r {
             Ok(data) => GetProgramResponse {
@@ -227,15 +219,12 @@ impl StateDbService for StateDBServiceSVC {
         debug!("Got a request: {:?}", request);
 
         let msg = request.get_ref();
-        let mut si = self.smt.lock().map_err(|e| {
-            error!("Get smt instance error due to data race, {:?}", e);
-            tonic::Status::resource_exhausted("SMT data race")
-        })?;
+        let mut si = self.smt.write().await;
 
         for (k, v) in msg.input_db.iter() {
             // v is FeList: [u64]
             let felist = v.fe.iter().map(|e| Fr::from(*e)).collect();
-            si.db_mut().write(k, &felist, true).unwrap();
+            si.db_mut().write(k, &felist, true).await.unwrap();
         }
         Ok(Response::new(())) // Send back our formatted greeting
     }
@@ -248,13 +237,10 @@ impl StateDbService for StateDBServiceSVC {
         debug!("Got a request: {:?}", request);
 
         let msg = request.get_ref();
-        let mut si = self.smt.lock().map_err(|e| {
-            error!("Get smt instance error due to data race, {:?}", e);
-            tonic::Status::resource_exhausted("SMT data race")
-        })?;
+        let mut si = self.smt.write().await;
 
         for (k, v) in msg.input_program_db.iter() {
-            si.db_mut().write_program(k, v, true).unwrap();
+            si.db_mut().write_program(k, v, true).await.unwrap();
         }
 
         Ok(Response::new(())) // Send back our formatted greeting
