@@ -1,16 +1,14 @@
-#![allow(clippy::all)]
-#![allow(unknown_lints)]
 use log::{debug, error};
 use plonky::field_gl::Fr;
-use statedb::{
-    database::Database,
-    smt::{SmtGetResult, SmtSetResult, SMT},
-};
-use statedb_service::state_db_service_server::StateDbService;
-use statedb_service::{
+use proto::state_db_service_server::StateDbService;
+use proto::{
     result_code::Code, Fea, FlushResponse, GetProgramRequest, GetProgramResponse, GetRequest,
     GetResponse, LoadDbRequest, LoadProgramDbRequest, ResultCode, SetProgramRequest,
     SetProgramResponse, SetRequest, SetResponse, SiblingList,
+};
+use statedb::{
+    database::Database,
+    smt::{SmtGetResult, SmtSetResult, SMT},
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,18 +16,20 @@ use tokio::sync::RwLock;
 use tonic::{Request, Response, Status};
 use utils::scalar::{h4_to_string, str_to_biguint};
 
-pub mod statedb_service {
+pub mod proto {
     tonic::include_proto!("statedb.v1"); // The string specified here must match the proto package name
 }
 
 #[derive(Debug)]
-pub struct StateDBServiceSVC {
+pub struct StateDBServiceImpl {
+    db: Arc<Database>,
     smt: Arc<RwLock<SMT>>,
 }
 
-impl StateDBServiceSVC {
-    pub fn new(db: Database) -> Self {
-        StateDBServiceSVC {
+impl StateDBServiceImpl {
+    pub fn new(db: &Arc<Database>) -> Self {
+        StateDBServiceImpl {
+            db: Arc::clone(db),
             smt: Arc::new(RwLock::new(SMT::new(db))),
         }
     }
@@ -113,56 +113,50 @@ fn smt_set_result_to_proto(r: &SmtSetResult) -> SetResponse {
 }
 
 #[tonic::async_trait]
-impl StateDbService for StateDBServiceSVC {
-    async fn get(
-        &self,
-        request: Request<GetRequest>, // Accept request of type HelloRequest
-    ) -> Result<Response<GetResponse>, Status> {
-        // Return an instance of type HelloReply
+impl StateDbService for StateDBServiceImpl {
+    async fn get(&self, request: Request<GetRequest>) -> Result<Response<GetResponse>, Status> {
         debug!("Got a request: {:?}", request);
+
         let msg = request.get_ref();
         let root = fea_to_fr(msg.root.as_ref().unwrap());
         let key = fea_to_fr(msg.key.as_ref().unwrap());
+
         let mut si = self.smt.write().await;
         let r = si.get(&root, &key).await.unwrap();
         let reply = smt_get_result_to_proto(&r);
-        Ok(Response::new(reply)) // Send back our formatted greeting
+
+        Ok(Response::new(reply))
     }
 
-    async fn set(
-        &self,
-        request: Request<SetRequest>, // Accept request of type HelloRequest
-    ) -> Result<Response<SetResponse>, Status> {
-        // Return an instance of type HelloReply
+    async fn set(&self, request: Request<SetRequest>) -> Result<Response<SetResponse>, Status> {
         debug!("Got a request: {:?}", request);
-        let msg = request.get_ref();
 
+        let msg = request.get_ref();
         let old_root = fea_to_fr(msg.old_root.as_ref().unwrap());
         let key = fea_to_fr(msg.key.as_ref().unwrap());
         let new_value = str_to_biguint(&msg.value);
+
         let mut si = self.smt.write().await;
         let r = si
             .set(&old_root, &key, new_value, msg.persistent)
             .await
             .unwrap();
         let reply = smt_set_result_to_proto(&r);
-        Ok(Response::new(reply)) // Send back our formatted greeting
+
+        Ok(Response::new(reply))
     }
 
     async fn set_program(
         &self,
-        request: Request<SetProgramRequest>, // Accept request of type HelloRequest
+        request: Request<SetProgramRequest>,
     ) -> Result<Response<SetProgramResponse>, Status> {
-        // Return an instance of type HelloReply
         debug!("Got a request: {:?}", request);
-        let msg = request.get_ref();
 
-        let mut si = self.smt.write().await;
+        let msg = request.get_ref();
         let key = fea_to_fr(msg.key.as_ref().unwrap());
         let key = h4_to_string(&key);
 
-        let r = si.db_mut().set_program(&key, &msg.data, true).await;
-
+        let r = self.db.set_program(&key, &msg.data, true).await;
         let reply = SetProgramResponse {
             result: Some(ResultCode {
                 code: match r {
@@ -172,26 +166,23 @@ impl StateDbService for StateDBServiceSVC {
             }),
         };
 
-        Ok(Response::new(reply)) // Send back our formatted greeting
+        Ok(Response::new(reply))
     }
 
     async fn get_program(
         &self,
-        request: Request<GetProgramRequest>, // Accept request of type HelloRequest
+        request: Request<GetProgramRequest>,
     ) -> Result<Response<GetProgramResponse>, Status> {
-        // Return an instance of type HelloReply
         debug!("Got a request: {:?}", request);
 
         let msg = request.get_ref();
-        let mut si = self.smt.write().await;
         let key = fea_to_fr(msg.key.as_ref().unwrap());
         let key = h4_to_string(&key);
 
-        let r = si.db_mut().get_program(&key).await;
-
+        let r = self.db.get_program(&key).await;
         let reply = match r {
             Ok(data) => GetProgramResponse {
-                data: data,
+                data,
                 result: Some(ResultCode {
                     code: Code::Success.into(),
                 }),
@@ -207,49 +198,36 @@ impl StateDbService for StateDBServiceSVC {
             }
         };
 
-        Ok(Response::new(reply)) // Send back our formatted greeting
+        Ok(Response::new(reply))
     }
 
-    async fn load_db(
-        &self,
-        request: Request<LoadDbRequest>, // Accept request of type HelloRequest
-    ) -> Result<Response<()>, Status> {
-        // Return an instance of type HelloReply
+    async fn load_db(&self, request: Request<LoadDbRequest>) -> Result<Response<()>, Status> {
         debug!("Got a request: {:?}", request);
 
         let msg = request.get_ref();
-        let mut si = self.smt.write().await;
-
         for (k, v) in msg.input_db.iter() {
-            // v is FeList: [u64]
-            let felist = v.fe.iter().map(|e| Fr::from(*e)).collect();
-            si.db_mut().write(k, &felist, true).await.unwrap();
+            let fe_list = v.fe.iter().map(|e| Fr::from(*e)).collect();
+            self.db.write(k, &fe_list, true).await.unwrap();
         }
-        Ok(Response::new(())) // Send back our formatted greeting
+
+        Ok(Response::new(()))
     }
 
     async fn load_program_db(
         &self,
-        request: Request<LoadProgramDbRequest>, // Accept request of type HelloRequest
+        request: Request<LoadProgramDbRequest>,
     ) -> Result<Response<()>, Status> {
-        // Return an instance of type HelloReply
         debug!("Got a request: {:?}", request);
 
         let msg = request.get_ref();
-        let mut si = self.smt.write().await;
-
         for (k, v) in msg.input_program_db.iter() {
-            si.db_mut().write_program(k, v, true).await.unwrap();
+            self.db.write_program(k, v, true).await.unwrap();
         }
 
-        Ok(Response::new(())) // Send back our formatted greeting
+        Ok(Response::new(()))
     }
 
-    async fn flush(
-        &self,
-        request: Request<()>, // Accept request of type HelloRequest
-    ) -> Result<Response<FlushResponse>, Status> {
-        // Return an instance of type HelloReply
+    async fn flush(&self, request: Request<()>) -> Result<Response<FlushResponse>, Status> {
         debug!("Got a request: {:?}", request);
 
         let reply = FlushResponse {
@@ -258,6 +236,6 @@ impl StateDbService for StateDBServiceSVC {
             }),
         };
 
-        Ok(Response::new(reply)) // Send back our formatted greeting
+        Ok(Response::new(reply))
     }
 }

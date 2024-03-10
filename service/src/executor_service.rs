@@ -1,40 +1,41 @@
-#![allow(clippy::all)]
-#![allow(unknown_lints)]
-
-use executor_service::executor_service_server::ExecutorService;
-use executor_service::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse};
-use log::debug;
-use std::env as stdenv;
-//use models::*;
 use ethers_providers::{Http, Provider};
+use executor::batch_process;
+use log::debug;
+use proto::executor_service_server::ExecutorService;
+use proto::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse};
+use revm::primitives::ResultAndState;
+use statedb::database::Database;
+use std::env as stdenv;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
-pub mod executor_service {
+
+pub mod proto {
     tonic::include_proto!("executor.v1");
 }
-use executor::batch_process;
-use revm::primitives::ResultAndState;
+
 #[derive(Debug)]
-pub struct ExecutorServiceSVC {
+pub struct ExecutorServiceImpl {
     client: Arc<Provider<Http>>,
+    db: Arc<Database>,
 }
 
-impl ExecutorServiceSVC {
-    pub fn new() -> Self {
-        let url = std::env::var("URL").unwrap_or(String::from("http://localhost:8545"));
-        let client = Provider::<Http>::try_from(url).unwrap();
-        let client = Arc::new(client);
-        ExecutorServiceSVC { client }
+impl ExecutorServiceImpl {
+    pub fn new(client: &Arc<Provider<Http>>, db: &Arc<Database>) -> Self {
+        ExecutorServiceImpl {
+            client: Arc::clone(client),
+            db: Arc::clone(db),
+        }
     }
 }
 
 #[tonic::async_trait]
-impl ExecutorService for ExecutorServiceSVC {
+impl ExecutorService for ExecutorServiceImpl {
     async fn process_batch(
         &self,
         request: Request<ProcessBatchRequest>,
     ) -> Result<Response<ProcessBatchResponse>, Status> {
         debug!("Got a request: {:?}", request);
+
         let msg = request.get_ref();
         let batch_l2_data_result: Result<String, _> = String::from_utf8(msg.batch_l2_data.clone());
 
@@ -57,7 +58,8 @@ impl ExecutorService for ExecutorServiceSVC {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let (_res, cnt_chunks) = rt.block_on(async {
             batch_process(
-                self.client.clone(),
+                &self.client,
+                &self.db,
                 block_number,
                 chain_id.parse::<u64>().unwrap(),
                 &task,
@@ -67,7 +69,7 @@ impl ExecutorService for ExecutorServiceSVC {
             .await
         });
 
-        let mut response = executor_service::ProcessBatchResponse::default();
+        let mut response = proto::ProcessBatchResponse::default();
         let last_element = match _res {
             Ok(res) => {
                 response.error = ExecutorError::NoError.into();

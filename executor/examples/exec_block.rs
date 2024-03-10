@@ -7,16 +7,14 @@ use revm::db::{CacheDB, EmptyDB, EthersDB};
 use revm::inspectors::TracerEip3155;
 use revm::primitives::HashSet;
 use revm::primitives::{Address, ResultAndState, TransactTo, U256};
-use revm::{inspector_handle_register, Database, DatabaseCommit, Evm};
+use revm::{inspector_handle_register, Database as _, DatabaseCommit, Evm};
 use ruint::uint;
 use ruint::Uint;
-use std::env as stdenv;
+use statedb::database::{Database, DEFAULT_ROOT_KEY};
 use std::io::BufWriter;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
-
-use statedb::database::Database as StateDB;
 
 macro_rules! local_fill {
     ($left:expr, $right:expr, $fun:expr) => {
@@ -54,15 +52,20 @@ impl Write for FlushWriter {
 // Usage: NO=457 cargo run --release --example exec_block
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Create ethers client and wrap it in Arc<M>
-    //let client = Provider::<Http>::try_from(
-    //    "https://mainnet.infura.io/v3/c60b0bb42f8a4c6481ecd229eddaca27",
-    //)?;
-    let client = Provider::<Http>::try_from("http://localhost:8545").unwrap();
+    // Create a new state database connection pool
+    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let root_key = std::env::var("ROOT_KEY").unwrap_or(DEFAULT_ROOT_KEY.to_string());
+    let db = Arc::new(Database::new(&url, &root_key).await);
+
+    // Create a new Ethereum [`Provider`] HTTP client with the given URL.
+    let url = std::env::var("ETH_RPC_ENDPOINT").unwrap_or(String::from("http://localhost:8545"));
+    let client = Provider::<Http>::try_from(url)
+        .expect("Could not instantiate HTTP Provider to Ethereum JSON RPC API");
     let client = Arc::new(client);
+
     // Params
     let chain_id: u64 = 1;
-    let env_block_number = stdenv::var("NO").unwrap_or(String::from("0"));
+    let env_block_number = std::env::var("NO").unwrap_or(String::from("0"));
     let block_number: u64 = env_block_number.parse().unwrap();
 
     // Fetch the transaction-rich block
@@ -81,8 +84,6 @@ async fn main() -> anyhow::Result<()> {
     //let mut cache_db = CacheDB::new(ethersdb);
     let mut cache_db = CacheDB::new(EmptyDB::default());
     // get pre
-
-    let mut db = StateDB::new(None).await;
 
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());

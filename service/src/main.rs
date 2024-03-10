@@ -1,6 +1,4 @@
-#![allow(clippy::large_enum_variant)]
-#![allow(dead_code)]
-
+use std::sync::Arc;
 use tonic::transport::Server;
 mod aggregator_client;
 mod config;
@@ -10,8 +8,10 @@ mod state_service;
 #[macro_use]
 extern crate lazy_static;
 
-use crate::state_service::statedb_service::state_db_service_server::StateDbServiceServer;
-use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
+use ethers_providers::{Http, Provider};
+use executor_service::proto::executor_service_server::ExecutorServiceServer;
+use state_service::proto::state_db_service_server::StateDbServiceServer;
+use statedb::database::{Database, DEFAULT_ROOT_KEY};
 use tokio::{
     signal::unix::{signal, SignalKind},
     spawn,
@@ -28,9 +28,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let runtime_config = config::RuntimeConfig::from_toml(conf_path).expect("Config is missing");
     let addr = runtime_config.addr.as_str().parse()?;
 
-    let db = statedb::database::Database::new(None).await;
-    let sdb = crate::state_service::StateDBServiceSVC::new(db);
-    let executor = executor_service::ExecutorServiceSVC::new();
+    // Create a new state database connection pool
+    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let root_key = std::env::var("ROOT_KEY").unwrap_or(DEFAULT_ROOT_KEY.to_string());
+    let db = Arc::new(Database::new(&url, &root_key).await);
+
+    // Create a new Ethereum [`Provider`] HTTP client with the given URL.
+    let url = std::env::var("ETH_RPC_ENDPOINT").unwrap_or(String::from("http://localhost:8545"));
+    let client = Provider::<Http>::try_from(url)
+        .expect("Could not instantiate HTTP Provider to Ethereum JSON RPC API");
+    let client = Arc::new(client);
+
+    // Create service implementations
+    let sdb = state_service::StateDBServiceImpl::new(&db);
+    let executor = executor_service::ExecutorServiceImpl::new(&client, &db);
 
     log::info!("Launching sigterm handler");
     let (signal_tx, signal_rx) = oneshot::channel();
