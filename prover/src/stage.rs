@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Stage {
-    Batch(String, String),             // task_id, chunk_id
-    Aggregate(String, String, String), // task_id, input, input2
-    Final(String, String, String),     // task_id, curve, prover_addr
+    Batch(String, String),             // task_key, chunk_id
+    Aggregate(String, String, String), // task_key, input, input2
+    Final(String, String, String),     // task_key, curve, prover_addr
 }
 
 impl Stage {

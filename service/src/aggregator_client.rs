@@ -100,17 +100,16 @@ pub async fn run_client() -> Result<()> {
                     //let req_id = received.id.clone(); // execute_task_id_chunk_chunk_id
                     let execute_task_id = req.execute_task_id;
                     let chunk_id = req.chunk_id;
-                    let task_id = format!("{}_chunk_{}", execute_task_id, chunk_id);
-                    let result = match PIPELINE
+                    let (key, result) = match PIPELINE
                         .lock()
                         .unwrap()
                         .batch_prove(execute_task_id, chunk_id)
                     {
-                        Ok(_) => aggregator_service::Result::Ok,
-                        _ => aggregator_service::Result::Error,
+                        Ok(key) => (key, aggregator_service::Result::Ok),
+                        _ => ("".to_string(), aggregator_service::Result::Error),
                     };
                     prover_message::Response::GenBatchProofResponse(GenBatchProofResponse {
-                        id: task_id.to_string(),
+                        id: key,
                         result: result.into(),
                     })
                 }
@@ -135,16 +134,16 @@ pub async fn run_client() -> Result<()> {
                     // step 5: wrap the stark proof to snark, and goto step 3 again
                     let task_id = uuid::Uuid::new_v4();
                     let req_id = received.id.clone();
-                    let result = match PIPELINE.lock().unwrap().final_prove(
+                    let (key, result) = match PIPELINE.lock().unwrap().final_prove(
                         req_id.clone(),
                         req.recursive_proof.clone(),
                         req.aggregator_addr.clone(),
                     ) {
-                        Ok(_) => aggregator_service::Result::Ok,
-                        _ => aggregator_service::Result::Error,
+                        Ok(key) => (key, aggregator_service::Result::Ok),
+                        _ => (task_id.to_string(), aggregator_service::Result::Error),
                     };
                     prover_message::Response::GenFinalProofResponse(GenFinalProofResponse {
-                        id: task_id.to_string(),
+                        id: key,
                         result: result.into(),
                     })
                 }
