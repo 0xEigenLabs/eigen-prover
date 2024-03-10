@@ -132,6 +132,10 @@ impl Database {
         Ok(res)
     }
 
+    pub async fn write_nodes2(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
+        todo!()
+    }
+
     pub fn write_remote(
         &mut self,
         is_program: bool,

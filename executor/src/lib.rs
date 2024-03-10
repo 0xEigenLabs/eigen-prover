@@ -291,8 +291,9 @@ pub async fn batch_process(
             let new_account_slot_json =
                 serde_json::to_string(&account_slot).expect("Failed to serialize");
 
-            let write_res =
-                db.write_nodes(k.to_string().as_str(), new_account_slot_json.as_str(), true);
+            let write_res = db
+                .write_nodes2(k.to_string().as_str(), new_account_slot_json.as_str(), true)
+                .await;
             if write_res.is_err() {
                 log::error!("Failed to write nodes: {:?}", write_res);
             }
