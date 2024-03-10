@@ -53,15 +53,20 @@ impl ExecutorService for ExecutorServiceSVC {
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
-        let (_res, cnt_chunks) = batch_process(
-            self.client.clone(),
-            block_number,
-            chain_id.parse::<u64>().unwrap(),
-            &task,
-            execute_task_id.to_string().as_str(),
-            base_dir.as_str(),
-        )
-        .await;
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let (_res, cnt_chunks) = rt.block_on(async {
+            batch_process(
+                self.client.clone(),
+                block_number,
+                chain_id.parse::<u64>().unwrap(),
+                &task,
+                execute_task_id.to_string().as_str(),
+                base_dir.as_str(),
+            )
+            .await
+        });
+
         let mut response = executor_service::ProcessBatchResponse::default();
         let last_element = match _res {
             Ok(res) => {
