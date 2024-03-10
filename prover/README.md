@@ -59,13 +59,13 @@ basedir/
 ## Testing
 
 ```bash
-RUST_MIN_STACK=2073741821 RUST_BACKTRACE=1 RUST_LOG=debug \
-CIRCOMLIB=../executor/node_modules/circomlib/circuits \
-STARK_VERIFIER_GL=../executor/node_modules/pil-stark/circuits.gl \
-STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128 \
-cargo test --release integration_test -- --nocapture
+FORCE_BIT=22 RUST_MIN_STACK=2073741821 RUST_BACKTRACE=1 RUST_LOG=debug \
+    CIRCOMLIB=../executor/node_modules/circomlib/circuits \
+    STARK_VERIFIER_GL=../executor/node_modules/pil-stark/circuits.gl \
+    STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128 \
+    cargo test --release integration_test -- --nocapture
 ```
-
+Note that the `FORCE_BIT` can be adjusted as per to different circuits.
 Taking Fibonacci as an example, the recursive proof process is shown in the figure below.
 
 ![proving-architecture](../docs/proving-architecture.png)
