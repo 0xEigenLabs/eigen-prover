@@ -7,6 +7,7 @@ use plonky::Field;
 use starky::linearhash::LinearHash;
 use starky::traits::MTNodeType;
 use std::collections::HashMap;
+use std::sync::Arc;
 use utils::errors::Result;
 use utils::{fea2scalar, h4_to_scalar, h4_to_string, scalar2fe, scalar2fea};
 
@@ -40,18 +41,17 @@ pub struct SmtGetResult {
 // https://github.com/0xPolygonHermez/zkevm-commonjs/blob/v0.6.0.0/src/smt.js
 #[derive(Debug)]
 pub struct SMT {
-    db: Database,
+    db: Arc<Database>,
 }
 
 impl SMT {
     pub const EMPTY: [Fr; 4] = [Fr::ZERO, Fr::ZERO, Fr::ZERO, Fr::ZERO];
     pub const ONE: [Fr; 4] = [Fr::ONE, Fr::ZERO, Fr::ZERO, Fr::ZERO];
-    pub fn new(db: Database) -> Self {
-        SMT { db }
+
+    pub fn new(db: &Arc<Database>) -> Self {
+        SMT { db: Arc::clone(db) }
     }
-    pub fn db_mut(&mut self) -> &mut Database {
-        &mut self.db
-    }
+
     pub async fn set(
         &mut self,
         old_root: &[Fr; 4],
@@ -705,15 +705,21 @@ impl SMT {
 
 #[cfg(test)]
 mod tests {
+    use crate::database::DEFAULT_ROOT_KEY;
+
     use super::*;
     use num_traits::Num;
     use utils::*;
 
     async fn setup() -> SMT {
-        // export DATABASE_URL="postgresql://root:password@127.0.0.1:5432/state"
         env_logger::try_init().unwrap_or_default();
-        let db = Database::new(None).await;
-        SMT::new(db)
+
+        // Create a new state database connection pool
+        let url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let root_key = std::env::var("ROOT_KEY").unwrap_or(DEFAULT_ROOT_KEY.to_string());
+        let db = Arc::new(Database::new(&url, &root_key).await);
+
+        SMT::new(&db)
     }
 
     #[tokio::test]

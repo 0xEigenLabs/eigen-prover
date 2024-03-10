@@ -11,12 +11,11 @@ use revm::{
     inspectors::TracerEip3155,
     //interpreter::gas::ZERO,
     primitives::{Address, Bytes, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256},
-    Database,
+    Database as _,
     DatabaseCommit,
     Evm,
 };
 use ruint::uint;
-//use models::*;
 use ruint::Uint;
 use std::sync::Arc;
 extern crate alloc;
@@ -24,7 +23,7 @@ use std::path::Path;
 use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
 
-use statedb::database::Database as StateDB;
+use statedb::database::Database;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 
@@ -42,15 +41,14 @@ macro_rules! local_fill {
 }
 
 pub async fn batch_process(
-    client: Arc<Provider<Http>>,
+    client: &Arc<Provider<Http>>,
+    db: &Arc<Database>,
     block_number: u64,
     chain_id: u64,
     task: &str,
     task_id: &str,
     base_dir: &str,
 ) -> (ExecResult, usize) {
-    //let client = Provider::<Http>::try_from(url).unwrap();
-    //let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
         Ok(Some(block)) => block,
         Ok(None) => panic!("Block not found"),
@@ -59,14 +57,11 @@ pub async fn batch_process(
 
     log::info!("Fetched block number: {:?}", block.number.unwrap());
     let previous_block_number = block_number - 1;
-
     let prev_id: BlockId = previous_block_number.into();
+
     // SAFETY: This cannot fail since this is in the top-level tokio runtime
-    let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
-
+    let mut ethersdb = EthersDB::new(Arc::clone(client), Some(prev_id)).unwrap();
     let mut cache_db = CacheDB::new(EmptyDB::default());
-
-    let mut db = StateDB::new(None).await;
 
     let mut test_pre = HashMap::new();
     for tx in &block.transactions {

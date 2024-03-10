@@ -1,8 +1,13 @@
-use statedb::database::Database;
+use std::sync::Arc;
+
+use statedb::database::{Database, DEFAULT_ROOT_KEY};
 
 #[tokio::main]
 async fn main() {
-    let mut db = Database::new(None).await;
+    // Create a new state database connection pool
+    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let root_key = std::env::var("ROOT_KEY").unwrap_or(DEFAULT_ROOT_KEY.to_string());
+    let db = Arc::new(Database::new(&url, &root_key).await);
 
     let key = "name".to_string();
     let res = db.read_program(&key).await;

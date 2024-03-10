@@ -1,16 +1,20 @@
 use crate::models::{Node, Program};
+
 use anyhow::bail;
+use log::debug;
 use plonky::field_gl::Fr;
 use plonky::to_hex;
 use sqlx::{any::AnyPoolOptions, Any, Pool};
-use std::env;
 use utils::{
     errors::{EigenError, Result},
     scalar::{h4_to_string, normalize_to_n_format, prepend_zeros},
 };
 
-const DEFAULT_ROOT_KEY: &str = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+pub const DEFAULT_ROOT_KEY: &str =
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
+/// The [Database] is a wrapper around the database connection pool
+/// and provides methods to connect or disconnect to the database.
 pub struct Database {
     /// The database connection pool
     pool: Pool<Any>,
@@ -21,34 +25,21 @@ pub struct Database {
 }
 
 impl Database {
-    pub async fn new(url: Option<String>) -> Self {
-        let url = url.unwrap_or(env::var("DATABASE_URL").expect("DATABASE_URL must be set"));
-        let key = env::var("ROOT_KEY").unwrap_or(DEFAULT_ROOT_KEY.to_string());
-
-        let pool = AnyPoolOptions::new()
-            .connect(&url)
-            .await
-            .expect("Could not build connection pool");
-
-        // Acquire a connection
-        pool.acquire().await.expect("Could not acquire connection");
-
-        Database { url, pool, key }
+    /// Create a new database connection pool
+    pub async fn new(url: &str, root_key: &str) -> Self {
+        Database {
+            url: String::from(url),
+            pool: AnyPoolOptions::new()
+                .connect(url)
+                .await
+                .expect("Could not build connection pool"),
+            key: String::from(root_key),
+        }
     }
 
-    pub async fn read_program(&mut self, key: &str) -> Result<String> {
-        log::debug!("read nodes: {}", key);
-        // let key: Vec<u8> = key.into();
-        // let result = program
-        //     .find(key)
-        //     .select(Program::as_select())
-        //     .first(&mut self.pool.get().unwrap())
-        //     .optional();
-        // match result {
-        //     Ok(Some(pg)) => Ok(String::from_utf8_lossy(&pg.data).to_string()),
-        //     Ok(None) => bail!(EigenError::DatabaseError(diesel::NotFound)),
-        //     Err(e) => bail!(EigenError::DatabaseError(e)),
-        // }
+    /// Read the program from the database by the given key
+    pub async fn read_program(&self, key: &str) -> Result<String> {
+        debug!("read program: {}", key);
 
         let key: Vec<u8> = key.into();
         let result = sqlx::query_as::<_, Program>("SELECT * FROM programs WHERE hash = ?")
@@ -62,19 +53,10 @@ impl Database {
         }
     }
 
-    pub async fn read_nodes(&mut self, key: &str) -> Result<String> {
+    /// Read the nodes from the database by the given key
+    pub async fn read_nodes(&self, key: &str) -> Result<String> {
         log::debug!("read nodes: {}", key);
-        // let key: Vec<u8> = key.into();
-        // let result = nodes
-        //     .find(key)
-        //     .select(Nodes::as_select())
-        //     .first(&mut self.pool.get().unwrap())
-        //     .optional();
-        // match result {
-        //     Ok(Some(pg)) => Ok(String::from_utf8_lossy(&pg.data).to_string()),
-        //     Ok(None) => bail!(EigenError::DatabaseError(diesel::NotFound)),
-        //     Err(e) => bail!(EigenError::DatabaseError(e)),
-        // }
+
         let key: Vec<u8> = key.into();
         let result = sqlx::query_as::<_, Node>("SELECT * FROM nodes WHERE hash = ?")
             .bind(key)
@@ -87,148 +69,86 @@ impl Database {
         }
     }
 
-    pub async fn read_remote(&mut self, is_program: bool, key: &str) -> Result<String> {
-        // match is_program {
-        //     true => self.read_program(key).await,
-        //     _ => self.read_nodes(key).await,
-        // }
-        if is_program {
-            self.read_program(key).await
-        } else {
-            self.read_nodes(key).await
-        }
-    }
+    /// Write the program to the database with the given key and value
+    pub async fn write_program(&self, key: &str, value: &Vec<u8>, update: bool) -> Result<usize> {
+        log::debug!("write program: {}=>{:?}", key, value);
 
-    pub async fn write_program(
-        &mut self,
-        key: &str,
-        value: &Vec<u8>,
-        update: bool,
-    ) -> Result<usize> {
-        // let new_pro = Program {
-        //     hash: key.to_string().into(),
-        //     data: value.clone(),
-        // };
-        // log::debug!("write program: {}=>{:?}", key, value);
-        // let res = match update {
-        //     true => diesel::insert_into(program)
-        //         .values(&new_pro)
-        //         .on_conflict(crate::schema::state::program::hash)
-        //         .do_update()
-        //         .set(&new_pro)
-        //         .execute(&mut self.pool.get().unwrap())?,
-        //     _ => diesel::insert_into(program)
-        //         .values(&new_pro)
-        //         .on_conflict_do_nothing()
-        //         .execute(&mut self.pool.get().unwrap())?,
-        // };
-        // Ok(res)
         let new_pro = Program {
             hash: key.to_string().into(),
             data: value.clone(),
         };
 
-        log::debug!("write program: {}=>{:?}", key, value);
-        let result = match update {
-            true => sqlx::query(
+        let result = if update {
+            sqlx::query(
                 "INSERT INTO programs (hash, data) VALUES ($1, $2) ON CONFLICT (hash) DO UPDATE SET data = $2",
             )
             .bind(&new_pro.hash)
             .bind(&new_pro.data)
             .execute(&self.pool)
             .await
-            .map_err(EigenError::DatabaseError)?,
-            _ => sqlx::query(
+            .map_err(EigenError::DatabaseError)?
+        } else {
+            sqlx::query(
                 "INSERT INTO programs (hash, data) VALUES ($1, $2) ON CONFLICT (hash) DO NOTHING",
             )
             .bind(&new_pro.hash)
             .bind(&new_pro.data)
             .execute(&self.pool)
             .await
-            .map_err(EigenError::DatabaseError)?,
+            .map_err(EigenError::DatabaseError)?
         };
 
         Ok(result.rows_affected() as usize)
     }
 
-    pub async fn write_nodes(&mut self, key: &str, value: &str, update: bool) -> Result<usize> {
+    /// Write the nodes to the database with the given key and value
+    pub async fn write_nodes(&self, key: &str, value: &str, update: bool) -> Result<usize> {
         log::debug!("write node: {}=>{}", key, value);
+
         let new_pro = Node {
             hash: key.to_string().into(),
             data: value.to_string().into(),
         };
-        // let res = match update {
-        //     true => diesel::insert_into(nodes)
-        //         .values(&new_pro)
-        //         .on_conflict(crate::schema::state::nodes::hash)
-        //         .do_update()
-        //         .set(&new_pro)
-        //         .execute(&mut self.pool.get().unwrap())?,
-        //     _ => diesel::insert_into(nodes)
-        //         .values(&new_pro)
-        //         .on_conflict_do_nothing()
-        //         .execute(&mut self.pool.get().unwrap())?,
-        // };
-        // Ok(res)
 
-        let result = match update {
-            true => sqlx::query(
+        let result = if update {
+            sqlx::query(
                 "INSERT INTO nodes (hash, data) VALUES ($1, $2) ON CONFLICT (hash) DO UPDATE SET data = $2",
             )
             .bind(&new_pro.hash)
             .bind(&new_pro.data)
             .execute(&self.pool)
             .await
-            .map_err(EigenError::DatabaseError)?,
-            _ => sqlx::query(
+            .map_err(EigenError::DatabaseError)?
+        } else {
+            sqlx::query(
                 "INSERT INTO nodes (hash, data) VALUES ($1, $2) ON CONFLICT (hash) DO NOTHING",
             )
             .bind(&new_pro.hash)
             .bind(&new_pro.data)
             .execute(&self.pool)
             .await
-            .map_err(EigenError::DatabaseError)?,
+            .map_err(EigenError::DatabaseError)?
         };
 
         Ok(result.rows_affected() as usize)
     }
 
-    pub async fn write_remote(
-        &mut self,
-        is_program: bool,
-        key: &str,
-        value: &str,
-        update: bool,
-    ) -> Result<usize> {
-        // match is_program {
-        //     true => {
-        //         self.write_program(key, &value.to_string().into(), update)
-        //             .await
-        //     }
-        //     _ => self.write_nodes(key, value, update).await,
-        // }
-        if is_program {
-            self.write_program(key, &value.to_string().into(), update)
-                .await
-        } else {
-            self.write_nodes(key, value, update).await
-        }
-    }
-
-    pub async fn write(&mut self, key: &str, value: &Vec<Fr>, update: bool) -> Result<usize> {
+    /// Write the nodes to the database with the given key and value
+    pub async fn write(&self, key: &str, value: &Vec<Fr>, update: bool) -> Result<usize> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
         let mut value_str = String::from("");
         for v in value {
             value_str.push_str(&prepend_zeros(&to_hex(v), 16));
         }
         log::debug!("write: {} => {}", key, value_str);
-        self.write_remote(false, &key, &value_str, update).await
+        self.write_nodes(&key, &value_str, update).await
     }
 
-    pub async fn read(&mut self, key: &[Fr; 4]) -> Result<Vec<Fr>> {
+    /// Read the nodes from the database by the given key
+    pub async fn read(&self, key: &[Fr; 4]) -> Result<Vec<Fr>> {
         let key = h4_to_string(key);
         let key = normalize_to_n_format(&key, 64).to_lowercase();
-        let s_data = self.read_remote(false, &key).await?;
+        let s_data = self.read_nodes(&key).await?;
         log::debug!("read: {} => {}", key, s_data);
 
         assert_eq!(s_data.len() % 16, 0);
@@ -241,15 +161,17 @@ impl Database {
         Ok(res)
     }
 
-    pub async fn set_program(&mut self, key: &str, data: &Vec<u8>, update: bool) -> Result<usize> {
+    /// Set program with the given key and data
+    pub async fn set_program(&self, key: &str, data: &Vec<u8>, update: bool) -> Result<usize> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
-        self.write_remote(true, &key, &hex::encode(data), update)
+        self.write_program(&key, &hex::encode(data).into(), update)
             .await
     }
 
-    pub async fn get_program(&mut self, key: &str) -> Result<Vec<u8>> {
+    /// Get program with the given key
+    pub async fn get_program(&self, key: &str) -> Result<Vec<u8>> {
         let key = normalize_to_n_format(key, 64).to_lowercase();
-        let hex_data = self.read_remote(true, &key).await?;
+        let hex_data = self.read_program(&key).await?;
         Ok(hex::decode(hex_data)?)
     }
 }
