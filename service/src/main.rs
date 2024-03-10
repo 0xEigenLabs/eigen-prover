@@ -9,9 +9,10 @@ mod state_service;
 extern crate lazy_static;
 
 use ethers_providers::{Http, Provider};
-use executor_service::proto::executor_service_server::ExecutorServiceServer;
-use state_service::proto::state_db_service_server::StateDbServiceServer;
-use statedb::database::{Database, DEFAULT_ROOT_KEY};
+use proto::executor::executor_service_server::ExecutorServiceServer;
+use proto::state::state_service_server::StateServiceServer;
+use state::database::{Database, DEFAULT_ROOT_KEY};
+
 use tokio::{
     signal::unix::{signal, SignalKind},
     spawn,
@@ -23,6 +24,7 @@ use tokio::{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
+
     let conf_path = std::env::var("CONF_DIR").unwrap_or("conf".to_string());
     let conf_path = std::path::Path::new(&conf_path).join("base_config.toml");
     let runtime_config = config::RuntimeConfig::from_toml(conf_path).expect("Config is missing");
@@ -40,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Arc::new(client);
 
     // Create service implementations
-    let sdb = state_service::StateDBServiceImpl::new(&db);
+    let sdb = state_service::StateServiceImpl::new(&db);
     let executor = executor_service::ExecutorServiceImpl::new(&client, &db);
 
     log::info!("Launching sigterm handler");
@@ -96,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("StateDB service and Executor service Listening on {}", addr);
 
     Server::builder()
-        .add_service(StateDbServiceServer::new(sdb))
+        .add_service(StateServiceServer::new(sdb))
         .add_service(ExecutorServiceServer::new(executor))
         .serve_with_shutdown(addr, async {
             signal_rx.await.ok();

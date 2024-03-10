@@ -1,5 +1,5 @@
 use log::error;
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use std::fs;
 use std::path::Path;
 

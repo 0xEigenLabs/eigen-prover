@@ -1,24 +1,20 @@
 use anyhow::Result;
-use statedb_service::state_db_service_client::StateDbServiceClient;
-use statedb_service::{
+use proto::state::state_service_client::StateServiceClient;
+use proto::state::{
     Fea, FlushResponse, GetProgramRequest, GetProgramResponse, GetRequest, GetResponse,
     SetProgramRequest, SetProgramResponse, SetRequest, SetResponse,
 };
 use tonic::transport::Channel;
 use tonic::Response;
 
-pub mod statedb_service {
-    tonic::include_proto!("statedb.v1");
+pub struct StateClient {
+    client: StateServiceClient<Channel>,
 }
 
-pub struct StateDBClientCli {
-    client: StateDbServiceClient<Channel>,
-}
-
-impl StateDBClientCli {
+impl StateClient {
     pub async fn new(addr: String) -> Result<Self> {
-        let client = StateDbServiceClient::connect(addr.clone()).await?;
-        Ok(StateDBClientCli { client })
+        let client = StateServiceClient::connect(addr.clone()).await?;
+        Ok(StateClient { client })
     }
 
     pub async fn get(mut self, root: Fea, key: Fea) -> Result<Response<GetResponse>> {

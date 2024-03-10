@@ -1,17 +1,16 @@
 use ethers_providers::{Http, Provider};
 use executor::batch_process;
 use log::debug;
-use proto::executor_service_server::ExecutorService;
-use proto::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse};
+use proto::executor::{
+    executor_service_server::ExecutorService,
+    ExecutorError, ProcessBatchRequest, ProcessBatchResponse
+};
 use revm::primitives::ResultAndState;
-use statedb::database::Database;
+use state::database::Database;
 use std::env as stdenv;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
-pub mod proto {
-    tonic::include_proto!("executor.v1");
-}
 
 #[derive(Debug)]
 pub struct ExecutorServiceImpl {
@@ -69,7 +68,7 @@ impl ExecutorService for ExecutorServiceImpl {
             .await
         });
 
-        let mut response = proto::ProcessBatchResponse::default();
+        let mut response = ProcessBatchResponse::default();
         let last_element = match _res {
             Ok(res) => {
                 response.error = ExecutorError::NoError.into();

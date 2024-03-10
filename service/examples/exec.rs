@@ -1,9 +1,6 @@
-use executor_service::executor_service_client::ExecutorServiceClient;
-use executor_service::{ExecutorError, ProcessBatchRequest};
-
-pub mod executor_service {
-    tonic::include_proto!("executor.v1");
-}
+use proto::executor::{
+    executor_service_client::ExecutorServiceClient, ExecutorError, ProcessBatchRequest,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
