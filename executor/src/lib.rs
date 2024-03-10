@@ -1,25 +1,21 @@
 #![allow(clippy::redundant_closure)]
-use alloc::collections::BTreeMap;
+use std::collections::BTreeMap;
 use anyhow::Result;
 use ethers_core::types::BlockId;
 use ethers_providers::{Http, Middleware, Provider};
 use powdr_number::FieldElement;
 use revm::primitives::HashSet;
 use revm::{
-    db::{CacheDB, EmptyDB, EthersDB},
+    db::{CacheDB, EmptyDB, EthersDB, PlainAccount},
     inspector_handle_register,
     inspectors::TracerEip3155,
-    //interpreter::gas::ZERO,
-    primitives::{Address, Bytes, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256},
+    primitives::{Address, Bytes, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256, Storage, StorageSlot},
     Database,
     DatabaseCommit,
     Evm,
 };
-use ruint::uint;
-//use models::*;
-use ruint::Uint;
+use ruint::{uint, Uint};
 use std::sync::Arc;
-extern crate alloc;
 use std::path::Path;
 use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
@@ -27,6 +23,8 @@ use zkvm::zkvm_evm_generate_chunks;
 use statedb::database::Database as StateDB;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
+mod merkle_trie;
+use merkle_trie::state_merkle_trie_root;
 
 macro_rules! local_fill {
     ($left:expr, $right:expr, $fun:expr) => {
@@ -39,6 +37,10 @@ macro_rules! local_fill {
             $left = Address::from(right.as_fixed_bytes())
         }
     };
+}
+
+fn new_storage(storage: &Storage) -> HashMap<U256, U256> {
+    storage.iter().map(|(k, v)| { (*k, v.present_value) }).collect()
 }
 
 pub async fn batch_process(
@@ -78,7 +80,7 @@ pub async fn batch_process(
             balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
             nonce: acc_info.nonce,
-            // TODO: fill storage
+            // FIXME: fill in the storage
             storage: HashMap::new(),
         };
         test_pre.insert(from_acc, account_info);
@@ -314,9 +316,6 @@ pub async fn batch_process(
             );
             log::info!("output: {:?}", result.output());
 
-            // TODO: hash: B256, // post state root
-            //let hash = serde_json::to_vec(&state).unwrap();
-            //println!("hash: {:?}", state);
             // post_state: HashMap<Address, AccountInfo>,
             log::info!("post_state: {:?}", state);
             // logs: B256,
@@ -326,6 +325,7 @@ pub async fn batch_process(
 
             let mut new_state: HashMap<Address, models::AccountInfo> = HashMap::new();
 
+            let mut plain_accounts = vec![];
             for (address, account) in state.iter() {
                 let account_info = models::AccountInfo {
                     balance: account.info.balance,
@@ -336,17 +336,22 @@ pub async fn batch_process(
                         .map(|code| code.bytecode)
                         .unwrap_or_default(),
                     nonce: account.info.nonce,
-                    // TODO: fill storage
-                    storage: HashMap::new(),
+                    storage: new_storage(&account.storage),
                 };
 
                 new_state.insert(*address, account_info);
+                plain_accounts.push((*address, PlainAccount {
+                    info: account.info.clone(),
+                    storage: new_storage(&account.storage),
+                }));
             }
 
             let post_value = test_post
                 .entry(models::SpecName::Shanghai)
                 .or_insert_with(|| Vec::new());
             let mut new_post_value = std::mem::take(post_value);
+
+            let state_root = state_merkle_trie_root(plain_accounts);
             new_post_value.push(models::Test {
                 expect_exception: None,
                 indexes: models::TxPartIndices {
@@ -358,8 +363,7 @@ pub async fn batch_process(
                 // TODO: fill logs
                 logs: FixedBytes::default(),
                 txbytes: Some(Bytes::from_iter(txbytes)),
-                // TODO: fill hash
-                hash: FixedBytes::default(),
+                hash: state_root,
             });
 
             test_post.insert(

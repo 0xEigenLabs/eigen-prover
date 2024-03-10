@@ -20,11 +20,18 @@ powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main
 powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main" }
 powdr-backend =        { git = "https://github.com/eigmax/powdr", branch = "main" }
 
+statedb = { path = "../statedb" }
+
 zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
 models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
 hex = "0.4.3"
-
-statedb = { path = "../statedb" }
+alloy-rlp = { version = "0.3", default-features = false, features = [
+    "arrayvec",
+    "derive",
+] }
+triehash = "0.8"
+plain_hasher = "0.2"
+hash-db = "0.15"
 
 ethers-providers = { version = "2.0", features = ["ws"] }
 ethers-core = { version = "2.0" }
