@@ -66,7 +66,7 @@ pub async fn batch_process(
 
     let mut cache_db = CacheDB::new(EmptyDB::default());
 
-    let mut db = StateDB::new(None);
+    let mut db = StateDB::new(None).await;
 
     let mut test_pre = HashMap::new();
     for tx in &block.transactions {

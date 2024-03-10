@@ -38,7 +38,7 @@ pub struct SmtGetResult {
 }
 
 // https://github.com/0xPolygonHermez/zkevm-commonjs/blob/v0.6.0.0/src/smt.js
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct SMT {
     db: Database,
 }
@@ -659,7 +659,7 @@ impl SMT {
         }
         db_value.append(&mut [Fr::ZERO; 8].to_vec());
         self.db
-            .write(&self.db.db_state_root_key.to_string(), &db_value, true)
+            .write(&self.db.key.to_string(), &db_value, true)
             .await
     }
 
@@ -709,16 +709,16 @@ mod tests {
     use num_traits::Num;
     use utils::*;
 
-    fn setup() -> SMT {
+    async fn setup() -> SMT {
         // export DATABASE_URL="postgresql://root:password@127.0.0.1:5432/state"
         env_logger::try_init().unwrap_or_default();
-        let db = Database::new(None);
+        let db = Database::new(None).await;
         SMT::new(db)
     }
 
-    #[test]
-    fn test_smt_join_and_split_key() {
-        let mut smt = setup();
+    #[tokio::test]
+    async fn test_smt_join_and_split_key() {
+        let mut smt = setup().await;
         let key = BigUint::from_str_radix(
             "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
             16,
@@ -737,9 +737,9 @@ mod tests {
         assert_eq!(key, key_r_str);
     }
 
-    #[test]
-    fn test_join_key_overflow() {
-        let mut smt = setup();
+    #[tokio::test]
+    async fn test_join_key_overflow() {
+        let mut smt = setup().await;
 
         let rkey = [
             Fr::from(0xf3efdf4a91164c36),
@@ -754,7 +754,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_and_remove() {
-        let mut smt = setup();
+        let mut smt = setup().await;
         let sca = scalar_to_h4(&BigUint::from(123u64));
         let val = BigUint::from(123u64);
         let r1 = smt.set(&SMT::EMPTY, &sca, val.clone(), true).await.unwrap();
@@ -769,7 +769,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mult_update() {
-        let mut smt = setup();
+        let mut smt = setup().await;
         let sca = scalar_to_h4(&BigUint::from(123u64));
         let val = BigUint::from(123u64);
         let val2 = BigUint::from(1234u64);
@@ -781,7 +781,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_shared_element_2() {
-        let mut smt = setup();
+        let mut smt = setup().await;
         let sca = scalar_to_h4(&BigUint::from(7u64));
         let val = BigUint::from(2u64);
         let r1 = smt.set(&SMT::EMPTY, &sca, val, true).await.unwrap();
@@ -803,7 +803,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_shared_element_3() {
-        let mut smt = setup();
+        let mut smt = setup().await;
         let sca = scalar_to_h4(&BigUint::from(7u64));
         let val = BigUint::from(123u64);
         let r1 = smt.set(&SMT::EMPTY, &sca, val, true).await.unwrap();
@@ -833,7 +833,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_and_remove_n() {
-        let mut smt = setup();
+        let mut smt = setup().await;
         let n = 128;
         // dummy result
         let mut r = SmtSetResult {
@@ -866,7 +866,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_smt_set_and_get() {
-        let mut smt = setup();
+        let mut smt = setup().await;
 
         let old_root = [Fr::ZERO; 4];
         let key = [Fr::ONE; 4];

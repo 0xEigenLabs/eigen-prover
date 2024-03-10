@@ -2,7 +2,8 @@ use statedb::database::Database;
 
 #[tokio::main]
 async fn main() {
-    let mut db = Database::new(None);
+    let mut db = Database::new(None).await;
+
     let key = "name".to_string();
     let res = db.read_program(&key).await;
     println!("read program: {} {:?}", key, res);
