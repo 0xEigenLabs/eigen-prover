@@ -5,12 +5,12 @@ use tonic::transport::Server;
 mod aggregator_client;
 mod config;
 mod executor_service;
-mod statedb;
+mod state_service;
 
 #[macro_use]
 extern crate lazy_static;
 
-use crate::statedb::statedb_service::state_db_service_server::StateDbServiceServer;
+use crate::state_service::statedb_service::state_db_service_server::StateDbServiceServer;
 use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
 use tokio::{
     signal::unix::{signal, SignalKind},
@@ -28,7 +28,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let runtime_config = config::RuntimeConfig::from_toml(conf_path).expect("Config is missing");
     let addr = runtime_config.addr.as_str().parse()?;
 
-    let sdb = crate::statedb::StateDBServiceSVC::default();
+    let db = statedb::database::Database::new(None).await;
+    let sdb = crate::state_service::StateDBServiceSVC::new(db);
     let executor = executor_service::ExecutorServiceSVC::new();
 
     log::info!("Launching sigterm handler");

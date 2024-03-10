@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
     let mut cache_db = CacheDB::new(EmptyDB::default());
     // get pre
 
-    let mut db = StateDB::new(None);
+    let mut db = StateDB::new(None).await;
 
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());

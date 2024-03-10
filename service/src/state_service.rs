@@ -22,14 +22,13 @@ pub mod statedb_service {
     tonic::include_proto!("statedb.v1"); // The string specified here must match the proto package name
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct StateDBServiceSVC {
     smt: Arc<RwLock<SMT>>,
 }
 
 impl StateDBServiceSVC {
-    pub fn new(url: String) -> Self {
-        let db = Database::new(Some(url));
+    pub fn new(db: Database) -> Self {
         StateDBServiceSVC {
             smt: Arc::new(RwLock::new(SMT::new(db))),
         }

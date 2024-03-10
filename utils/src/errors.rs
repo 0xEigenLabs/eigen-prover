@@ -34,7 +34,7 @@ pub enum EigenError {
     FriVerifierFailed,
 
     #[error("database failure")]
-    DatabaseError(#[from] diesel::result::Error),
+    DatabaseError(#[from] sqlx::Error),
 
     #[error("Unknown error, `{0}`")]
     Unknown(String),
