@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let runtime_config = config::RuntimeConfig::from_toml(conf_path).expect("Config is missing");
     let addr = runtime_config.addr.as_str().parse()?;
 
-    let sdb = crate::statedb::StateDBServiceSVC::default();
+    // let sdb = crate::statedb::StateDBServiceSVC::default();
     let executor = executor_service::ExecutorServiceSVC::new();
 
     log::info!("Launching sigterm handler");
@@ -86,7 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("StateDB service and Executor service Listening on {}", addr);
 
     Server::builder()
-        .add_service(StateDbServiceServer::new(sdb))
+        // .add_service(StateDbServiceServer::new(sdb))
         .add_service(ExecutorServiceServer::new(executor))
         .serve_with_shutdown(addr, async {
             signal_rx.await.ok();
