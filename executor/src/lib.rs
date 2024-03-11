@@ -1,5 +1,4 @@
 #![allow(clippy::redundant_closure)]
-use std::collections::BTreeMap;
 use anyhow::Result;
 use ethers_core::types::BlockId;
 use ethers_providers::{Http, Middleware, Provider};
@@ -9,14 +8,16 @@ use revm::{
     db::{CacheDB, EmptyDB, EthersDB, PlainAccount},
     inspector_handle_register,
     inspectors::TracerEip3155,
-    primitives::{Address, Bytes, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256, Storage, StorageSlot},
-    Database,
-    DatabaseCommit,
-    Evm,
+    primitives::{
+        Address, Bytes, FixedBytes, HashMap, ResultAndState, Storage, StorageSlot, TransactTo,
+        B256, U256,
+    },
+    Database, DatabaseCommit, Evm,
 };
 use ruint::{uint, Uint};
-use std::sync::Arc;
+use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Arc;
 use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
 
@@ -40,7 +41,7 @@ macro_rules! local_fill {
 }
 
 fn new_storage(storage: &Storage) -> HashMap<U256, U256> {
-    storage.iter().map(|(k, v)| { (*k, v.present_value) }).collect()
+    storage.iter().map(|(k, v)| (*k, v.present_value)).collect()
 }
 
 pub async fn batch_process(
@@ -340,10 +341,13 @@ pub async fn batch_process(
                 };
 
                 new_state.insert(*address, account_info);
-                plain_accounts.push((*address, PlainAccount {
-                    info: account.info.clone(),
-                    storage: new_storage(&account.storage),
-                }));
+                plain_accounts.push((
+                    *address,
+                    PlainAccount {
+                        info: account.info.clone(),
+                        storage: new_storage(&account.storage),
+                    },
+                ));
             }
 
             let post_value = test_post

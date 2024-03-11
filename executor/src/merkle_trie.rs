@@ -1,13 +1,13 @@
 #![allow(clippy::redundant_closure)]
 use revm::{
-    db::{PlainAccount},
-    primitives::{Address, B256, U256, keccak256},
+    db::PlainAccount,
+    primitives::{keccak256, Address, B256, U256},
 };
 
 use alloy_rlp::{RlpEncodable, RlpMaxEncodedLen};
-use triehash::sec_trie_root;
 use hash_db::Hasher;
 use plain_hasher::PlainHasher;
+use triehash::sec_trie_root;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct KeccakHasher;
@@ -57,9 +57,7 @@ where
     sec_trie_root::<KeccakHasher, _, _, _>(input)
 }
 
-pub fn state_merkle_trie_root(
-    accounts: impl IntoIterator<Item = (Address, PlainAccount)>,
-) -> B256 {
+pub fn state_merkle_trie_root(accounts: impl IntoIterator<Item = (Address, PlainAccount)>) -> B256 {
     trie_root(accounts.into_iter().map(|(address, acc)| {
         (
             address,
@@ -67,4 +65,3 @@ pub fn state_merkle_trie_root(
         )
     }))
 }
-
