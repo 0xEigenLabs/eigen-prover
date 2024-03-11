@@ -1,27 +1,34 @@
 #![allow(clippy::redundant_closure)]
 use alloc::collections::BTreeMap;
+use ethers_core::types::{Block, BlockId, Transaction};
+use ethers_providers::Middleware;
+use ethers_providers::{Http, Provider};
+use futures::io::Empty;
+use revm::db::{CacheDB, EmptyDB, EthersDB, StateBuilder};
+use revm::inspectors::TracerEip3155;
+use revm::primitives::{Address, TransactTo, B256, U256};
+use revm::{inspector_handle_register, Evm};
+use std::fs;
+use std::fs::OpenOptions;
+use std::io::BufWriter;
+use std::io::Write;
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use anyhow::Result;
-use ethers_core::types::BlockId;
-use ethers_providers::{Http, Middleware, Provider};
 use powdr_number::FieldElement;
 use revm::primitives::HashSet;
 use revm::{
-    db::{CacheDB, EmptyDB, EthersDB},
-    inspector_handle_register,
-    inspectors::TracerEip3155,
     //interpreter::gas::ZERO,
-    primitives::{Address, Bytes, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256},
+    primitives::{Bytes, FixedBytes, HashMap, ResultAndState},
     Database,
     DatabaseCommit,
-    Evm,
 };
 use ruint::uint;
 //use models::*;
 use ruint::Uint;
-use std::sync::Arc;
 extern crate alloc;
 use std::path::Path;
-use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
 
 use statedb::database::Database as StateDB;
@@ -41,7 +48,27 @@ macro_rules! local_fill {
     };
 }
 
-pub async fn batch_process(
+struct FlushWriter {
+    writer: Arc<Mutex<BufWriter<std::fs::File>>>,
+}
+
+impl FlushWriter {
+    fn new(writer: Arc<Mutex<BufWriter<std::fs::File>>>) -> Self {
+        Self { writer }
+    }
+}
+
+impl Write for FlushWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.writer.lock().unwrap().write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.lock().unwrap().flush()
+    }
+}
+
+pub async fn batch_process_v2(
     client: Arc<Provider<Http>>,
     block_number: u64,
     chain_id: u64,
@@ -49,74 +76,24 @@ pub async fn batch_process(
     task_id: &str,
     base_dir: &str,
 ) -> (ExecResult, usize) {
-    //let client = Provider::<Http>::try_from(url).unwrap();
-    //let client = Arc::new(client);
+    log::info!("block number {} chain_id {}", block_number, chain_id);
+    // Fetch the transaction-rich block
     let block = match client.get_block_with_txs(block_number).await {
         Ok(Some(block)) => block,
         Ok(None) => panic!("Block not found"),
         Err(error) => panic!("Error: {:?}", error),
     };
-
-    log::info!("Fetched block number: {:?}", block.number.unwrap());
+    log::info!("Fetched block number: {}", block.number.unwrap().0[0]);
     let previous_block_number = block_number - 1;
 
+    // Use the previous block state as the db with caching
     let prev_id: BlockId = previous_block_number.into();
     // SAFETY: This cannot fail since this is in the top-level tokio runtime
-    let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
-
-    let mut cache_db = CacheDB::new(EmptyDB::default());
-
-    let mut db = StateDB::new(None);
-
-    let mut test_pre = HashMap::new();
-    for tx in &block.transactions {
-        let from_acc = Address::from(tx.from.as_fixed_bytes());
-        // query basic properties of an account incl bytecode
-        let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
-        log::info!("acc_info: {} => {:?}", from_acc, acc_info);
-        let account_info = models::AccountInfo {
-            balance: acc_info.balance,
-            code: acc_info.code.clone().unwrap().bytecode,
-            nonce: acc_info.nonce,
-            // TODO: fill storage
-            storage: HashMap::new(),
-        };
-        test_pre.insert(from_acc, account_info);
-        cache_db.insert_account_info(from_acc, acc_info);
-
-        if tx.to.is_some() {
-            let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
-            let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
-            log::info!("to_info: {} => {:?}", to_acc, acc_info);
-            // setup storage
-
-            uint! {
-                let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
-                let account_slot_json_str = account_slot_json.as_str();
-                if !account_slot_json_str.is_empty() {
-                    println!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
-                }
-                let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
-                for slot in account_slot {
-                    let slot = U256::from(slot);
-                    if !acc_info.code.as_ref().unwrap().is_empty() {
-                        // query value of storage slot at account address
-                        let value = ethersdb.storage(to_acc, slot).unwrap();
-                        log::info!("slot:{}, value: {:?}", slot, value);
-
-                        cache_db
-                            .insert_account_storage(to_acc, slot, value)
-                            .unwrap();
-                    }
-                }
-            }
-
-            cache_db.insert_account_info(to_acc, acc_info);
-        }
-    }
-
+    let state_db = EthersDB::new(Arc::clone(&client), Some(prev_id)).expect("panic");
+    let cache_db: CacheDB<EthersDB<Provider<Http>>> = CacheDB::new(state_db);
+    let mut state = StateBuilder::new_with_database(cache_db).build();
     let mut evm = Evm::builder()
-        .with_db(&mut cache_db)
+        .with_db(&mut state)
         .with_external_context(TracerEip3155::new(Box::new(std::io::stdout()), true, true))
         .modify_block_env(|b| {
             if let Some(number) = block.number {
@@ -140,10 +117,10 @@ pub async fn batch_process(
     let txs = block.transactions.len();
     log::info!("Found {txs} transactions.");
 
-    let _elapsed = std::time::Duration::ZERO;
+    let elapsed = std::time::Duration::ZERO;
 
     // Create the traces directory if it doesn't exist
-    std::fs::create_dir_all("traces").unwrap_or_else(|_| panic!("Failed to create trace file"));
+    std::fs::create_dir_all("traces").expect("Failed to create traces directory");
 
     let mut transaction_parts = models::TransactionParts {
         data: vec![],
@@ -160,10 +137,10 @@ pub async fn batch_process(
         blob_versioned_hashes: vec![],
         max_fee_per_blob_gas: None,
     };
+    let mut all_result = vec![];
 
     // Fill in CfgEnv
-    let mut all_result = vec![];
-    for tx in block.transactions {
+    for tx in block.transactions.clone() {
         evm = evm
             .modify()
             .modify_tx_env(|etx| {
@@ -206,7 +183,6 @@ pub async fn batch_process(
                 };
             })
             .build();
-
         let mut gas_limit_uint = Uint::ZERO;
         local_fill!(gas_limit_uint, Some(block.gas_limit), U256::from_limbs);
         let tx_data = tx.input.0.clone();
@@ -229,7 +205,6 @@ pub async fn batch_process(
         transaction_parts.max_fee_per_gas = Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()));
         transaction_parts.max_priority_fee_per_gas =
             Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()));
-
         let access_list_vec = tx.access_list.as_ref().map(|access_list| {
             access_list
                 .0
@@ -246,59 +221,69 @@ pub async fn batch_process(
         });
 
         transaction_parts.access_lists.push(access_list_vec);
-        /*
+
         // Construct the file writer to write the trace to
         let tx_number = tx.transaction_index.unwrap().0[0];
         let file_name = format!("traces/{}.json", tx_number);
-        let write = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(file_name);
+        let write = OpenOptions::new().write(true).create(true).open(file_name);
         let inner = Arc::new(Mutex::new(BufWriter::new(
             write.expect("Failed to open file"),
         )));
         let writer = FlushWriter::new(Arc::clone(&inner));
 
         // Inspect and commit the transaction to the EVM
-        let inspector = TracerEip3155::new(Box::new(writer), true, true);
-        if let Err(error) = evm.inspect_commit(inspector) {
-            println!("Got error: {:?}", error);
+        evm.context.external.set_writer(Box::new(writer));
+        let res = evm.transact().unwrap();
+        evm.context.evm.db.commit(res.state.clone());
+        // let res = evm.transact_commit() ;
+        log::info!("result {:?}", res.result.clone());
+        for (key, act) in res.state.clone().into_iter() {
+            log::info!("state address={}", key);
+            for (key, value) in act.storage.into_iter() {
+                log::info!(
+                    "  slot: key={} val={} new_val={}",
+                    key,
+                    value.previous_or_original_value,
+                    value.present_value
+                );
+            }
         }
-
+        // let cnt = evm.context.evm.db.cache.trie_account();
         // Flush the file writer
         inner.lock().unwrap().flush().expect("Failed to flush file");
-        */
-        //evm.transact_commit().unwrap();
-        let result = evm.transact().unwrap();
-        log::info!("evm transact result: {:?}", result.result);
-        evm.context.evm.db.commit(result.state.clone());
+
         let env = evm.context.evm.env.clone();
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
-        all_result.push((txbytes, env.tx.data, env.tx.value, result));
-
-        for (k, v) in &evm.context.evm.db.accounts {
-            log::info!("state: {}=>{:?}", k, v);
-            let account_slot_json = db.read_nodes(k.to_string().as_str()).unwrap_or_default();
-            let account_slot_json_str = account_slot_json.as_str();
-            let mut account_slot: HashSet<Uint<256, 4>> =
-                serde_json::from_str(account_slot_json_str).unwrap_or_default();
-            if !v.storage.is_empty() {
-                for (k, v) in v.storage.iter() {
-                    log::info!("slot => storage: {}=>{}", k, v);
-                    account_slot.insert(*k);
-                }
-            }
-            let new_account_slot_json =
-                serde_json::to_string(&account_slot).expect("Failed to serialize");
-
-            let write_res =
-                db.write_nodes(k.to_string().as_str(), new_account_slot_json.as_str(), true);
-            if write_res.is_err() {
-                log::error!("Failed to write nodes: {:?}", write_res);
-            }
-        }
+        all_result.push((txbytes, env.tx.data, env.tx.value, res));
     }
 
+    log::info!(
+        "Finished execution. Total CPU time: {:.6}s",
+        elapsed.as_secs_f64()
+    );
+    let test_pre = HashMap::new();
+    generate_chunks(
+        block,
+        test_pre,
+        chain_id,
+        transaction_parts,
+        all_result,
+        task,
+        task_id,
+        base_dir,
+    )
+}
+
+pub fn generate_chunks(
+    block: Block<Transaction>,
+    test_pre: HashMap<Address, models::AccountInfo>,
+    chain_id: u64,
+    transaction_parts: models::TransactionParts,
+    all_result: Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>,
+    task: &str,
+    task_id: &str,
+    base_dir: &str,
+) -> (ExecResult, usize) {
     let mut test_post = BTreeMap::new();
     for (idx, res) in all_result.iter().enumerate() {
         let (txbytes, data, value, ResultAndState { result, state }) = res;
@@ -469,6 +454,275 @@ pub async fn batch_process(
             }
         });
     (Ok(all_result), cnt_chunks)
+}
+
+pub async fn batch_process(
+    client: Arc<Provider<Http>>,
+    block_number: u64,
+    chain_id: u64,
+    task: &str,
+    task_id: &str,
+    base_dir: &str,
+) -> (ExecResult, usize) {
+    //let client = Provider::<Http>::try_from(url).unwrap();
+    //let client = Arc::new(client);
+    let block = match client.get_block_with_txs(block_number).await {
+        Ok(Some(block)) => block,
+        Ok(None) => panic!("Block not found"),
+        Err(error) => panic!("Error: {:?}", error),
+    };
+
+    log::info!("Fetched block number: {:?}", block.number.unwrap());
+    let previous_block_number = block_number - 1;
+
+    let prev_id: BlockId = previous_block_number.into();
+    // SAFETY: This cannot fail since this is in the top-level tokio runtime
+    let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
+
+    let mut cache_db = CacheDB::new(EmptyDB::default());
+
+    let mut db = StateDB::new(None);
+
+    let mut test_pre = HashMap::new();
+    for tx in &block.transactions {
+        let from_acc = Address::from(tx.from.as_fixed_bytes());
+        // query basic properties of an account incl bytecode
+        let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
+        log::info!("acc_info: {} => {:?}", from_acc, acc_info);
+        let account_info = models::AccountInfo {
+            balance: acc_info.balance,
+            code: acc_info.code.clone().unwrap().bytecode,
+            nonce: acc_info.nonce,
+            // TODO: fill storage
+            storage: HashMap::new(),
+        };
+        test_pre.insert(from_acc, account_info);
+        cache_db.insert_account_info(from_acc, acc_info);
+
+        if tx.to.is_some() {
+            let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
+            let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
+            log::info!("to_info: {} => {:?}", to_acc, acc_info);
+            // setup storage
+
+            uint! {
+                let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
+                let account_slot_json_str = account_slot_json.as_str();
+                if !account_slot_json_str.is_empty() {
+                    println!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
+                }
+                let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
+                for slot in account_slot {
+                    let slot = U256::from(slot);
+                    if !acc_info.code.as_ref().unwrap().is_empty() {
+                        // query value of storage slot at account address
+                        let value = ethersdb.storage(to_acc, slot).unwrap();
+                        log::info!("slot:{}, value: {:?}", slot, value);
+
+                        cache_db
+                            .insert_account_storage(to_acc, slot, value)
+                            .unwrap();
+                    }
+                }
+            }
+
+            cache_db.insert_account_info(to_acc, acc_info);
+        }
+    }
+
+    let mut evm = Evm::builder()
+        .with_db(&mut cache_db)
+        .with_external_context(TracerEip3155::new(Box::new(std::io::stdout()), true, true))
+        .modify_block_env(|b| {
+            if let Some(number) = block.number {
+                let nn = number.0[0];
+                b.number = U256::from(nn);
+            }
+            local_fill!(b.coinbase, block.author);
+            local_fill!(b.timestamp, Some(block.timestamp), U256::from_limbs);
+            local_fill!(b.difficulty, Some(block.difficulty), U256::from_limbs);
+            local_fill!(b.gas_limit, Some(block.gas_limit), U256::from_limbs);
+            if let Some(base_fee) = block.base_fee_per_gas {
+                local_fill!(b.basefee, Some(base_fee), U256::from_limbs);
+            }
+        })
+        .modify_cfg_env(|c| {
+            c.chain_id = chain_id;
+        })
+        .append_handler_register(inspector_handle_register)
+        .build();
+
+    let txs = block.transactions.len();
+    log::info!("Found {txs} transactions.");
+
+    let _elapsed = std::time::Duration::ZERO;
+
+    // Create the traces directory if it doesn't exist
+    std::fs::create_dir_all("traces").unwrap_or_else(|_| panic!("Failed to create trace file"));
+
+    let mut transaction_parts = models::TransactionParts {
+        data: vec![],
+        gas_limit: vec![],
+        gas_price: None,
+        nonce: U256::default(),
+        secret_key: B256::default(),
+        sender: Some(Address::default()),
+        to: None,
+        value: vec![],
+        max_fee_per_gas: None,
+        max_priority_fee_per_gas: None,
+        access_lists: vec![],
+        blob_versioned_hashes: vec![],
+        max_fee_per_blob_gas: None,
+    };
+
+    // Fill in CfgEnv
+    let mut all_result = vec![];
+    for tx in block.transactions.clone() {
+        evm = evm
+            .modify()
+            .modify_tx_env(|etx| {
+                etx.caller = Address::from(tx.from.as_fixed_bytes());
+                etx.gas_limit = tx.gas.as_u64();
+                local_fill!(etx.gas_price, tx.gas_price, U256::from_limbs);
+                local_fill!(etx.value, Some(tx.value), U256::from_limbs);
+                etx.data = tx.input.0.clone().into();
+                let mut gas_priority_fee = U256::ZERO;
+                local_fill!(
+                    gas_priority_fee,
+                    tx.max_priority_fee_per_gas,
+                    U256::from_limbs
+                );
+                etx.gas_priority_fee = Some(gas_priority_fee);
+                etx.chain_id = Some(chain_id);
+                etx.nonce = Some(tx.nonce.as_u64());
+                if let Some(access_list) = tx.access_list.clone() {
+                    etx.access_list = access_list
+                        .0
+                        .into_iter()
+                        .map(|item| {
+                            let new_keys: Vec<U256> = item
+                                .storage_keys
+                                .into_iter()
+                                .map(|h256| U256::from_le_bytes(h256.0))
+                                .collect();
+                            (Address::from(item.address.as_fixed_bytes()), new_keys)
+                        })
+                        .collect();
+                } else {
+                    etx.access_list = Default::default();
+                }
+
+                etx.transact_to = match tx.to {
+                    Some(to_address) => {
+                        TransactTo::Call(Address::from(to_address.as_fixed_bytes()))
+                    }
+                    None => TransactTo::create(),
+                };
+            })
+            .build();
+
+        let mut gas_limit_uint = Uint::ZERO;
+        local_fill!(gas_limit_uint, Some(block.gas_limit), U256::from_limbs);
+        let tx_data = tx.input.0.clone();
+        transaction_parts.data.push(tx_data.into());
+        transaction_parts.gas_limit.push(gas_limit_uint);
+
+        let mut tx_gas_price = Uint::ZERO;
+        local_fill!(tx_gas_price, tx.gas_price, U256::from_limbs);
+        transaction_parts.gas_price = Some(tx_gas_price);
+        transaction_parts.nonce = U256::from(tx.nonce.as_u64());
+        transaction_parts.secret_key = B256::default();
+        transaction_parts.sender = Some(Address::from(tx.from.as_fixed_bytes()));
+        transaction_parts.to = tx
+            .to
+            .map(|to_address| Address::from(to_address.as_fixed_bytes()));
+
+        let mut tx_value = Uint::ZERO;
+        local_fill!(tx_value, Some(tx.value), U256::from_limbs);
+        transaction_parts.value.push(tx_value);
+        transaction_parts.max_fee_per_gas = Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()));
+        transaction_parts.max_priority_fee_per_gas =
+            Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()));
+
+        let access_list_vec = tx.access_list.as_ref().map(|access_list| {
+            access_list
+                .0
+                .iter()
+                .map(|item| models::AccessListItem {
+                    address: Address::from(item.address.as_fixed_bytes()),
+                    storage_keys: item
+                        .storage_keys
+                        .iter()
+                        .map(|h256| B256::from(h256.to_fixed_bytes()))
+                        .collect(),
+                })
+                .collect()
+        });
+
+        transaction_parts.access_lists.push(access_list_vec);
+        /*
+        // Construct the file writer to write the trace to
+        let tx_number = tx.transaction_index.unwrap().0[0];
+        let file_name = format!("traces/{}.json", tx_number);
+        let write = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(file_name);
+        let inner = Arc::new(Mutex::new(BufWriter::new(
+            write.expect("Failed to open file"),
+        )));
+        let writer = FlushWriter::new(Arc::clone(&inner));
+
+        // Inspect and commit the transaction to the EVM
+        let inspector = TracerEip3155::new(Box::new(writer), true, true);
+        if let Err(error) = evm.inspect_commit(inspector) {
+            println!("Got error: {:?}", error);
+        }
+
+        // Flush the file writer
+        inner.lock().unwrap().flush().expect("Failed to flush file");
+        */
+        //evm.transact_commit().unwrap();
+        let result = evm.transact().unwrap();
+        log::info!("evm transact result: {:?}", result.result);
+        evm.context.evm.db.commit(result.state.clone());
+        let env = evm.context.evm.env.clone();
+        let txbytes = serde_json::to_vec(&env.tx).unwrap();
+        all_result.push((txbytes, env.tx.data, env.tx.value, result));
+
+        for (k, v) in &evm.context.evm.db.accounts {
+            log::info!("state: {}=>{:?}", k, v);
+            let account_slot_json = db.read_nodes(k.to_string().as_str()).unwrap_or_default();
+            let account_slot_json_str = account_slot_json.as_str();
+            let mut account_slot: HashSet<Uint<256, 4>> =
+                serde_json::from_str(account_slot_json_str).unwrap_or_default();
+            if !v.storage.is_empty() {
+                for (k, v) in v.storage.iter() {
+                    log::info!("slot => storage: {}=>{}", k, v);
+                    account_slot.insert(*k);
+                }
+            }
+            let new_account_slot_json =
+                serde_json::to_string(&account_slot).expect("Failed to serialize");
+
+            let write_res =
+                db.write_nodes(k.to_string().as_str(), new_account_slot_json.as_str(), true);
+            if write_res.is_err() {
+                log::error!("Failed to write nodes: {:?}", write_res);
+            }
+        }
+    }
+    generate_chunks(
+        block,
+        test_pre,
+        chain_id,
+        transaction_parts,
+        all_result,
+        task,
+        task_id,
+        base_dir,
+    )
 }
 
 #[cfg(test)]

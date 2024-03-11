@@ -13,7 +13,9 @@ pub mod executor_service {
     tonic::include_proto!("executor.v1");
 }
 use executor::batch_process;
-use revm::primitives::ResultAndState;
+use executor::batch_process_v2;
+use revm::primitives::{ExecutionResult, ResultAndState};
+
 #[derive(Debug)]
 pub struct ExecutorServiceSVC {
     client: Arc<Provider<Http>>,
@@ -49,10 +51,12 @@ impl ExecutorService for ExecutorServiceSVC {
         // let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
         let block_number = batch_l2_data.parse::<u64>().unwrap();
 
-        let task = stdenv::var("TASK").unwrap_or(String::from("lr"));
+        let task = stdenv::var("TASK").unwrap_or(String::from("evm"));
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
+        batch_process_v2(block_number, chain_id.parse::<u64>().unwrap()).await;
+        log::info!("finish v2");
         let (_res, cnt_chunks) = batch_process(
             self.client.clone(),
             block_number,
@@ -62,6 +66,7 @@ impl ExecutorService for ExecutorServiceSVC {
             base_dir.as_str(),
         )
         .await;
+        log::info!("finish v1");
         let mut response = executor_service::ProcessBatchResponse::default();
         let last_element = match _res {
             Ok(res) => {
@@ -80,7 +85,8 @@ impl ExecutorService for ExecutorServiceSVC {
 
         response.execute_task_id = execute_task_id.to_string();
         response.cnt_chunks = cnt_chunks as u32;
-        let (txbytes, data, value, ResultAndState { result, state }) = last_element.unwrap();
+        /*
+        let (txbytes, data, value, ExecutionResult { result, state }) = last_element.unwrap();
         {
             // 1. expect_exception: Option<String>,
             debug!("expect_exception: {:?}", result.is_success());
@@ -104,6 +110,7 @@ impl ExecutorService for ExecutorServiceSVC {
             debug!("txbytes: {:?}", txbytes);
         }
 
+        */
         Ok(Response::new(response))
     }
 }

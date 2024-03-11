@@ -39,6 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (send_client, mut recv_client) = watch::channel::<()>(());
     spawn(wait_for_sigterm(signal_tx, send, send_client));
 
+    /*
     tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -80,6 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         log::info!("finished in the walking task");
     });
+    */
 
     log::info!("StateDB service and Executor service Listening on {}", addr);
 
