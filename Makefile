@@ -13,7 +13,7 @@ help: ## Display this help screen
 clippy: ## Run clippy checks over all workspace members and formatted correctly
 	@cargo check
 	@cargo fmt --all -- --check
-	@cargo clippy --all-targets -- -D warnings
+	@cargo clippy --all-targets -- -D warnings --no-deps
 
 fix: ## Automatically apply lint suggestions. This flag implies `--no-deps` and `--all-targets`
 	@cargo clippy --fix

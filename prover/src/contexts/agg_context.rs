@@ -34,7 +34,7 @@ impl AggContext {
             input,
             input2,
             agg_zkin: format!("{}/proof/{}/agg_zkin.json", basedir, task_id),
-            agg_struct: format!("{}/agg.stark_struct.json", basedir),
+            agg_struct: format!("{}/c12.stark_struct.json", basedir), // should be same as c12
             agg_stark: StarkProveArgs::new(basedir, &task_path, &r2_task_name, "GL"),
             agg_circom: CircomCompileArgs::new(basedir, &task_path, &r2_task_name, "GL"),
         }

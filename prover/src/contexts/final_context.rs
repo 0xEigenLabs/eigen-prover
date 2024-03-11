@@ -30,7 +30,8 @@ impl FinalContext {
         curve: String,
         prover_addr: String,
     ) -> Self {
-        let prev_task_path = Stage::Aggregate(task_id.clone(), "".into(), "".into()).path();
+        let id = format!("{}_agg", task_id);
+        let prev_task_path = Stage::Aggregate(id, "".into(), "".into()).path();
         let task_path = Stage::Final(task_id.clone(), curve.clone(), prover_addr.clone()).path();
         let r2_task_name = format!("{}.recursive2", task_name);
         let final_task_name = format!("{}.final", task_name);
