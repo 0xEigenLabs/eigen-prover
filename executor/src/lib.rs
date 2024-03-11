@@ -9,8 +9,7 @@ use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
     primitives::{
-        Address, Bytes, FixedBytes, HashMap, ResultAndState, Storage, StorageSlot, TransactTo,
-        B256, U256,
+        Address, Bytes, FixedBytes, HashMap, ResultAndState, Storage, TransactTo, B256, U256,
     },
     Database, DatabaseCommit, Evm,
 };
@@ -97,7 +96,7 @@ pub async fn batch_process(
                 let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
                 let account_slot_json_str = account_slot_json.as_str();
                 if !account_slot_json_str.is_empty() {
-                    println!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
+                    log::info!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
                 }
                 let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
                 for slot in account_slot {
@@ -113,7 +112,6 @@ pub async fn batch_process(
                     }
                 }
             }
-
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }

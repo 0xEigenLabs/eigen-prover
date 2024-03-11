@@ -57,6 +57,7 @@ where
     sec_trie_root::<KeccakHasher, _, _, _>(input)
 }
 
+// TODO: don't copy the PlainAccount
 pub fn state_merkle_trie_root(accounts: impl IntoIterator<Item = (Address, PlainAccount)>) -> B256 {
     trie_root(accounts.into_iter().map(|(address, acc)| {
         (
