@@ -230,6 +230,9 @@ pub async fn batch_process_v2(
             write.expect("Failed to open file"),
         )));
         let writer = FlushWriter::new(Arc::clone(&inner));
+        for (key, _) in  evm.context.evm.db.cache.accounts.clone().into_iter() {
+            log::info!("before exec, address {} ", key);
+        }
 
         // Inspect and commit the transaction to the EVM
         evm.context.external.set_writer(Box::new(writer));

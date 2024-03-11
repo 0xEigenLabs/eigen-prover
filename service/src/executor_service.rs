@@ -12,8 +12,8 @@ use tonic::{Request, Response, Status};
 pub mod executor_service {
     tonic::include_proto!("executor.v1");
 }
-use executor::batch_process;
 use executor::batch_process_v2;
+use executor::batch_process;
 use revm::primitives::{ExecutionResult, ResultAndState};
 
 #[derive(Debug)]
@@ -55,18 +55,25 @@ impl ExecutorService for ExecutorServiceSVC {
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
-        batch_process_v2(block_number, chain_id.parse::<u64>().unwrap()).await;
-        log::info!("finish v2");
-        let (_res, cnt_chunks) = batch_process(
+        let (_res, cnt_chunks) = batch_process_v2(
             self.client.clone(),
             block_number,
             chain_id.parse::<u64>().unwrap(),
             &task,
             execute_task_id.to_string().as_str(),
             base_dir.as_str(),
-        )
-        .await;
-        log::info!("finish v1");
+        ).await;
+        log::info!("finish v2");
+        // let (_res, cnt_chunks) = batch_process(
+        //     self.client.clone(),
+        //     block_number,
+        //     chain_id.parse::<u64>().unwrap(),
+        //     &task,
+        //     execute_task_id.to_string().as_str(),
+        //     base_dir.as_str(),
+        // )
+        // .await;
+        // log::info!("finish v1");
         let mut response = executor_service::ProcessBatchResponse::default();
         let last_element = match _res {
             Ok(res) => {
