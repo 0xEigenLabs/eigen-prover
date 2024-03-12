@@ -96,7 +96,7 @@ pub async fn batch_process(
                 let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
                 let account_slot_json_str = account_slot_json.as_str();
                 if !account_slot_json_str.is_empty() {
-                    log::info!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
+                    log::info!("found slot in db, account_slot_json: {:?}", account_slot_json_str);
                 }
                 let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
                 for slot in account_slot {
@@ -479,6 +479,9 @@ pub async fn batch_process(
 
 #[cfg(test)]
 mod tests {
+    use hex::FromHex;
+    use revm::primitives::Bytecode;
+
     use super::*;
 
     #[test]
@@ -510,5 +513,27 @@ mod tests {
                     f.write_all(&d.to_bytes_le()[0..8]).unwrap();
                 }
             });
+    }
+
+    #[test]
+    fn test_state_merkle_trie_root() {
+        let addr =
+            Address::from_hex("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266").unwrap_or_default();
+        let plain_account = PlainAccount {
+            info: revm::primitives::AccountInfo {
+                balance: U256::default(),
+                nonce: 0,
+                code_hash: FixedBytes::default(),
+                code: Some(Bytecode {
+                    bytecode: "0x".as_bytes().into(),
+                    state: revm::primitives::BytecodeState::Raw,
+                }),
+            },
+            storage: HashMap::new(),
+        };
+
+        let plain_accounts: Vec<(Address, PlainAccount)> = vec![(addr, plain_account)];
+        let state_root = state_merkle_trie_root(plain_accounts);
+        println!("state_root: {:?}", state_root);
     }
 }
