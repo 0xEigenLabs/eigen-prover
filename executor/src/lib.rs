@@ -24,6 +24,7 @@ use statedb::database::Database as StateDB;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 mod merkle_trie;
+mod storage_range;
 use merkle_trie::state_merkle_trie_root;
 
 macro_rules! local_fill {
