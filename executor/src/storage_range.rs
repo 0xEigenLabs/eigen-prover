@@ -15,28 +15,22 @@ pub async fn debug_storage_range_at(client: Arc<Provider<Http>>, txid: H256) {
     log::trace!("trace: {:?}", trace_tx);
 }
 */
-pub fn get_storage(
+pub async fn get_storage(
     client: Arc<Provider<Http>>,
     address: Address,
     block_id: Option<BlockId>,
     max_slot_num: u64,
 ) -> HashMap<H256, H256> {
     let max_slot_num = if max_slot_num == 0 { 64 } else { max_slot_num };
-    let batch: Vec<_> = (0..max_slot_num)
-        .into_iter()
-        .map(|i| {
-            let pos = H256::from_low_u64_be(i);
-            let f = async {
-                let slot = client.get_storage_at(address, pos, block_id);
-                tokio::join!(slot)
-            };
-            let result = futures::executor::block_on(f);
-            result.0.unwrap()
-        })
-        .collect();
+    let mut vec_res = vec![];
+    for i in 0..max_slot_num {
+        let pos = H256::from_low_u64_be(i);
+        let slot = client.get_storage_at(address, pos, block_id).await.unwrap();
+        vec_res.push(slot);
+    }
     (0..max_slot_num)
         .into_iter()
-        .zip(batch.iter())
+        .zip(vec_res.iter())
         .map(|(k, v)| (H256::from_low_u64_be(k), *v))
         .collect()
 }
@@ -67,7 +61,7 @@ mod tests {
         let from: Address = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
             .parse()
             .unwrap();
-        let res = get_storage(client, from, None, 2);
+        let res = get_storage(client, from, None, 2).await;
         println!("get storage: {:?}", res);
     }
 }
