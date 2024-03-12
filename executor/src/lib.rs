@@ -24,7 +24,6 @@ use statedb::database::Database as StateDB;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 mod merkle_trie;
-mod storage_range;
 use merkle_trie::state_merkle_trie_root;
 
 macro_rules! local_fill {
@@ -72,17 +71,23 @@ pub async fn batch_process(
     let mut db = StateDB::new(None);
 
     let mut test_pre = HashMap::new();
+    let max_slot = 128;
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
+        let mut storages = HashMap::new();
+        for i in 0..max_slot {
+            let slot = ethersdb.storage(from_acc, U256::from(i)).unwrap();
+            storages.insert(U256::from(i), slot);
+        }
         log::info!("acc_info: {} => {:?}", from_acc, acc_info);
         let account_info = models::AccountInfo {
             balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
             nonce: acc_info.nonce,
             // FIXME: fill in the storage
-            storage: HashMap::new(),
+            storage: storages,
         };
         test_pre.insert(from_acc, account_info);
         cache_db.insert_account_info(from_acc, acc_info);
@@ -99,7 +104,16 @@ pub async fn batch_process(
                 if !account_slot_json_str.is_empty() {
                     log::info!("found slot in db, account_slot_json: {:?}", account_slot_json_str);
                 }
-                let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
+
+                /*
+                let mut storages = HashMap::new();
+                for i in 0..max_slot {
+                    let slot = ethersdb.storage(from_acc, U256::from(i)).unwrap();
+                    storages.insert(U256::from(i), slot);
+                }
+                */
+
+                let account_slot: HashSet<U256>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
                 for slot in account_slot {
                     let slot = U256::from(slot);
                     if !acc_info.code.as_ref().unwrap().is_empty() {
