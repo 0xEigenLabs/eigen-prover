@@ -1,32 +1,30 @@
 #![allow(clippy::redundant_closure)]
-use alloc::collections::BTreeMap;
 use anyhow::Result;
 use ethers_core::types::BlockId;
 use ethers_providers::{Http, Middleware, Provider};
 use powdr_number::FieldElement;
 use revm::primitives::HashSet;
 use revm::{
-    db::{CacheDB, EmptyDB, EthersDB},
+    db::{CacheDB, EmptyDB, EthersDB, PlainAccount},
     inspector_handle_register,
     inspectors::TracerEip3155,
-    //interpreter::gas::ZERO,
-    primitives::{Address, Bytes, FixedBytes, HashMap, ResultAndState, TransactTo, B256, U256},
-    Database,
-    DatabaseCommit,
-    Evm,
+    primitives::{
+        Address, Bytes, FixedBytes, HashMap, ResultAndState, Storage, TransactTo, B256, U256,
+    },
+    Database, DatabaseCommit, Evm,
 };
-use ruint::uint;
-//use models::*;
-use ruint::Uint;
-use std::sync::Arc;
-extern crate alloc;
+use ruint::{uint, Uint};
+use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Arc;
 use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
 
 use statedb::database::Database as StateDB;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
+mod merkle_trie;
+use merkle_trie::state_merkle_trie_root;
 
 macro_rules! local_fill {
     ($left:expr, $right:expr, $fun:expr) => {
@@ -39,6 +37,10 @@ macro_rules! local_fill {
             $left = Address::from(right.as_fixed_bytes())
         }
     };
+}
+
+fn new_storage(storage: &Storage) -> HashMap<U256, U256> {
+    storage.iter().map(|(k, v)| (*k, v.present_value)).collect()
 }
 
 pub async fn batch_process(
@@ -69,17 +71,23 @@ pub async fn batch_process(
     let mut db = StateDB::new(None);
 
     let mut test_pre = HashMap::new();
+    let max_slot = 128;
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
+        let mut storages = HashMap::new();
+        for i in 0..max_slot {
+            let slot = ethersdb.storage(from_acc, U256::from(i)).unwrap();
+            storages.insert(U256::from(i), slot);
+        }
         log::info!("acc_info: {} => {:?}", from_acc, acc_info);
         let account_info = models::AccountInfo {
             balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
             nonce: acc_info.nonce,
-            // TODO: fill storage
-            storage: HashMap::new(),
+            // FIXME: fill in the storage
+            storage: storages,
         };
         test_pre.insert(from_acc, account_info);
         cache_db.insert_account_info(from_acc, acc_info);
@@ -94,9 +102,18 @@ pub async fn batch_process(
                 let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
                 let account_slot_json_str = account_slot_json.as_str();
                 if !account_slot_json_str.is_empty() {
-                    println!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
+                    log::info!("found slot in db, account_slot_json: {:?}", account_slot_json_str);
                 }
-                let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
+
+                /*
+                let mut storages = HashMap::new();
+                for i in 0..max_slot {
+                    let slot = ethersdb.storage(from_acc, U256::from(i)).unwrap();
+                    storages.insert(U256::from(i), slot);
+                }
+                */
+
+                let account_slot: HashSet<U256>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
                 for slot in account_slot {
                     let slot = U256::from(slot);
                     if !acc_info.code.as_ref().unwrap().is_empty() {
@@ -110,7 +127,6 @@ pub async fn batch_process(
                     }
                 }
             }
-
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
@@ -314,9 +330,6 @@ pub async fn batch_process(
             );
             log::info!("output: {:?}", result.output());
 
-            // TODO: hash: B256, // post state root
-            //let hash = serde_json::to_vec(&state).unwrap();
-            //println!("hash: {:?}", state);
             // post_state: HashMap<Address, AccountInfo>,
             log::info!("post_state: {:?}", state);
             // logs: B256,
@@ -326,6 +339,7 @@ pub async fn batch_process(
 
             let mut new_state: HashMap<Address, models::AccountInfo> = HashMap::new();
 
+            let mut plain_accounts = vec![];
             for (address, account) in state.iter() {
                 let account_info = models::AccountInfo {
                     balance: account.info.balance,
@@ -336,17 +350,25 @@ pub async fn batch_process(
                         .map(|code| code.bytecode)
                         .unwrap_or_default(),
                     nonce: account.info.nonce,
-                    // TODO: fill storage
-                    storage: HashMap::new(),
+                    storage: new_storage(&account.storage),
                 };
 
                 new_state.insert(*address, account_info);
+                plain_accounts.push((
+                    *address,
+                    PlainAccount {
+                        info: account.info.clone(),
+                        storage: new_storage(&account.storage),
+                    },
+                ));
             }
 
             let post_value = test_post
                 .entry(models::SpecName::Shanghai)
                 .or_insert_with(|| Vec::new());
             let mut new_post_value = std::mem::take(post_value);
+
+            let state_root = state_merkle_trie_root(plain_accounts);
             new_post_value.push(models::Test {
                 expect_exception: None,
                 indexes: models::TxPartIndices {
@@ -358,8 +380,7 @@ pub async fn batch_process(
                 // TODO: fill logs
                 logs: FixedBytes::default(),
                 txbytes: Some(Bytes::from_iter(txbytes)),
-                // TODO: fill hash
-                hash: FixedBytes::default(),
+                hash: state_root,
             });
 
             test_post.insert(
@@ -473,6 +494,9 @@ pub async fn batch_process(
 
 #[cfg(test)]
 mod tests {
+    use hex::FromHex;
+    use revm::primitives::Bytecode;
+
     use super::*;
 
     #[test]
@@ -504,5 +528,27 @@ mod tests {
                     f.write_all(&d.to_bytes_le()[0..8]).unwrap();
                 }
             });
+    }
+
+    #[test]
+    fn test_state_merkle_trie_root() {
+        let addr =
+            Address::from_hex("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266").unwrap_or_default();
+        let plain_account = PlainAccount {
+            info: revm::primitives::AccountInfo {
+                balance: U256::default(),
+                nonce: 0,
+                code_hash: FixedBytes::default(),
+                code: Some(Bytecode {
+                    bytecode: "0x".as_bytes().into(),
+                    state: revm::primitives::BytecodeState::Raw,
+                }),
+            },
+            storage: HashMap::new(),
+        };
+
+        let plain_accounts: Vec<(Address, PlainAccount)> = vec![(addr, plain_account)];
+        let state_root = state_merkle_trie_root(plain_accounts);
+        println!("state_root: {:?}", state_root);
     }
 }
