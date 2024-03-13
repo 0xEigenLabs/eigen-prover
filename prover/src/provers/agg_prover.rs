@@ -1,6 +1,7 @@
 use super::Prover;
 use crate::contexts::AggContext;
 use crate::contexts::BatchContext;
+use crate::contexts::{CacheStage, StarkFileType};
 
 use anyhow::Result;
 use dsl_compile::circom_compiler;
@@ -21,6 +22,7 @@ impl AggProver {
 impl Prover<AggContext> for AggProver {
     fn prove(&self, ctx: &AggContext) -> Result<()> {
         log::info!("start aggregate prove");
+        let mut prove_data_cache = ctx.prove_data_cache.lock().unwrap();
 
         // 1. Compile circom circuit to r1cs, and generate witness
         let task_id_slice: Vec<_> = ctx.input.split("_chunk_").collect();
@@ -43,20 +45,38 @@ impl Prover<AggContext> for AggProver {
         let sp = &ctx.agg_stark;
         let cc = &ctx.agg_circom;
 
-        let r1_stark = &batch_ctx[0].recursive1_stark;
-        let r1_circom = &batch_ctx[0].recursive1_circom;
+        let mut r1_stark = batch_ctx[0].recursive1_stark.clone();
+        let r1_circom = batch_ctx[0].recursive1_circom.clone();
+        if prove_data_cache.agg_cache.already_cached {
+            r1_stark
+                .r1cs_file
+                .clone_from(&prove_data_cache.agg_cache.r1cs_file);
+            r1_stark
+                .pil_file
+                .clone_from(&prove_data_cache.agg_cache.pil_file);
+            r1_stark
+                .const_file
+                .clone_from(&prove_data_cache.agg_cache.const_file);
+            r1_stark
+                .exec_file
+                .clone_from(&prove_data_cache.agg_cache.exec_file);
+        }
 
         log::info!("agg_stark: {:?}", sp);
         log::info!("agg_circom: {:?}", cc);
-        circom_compiler(
-            r1_circom.circom_file.clone(),
-            "goldilocks".to_string(),
-            "full".to_string(),
-            cc.link_directories.clone(),
-            r1_circom.output.clone(),
-            false,
-            false,
-        )?;
+
+        if !prove_data_cache.agg_cache.already_cached {
+            log::info!("compile");
+            circom_compiler(
+                r1_circom.circom_file.clone(),
+                "goldilocks".to_string(),
+                "full".to_string(),
+                cc.link_directories.clone(),
+                r1_circom.output.clone(),
+                false,
+                false,
+            )?;
+        }
 
         // 2. compress inputs
         let zkin = format!(
@@ -78,13 +98,35 @@ impl Prover<AggContext> for AggProver {
             .parse::<usize>()
             .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
         // 3. compress setup
-        setup(
-            &r1_stark.r1cs_file,
-            &r1_stark.pil_file,
-            &r1_stark.const_file,
-            &r1_stark.exec_file,
-            force_bits,
-        )?;
+        if !prove_data_cache.agg_cache.already_cached {
+            log::info!("setup");
+            setup(
+                &r1_stark.r1cs_file,
+                &r1_stark.pil_file,
+                &r1_stark.const_file,
+                &r1_stark.exec_file,
+                force_bits,
+            )?;
+
+            // add r1cs pil, const, exec to cache and update flag
+            let _ = prove_data_cache.add(
+                r1_stark.r1cs_file.clone(),
+                CacheStage::Agg(StarkFileType::R1cs),
+            );
+            let _ = prove_data_cache.add(
+                r1_stark.pil_file.clone(),
+                CacheStage::Agg(StarkFileType::Pil),
+            );
+            let _ = prove_data_cache.add(
+                r1_stark.const_file.clone(),
+                CacheStage::Agg(StarkFileType::Const),
+            );
+            let _ = prove_data_cache.add(
+                r1_stark.exec_file.clone(),
+                CacheStage::Agg(StarkFileType::Exec),
+            );
+            prove_data_cache.update_cache_flag(CacheStage::Agg(StarkFileType::default()));
+        }
 
         // 4. compress exec
         // TODO: place it in StarkProveArgs?
@@ -92,7 +134,10 @@ impl Prover<AggContext> for AggProver {
             "{}/{}.recursive1_js/{}.recursive1.wasm",
             r1_circom.output, ctx.task_name, ctx.task_name
         );
+
         log::info!("wasm_file: {}", wasm_file);
+        log::info!("exec");
+
         exec(
             &ctx.agg_zkin,
             &wasm_file,
@@ -107,6 +152,8 @@ impl Prover<AggContext> for AggProver {
             "{}/proof/{}/batch_proof_{}/{}_input.recursive1.zkin.json",
             ctx.basedir, task_id_slice[0], 0, ctx.task_name,
         );
+
+        log::info!("stark prove");
         stark_prove(
             &ctx.agg_struct,
             &r1_stark.piljson,

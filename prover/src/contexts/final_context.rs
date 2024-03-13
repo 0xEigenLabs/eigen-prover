@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+use super::ProveDataCache;
 use crate::args::CircomCompileArgs;
 use crate::args::FinalProveArgs;
 use crate::args::StarkProveArgs;
 use crate::stage::Stage;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct FinalContext {
@@ -20,6 +22,7 @@ pub struct FinalContext {
 
     pub task_id: String,
     pub task_name: String,
+    pub prove_data_cache: Arc<Mutex<ProveDataCache>>,
 }
 
 impl FinalContext {
@@ -29,6 +32,7 @@ impl FinalContext {
         task_name: String,
         curve: String,
         prover_addr: String,
+        prove_data_cache: Arc<Mutex<ProveDataCache>>,
     ) -> Self {
         let id = format!("{}_agg", task_id);
         let prev_task_path = Stage::Aggregate(id, "".into(), "".into()).path();
@@ -62,6 +66,7 @@ impl FinalContext {
                 public_input_file: format!("{basedir}/{task_path}/public_input.json"),
                 proof_file: format!("{basedir}/{task_path}/proof.json"),
             },
+            prove_data_cache,
         }
     }
 }
