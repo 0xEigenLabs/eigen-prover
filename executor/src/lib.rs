@@ -86,7 +86,6 @@ pub async fn batch_process(
             balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
             nonce: acc_info.nonce,
-            // FIXME: fill in the storage
             storage: storages,
         };
         test_pre.insert(from_acc, account_info);
@@ -98,6 +97,7 @@ pub async fn batch_process(
             log::info!("to_info: {} => {:?}", to_acc, acc_info);
             // setup storage
 
+            let mut storages = HashMap::new();
             uint! {
                 let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
                 let account_slot_json_str = account_slot_json.as_str();
@@ -121,12 +121,20 @@ pub async fn batch_process(
                         let value = ethersdb.storage(to_acc, slot).unwrap();
                         log::info!("slot:{}, value: {:?}", slot, value);
 
+                        storages.insert(slot, value);
                         cache_db
                             .insert_account_storage(to_acc, slot, value)
                             .unwrap();
                     }
                 }
             }
+            let pre_acc_info = models::AccountInfo {
+                balance: acc_info.balance,
+                code: acc_info.code.clone().unwrap().bytecode,
+                nonce: acc_info.nonce,
+                storage: storages,
+            };
+            test_pre.insert(to_acc, pre_acc_info);
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
