@@ -72,13 +72,13 @@ impl ProveDataCache {
         );
 
         log::info!("save_checkpoint, mkdir: {:?}", stage_dir);
-        let _ = fs::create_dir_all(stage_dir.clone());
+        fs::create_dir_all(stage_dir.clone())?;
 
         let mut path_buf = PathBuf::from(stage_dir);
         path_buf.push(src_file_name_str);
         let cache_path = path_buf.to_string_lossy().to_string();
 
-        let _ = fs::copy(src_path, cache_path.clone());
+        fs::copy(src_path, cache_path.clone())?;
 
         match stage {
             CacheStage::Agg(file_type) => self.agg_cache.add(cache_path.clone(), file_type),

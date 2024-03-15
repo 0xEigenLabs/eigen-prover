@@ -51,7 +51,7 @@ impl Pipeline {
             // mkdir
             let workdir = Path::new(&self.basedir).join(status.path());
             log::info!("save_checkpoint, mkdir: {:?}", workdir);
-            let _ = std::fs::create_dir_all(workdir.clone());
+            std::fs::create_dir_all(workdir.clone())?;
 
             if !finished {
                 let p = workdir.join("status");

@@ -66,16 +66,16 @@ impl Prover<FinalContext> for FinalProver {
             )?;
 
             prove_data_cache.update_cache_flag(CacheStage::Final(StarkFileType::default()));
-            let _ =
-                prove_data_cache.add(r2.r1cs_file.clone(), CacheStage::Final(StarkFileType::R1cs));
-            let _ =
-                prove_data_cache.add(r2.pil_file.clone(), CacheStage::Final(StarkFileType::Pil));
-            let _ = prove_data_cache.add(
+
+            prove_data_cache.add(r2.r1cs_file.clone(), CacheStage::Final(StarkFileType::R1cs))?;
+
+            prove_data_cache.add(r2.pil_file.clone(), CacheStage::Final(StarkFileType::Pil))?;
+            prove_data_cache.add(
                 r2.const_file.clone(),
                 CacheStage::Final(StarkFileType::Const),
-            );
-            let _ =
-                prove_data_cache.add(r2.exec_file.clone(), CacheStage::Final(StarkFileType::Exec));
+            )?;
+
+            prove_data_cache.add(r2.exec_file.clone(), CacheStage::Final(StarkFileType::Exec))?;
         }
 
         log::info!("2. compress exec");
@@ -108,7 +108,6 @@ impl Prover<FinalContext> for FinalProver {
         log::info!("end final stark prove");
         let args = &ctx.final_snark;
 
-        log::info!("start snark prove");
         let snark_already_cached = match args.curve_type.as_str() {
             "BN128" => prove_data_cache.snark_cache.bn128_data.already_cached,
             "BLS12381" => prove_data_cache.snark_cache.bls12381_data.already_cached,
@@ -116,7 +115,6 @@ impl Prover<FinalContext> for FinalProver {
         };
 
         if !snark_already_cached {
-            log::info!("compile");
             circom_compiler(
                 cc.circom_file.clone(),
                 args.curve_type.to_lowercase(),
@@ -133,7 +131,6 @@ impl Prover<FinalContext> for FinalProver {
         );
 
         if !snark_already_cached {
-            log::info!("setup");
             groth16_setup(
                 &args.curve_type,
                 &sp.r1cs_file,
@@ -147,35 +144,35 @@ impl Prover<FinalContext> for FinalProver {
                     prove_data_cache.update_cache_flag(CacheStage::Snark(Curve::BN128(
                         SnarkFileType::default(),
                     )));
-                    let _ = prove_data_cache.add(
+                    prove_data_cache.add(
                         sp.r1cs_file.clone(),
                         CacheStage::Snark(Curve::BN128(SnarkFileType::R1cs)),
-                    );
-                    let _ = prove_data_cache.add(
+                    )?;
+                    prove_data_cache.add(
                         args.pk_file.clone(),
                         CacheStage::Snark(Curve::BN128(SnarkFileType::PK)),
-                    );
-                    let _ = prove_data_cache.add(
+                    )?;
+                    prove_data_cache.add(
                         args.vk_file.clone(),
                         CacheStage::Snark(Curve::BN128(SnarkFileType::VK)),
-                    );
+                    )?;
                 }
                 "BLS12381" => {
                     prove_data_cache.update_cache_flag(CacheStage::Snark(Curve::BLS12381(
                         SnarkFileType::default(),
                     )));
-                    let _ = prove_data_cache.add(
+                    prove_data_cache.add(
                         sp.r1cs_file.clone(),
                         CacheStage::Snark(Curve::BLS12381(SnarkFileType::R1cs)),
-                    );
-                    let _ = prove_data_cache.add(
+                    )?;
+                    prove_data_cache.add(
                         args.pk_file.clone(),
                         CacheStage::Snark(Curve::BLS12381(SnarkFileType::PK)),
-                    );
-                    let _ = prove_data_cache.add(
+                    )?;
+                    prove_data_cache.add(
                         args.vk_file.clone(),
                         CacheStage::Snark(Curve::BLS12381(SnarkFileType::VK)),
-                    );
+                    )?;
                 }
                 _ => {
                     log::warn!("unsupport cache: {}", args.curve_type);
@@ -183,7 +180,6 @@ impl Prover<FinalContext> for FinalProver {
             }
         }
 
-        log::info!("prove");
         groth16_prove(
             &args.curve_type,
             &sp.r1cs_file,
@@ -195,7 +191,6 @@ impl Prover<FinalContext> for FinalProver {
             false,
         )?;
 
-        log::info!("verify");
         groth16_verify(
             &args.curve_type,
             &args.vk_file,

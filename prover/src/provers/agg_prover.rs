@@ -66,7 +66,6 @@ impl Prover<AggContext> for AggProver {
         log::info!("agg_circom: {:?}", cc);
 
         if !prove_data_cache.agg_cache.already_cached {
-            log::info!("compile");
             circom_compiler(
                 r1_circom.circom_file.clone(),
                 "goldilocks".to_string(),
@@ -99,7 +98,6 @@ impl Prover<AggContext> for AggProver {
             .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
         // 3. compress setup
         if !prove_data_cache.agg_cache.already_cached {
-            log::info!("setup");
             setup(
                 &r1_stark.r1cs_file,
                 &r1_stark.pil_file,
@@ -109,22 +107,22 @@ impl Prover<AggContext> for AggProver {
             )?;
 
             // add r1cs pil, const, exec to cache and update flag
-            let _ = prove_data_cache.add(
+            prove_data_cache.add(
                 r1_stark.r1cs_file.clone(),
                 CacheStage::Agg(StarkFileType::R1cs),
-            );
-            let _ = prove_data_cache.add(
+            )?;
+            prove_data_cache.add(
                 r1_stark.pil_file.clone(),
                 CacheStage::Agg(StarkFileType::Pil),
-            );
-            let _ = prove_data_cache.add(
+            )?;
+            prove_data_cache.add(
                 r1_stark.const_file.clone(),
                 CacheStage::Agg(StarkFileType::Const),
-            );
-            let _ = prove_data_cache.add(
+            )?;
+            prove_data_cache.add(
                 r1_stark.exec_file.clone(),
                 CacheStage::Agg(StarkFileType::Exec),
-            );
+            )?;
             prove_data_cache.update_cache_flag(CacheStage::Agg(StarkFileType::default()));
         }
 
@@ -136,7 +134,6 @@ impl Prover<AggContext> for AggProver {
         );
 
         log::info!("wasm_file: {}", wasm_file);
-        log::info!("exec");
 
         exec(
             &ctx.agg_zkin,
@@ -153,7 +150,6 @@ impl Prover<AggContext> for AggProver {
             ctx.basedir, task_id_slice[0], 0, ctx.task_name,
         );
 
-        log::info!("stark prove");
         stark_prove(
             &ctx.agg_struct,
             &r1_stark.piljson,
