@@ -42,6 +42,13 @@ impl Prover<FinalContext> for FinalProver {
                 false,
                 false,
             )?;
+            let wasm_file = format!(
+                "{}/{}.recursive2_js/{}.recursive2.wasm",
+                cc.output, ctx.task_name, ctx.task_name
+            );
+            prove_data_cache.update_cache_flag(CacheStage::Final(StarkFileType::default()));
+            prove_data_cache.add(r2.r1cs_file.clone(), CacheStage::Final(StarkFileType::R1cs))?;
+            prove_data_cache.add(wasm_file, CacheStage::Final(StarkFileType::Wasm))?;
         }
 
         log::info!("setup");
@@ -55,10 +62,6 @@ impl Prover<FinalContext> for FinalProver {
                 0,
             )?;
 
-            prove_data_cache.update_cache_flag(CacheStage::Final(StarkFileType::default()));
-
-            prove_data_cache.add(r2.r1cs_file.clone(), CacheStage::Final(StarkFileType::R1cs))?;
-
             prove_data_cache.add(r2.pil_file.clone(), CacheStage::Final(StarkFileType::Pil))?;
             prove_data_cache.add(
                 r2.const_file.clone(),
@@ -69,13 +72,13 @@ impl Prover<FinalContext> for FinalProver {
         }
 
         log::info!("2. compress exec");
-        let wasm_file = format!(
-            "{}/{}.recursive2_js/{}.recursive2.wasm",
-            cc.output, ctx.task_name, ctx.task_name
-        );
+        // let wasm_file = format!(
+        //     "{}/{}.recursive2_js/{}.recursive2.wasm",
+        //     cc.output, ctx.task_name, ctx.task_name
+        // );
         exec(
             &r2.zkin,
-            &wasm_file,
+            &prove_data_cache.final_cache.wasm_file,
             &prove_data_cache.final_cache.pil_file,
             &prove_data_cache.final_cache.exec_file,
             &r2.commit_file,
@@ -119,10 +122,6 @@ impl Prover<FinalContext> for FinalProver {
                 false,
             )?;
         }
-        let wasm_file = format!(
-            "{}/{}.final_js/{}.final.wasm",
-            cc.output, ctx.task_name, ctx.task_name
-        );
 
         if !snark_already_cached {
             groth16_setup(
@@ -192,7 +191,7 @@ impl Prover<FinalContext> for FinalProver {
         groth16_prove(
             &args.curve_type,
             &curve_cache.r1cs_file,
-            &wasm_file,
+            &prove_data_cache.final_cache.wasm_file,
             &curve_cache.pk_file,
             &sp.zkin,
             &args.public_input_file,

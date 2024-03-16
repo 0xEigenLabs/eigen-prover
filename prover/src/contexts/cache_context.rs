@@ -20,6 +20,7 @@ pub enum StarkFileType {
     PilJson,
     Const,
     Exec,
+    Wasm,
 }
 
 #[derive(Clone, Copy)]
@@ -121,6 +122,7 @@ pub struct StarkFile {
     pub piljson_file: String,
     pub const_file: String,
     pub exec_file: String,
+    pub wasm_file: String,
 }
 
 impl StarkFile {
@@ -131,6 +133,7 @@ impl StarkFile {
             StarkFileType::PilJson => self.piljson_file = cache_path,
             StarkFileType::Const => self.const_file = cache_path,
             StarkFileType::Exec => self.exec_file = cache_path,
+            StarkFileType::Wasm => self.wasm_file = cache_path,
         }
     }
 

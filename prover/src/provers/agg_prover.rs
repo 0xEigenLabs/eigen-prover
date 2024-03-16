@@ -61,6 +61,19 @@ impl Prover<AggContext> for AggProver {
                 false,
                 false,
             )?;
+
+            // TODO: place it in StarkProveArgs?
+            let wasm_file = format!(
+                "{}/{}.recursive1_js/{}.recursive1.wasm",
+                r1_circom.output, ctx.task_name, ctx.task_name
+            );
+
+            prove_data_cache.update_cache_flag(CacheStage::Agg(StarkFileType::default()));
+            prove_data_cache.add(
+                r1_stark.r1cs_file.clone(),
+                CacheStage::Agg(StarkFileType::R1cs),
+            )?;
+            prove_data_cache.add(wasm_file, CacheStage::Agg(StarkFileType::Wasm))?;
         }
 
         // 2. compress inputs
@@ -93,10 +106,7 @@ impl Prover<AggContext> for AggProver {
             )?;
 
             // add r1cs pil, const, exec to cache and update flag
-            prove_data_cache.add(
-                r1_stark.r1cs_file.clone(),
-                CacheStage::Agg(StarkFileType::R1cs),
-            )?;
+
             prove_data_cache.add(
                 r1_stark.pil_file.clone(),
                 CacheStage::Agg(StarkFileType::Pil),
@@ -109,21 +119,14 @@ impl Prover<AggContext> for AggProver {
                 r1_stark.exec_file.clone(),
                 CacheStage::Agg(StarkFileType::Exec),
             )?;
-            prove_data_cache.update_cache_flag(CacheStage::Agg(StarkFileType::default()));
         }
 
         // 4. compress exec
-        // TODO: place it in StarkProveArgs?
-        let wasm_file = format!(
-            "{}/{}.recursive1_js/{}.recursive1.wasm",
-            r1_circom.output, ctx.task_name, ctx.task_name
-        );
-
-        log::info!("wasm_file: {}", wasm_file);
+        log::info!("wasm_file: {}", prove_data_cache.agg_cache.wasm_file);
 
         exec(
             &ctx.agg_zkin,
-            &wasm_file,
+            &prove_data_cache.agg_cache.wasm_file,
             &prove_data_cache.agg_cache.pil_file,
             &prove_data_cache.agg_cache.exec_file,
             &r1_stark.commit_file,
@@ -170,7 +173,7 @@ impl Prover<AggContext> for AggProver {
 
             exec(
                 &zkin_out,
-                &wasm_file,
+                &prove_data_cache.agg_cache.wasm_file,
                 &prove_data_cache.agg_cache.pil_file,
                 &prove_data_cache.agg_cache.exec_file,
                 &r_stark.commit_file,
