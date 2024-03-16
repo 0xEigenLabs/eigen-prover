@@ -1,6 +1,6 @@
 use super::Prover;
 use crate::contexts::FinalContext;
-use crate::contexts::{CacheStage, Curve, SnarkFileType, StarkFileType};
+use crate::contexts::{CacheStage, Curve, SnarkFile, SnarkFileType, StarkFileType};
 
 use anyhow::Result;
 use dsl_compile::circom_compiler;
@@ -24,23 +24,13 @@ impl Prover<FinalContext> for FinalProver {
 
         // 1. compress setup
         let rc2 = &ctx.recursive2_circom;
-        let mut r2 = ctx.recursive2_stark.clone();
+        let r2 = ctx.recursive2_stark.clone();
         let sp = &ctx.final_stark;
         let cc = &ctx.final_circom;
         log::info!("rc2: {:?}", rc2);
         log::info!("r2: {:?}", r2);
         log::info!("sp: {:?}", sp);
         log::info!("cc: {:?}", cc);
-        if prove_data_cache.final_cache.already_cached {
-            r2.r1cs_file
-                .clone_from(&prove_data_cache.final_cache.r1cs_file);
-            r2.pil_file
-                .clone_from(&prove_data_cache.final_cache.pil_file);
-            r2.const_file
-                .clone_from(&prove_data_cache.final_cache.const_file);
-            r2.exec_file
-                .clone_from(&prove_data_cache.final_cache.exec_file);
-        }
 
         if !prove_data_cache.final_cache.already_cached {
             circom_compiler(
@@ -86,8 +76,8 @@ impl Prover<FinalContext> for FinalProver {
         exec(
             &r2.zkin,
             &wasm_file,
-            &r2.pil_file,
-            &r2.exec_file,
+            &prove_data_cache.final_cache.pil_file,
+            &prove_data_cache.final_cache.exec_file,
             &r2.commit_file,
         )?;
 
@@ -98,7 +88,7 @@ impl Prover<FinalContext> for FinalProver {
             false,
             false,
             false,
-            &r2.const_file,
+            &prove_data_cache.final_cache.const_file,
             &r2.commit_file,
             &cc.circom_file,
             &sp.zkin,
@@ -180,11 +170,26 @@ impl Prover<FinalContext> for FinalProver {
             }
         }
 
+        let curve_cache = match args.curve_type.as_str() {
+            "BN128" => prove_data_cache.snark_cache.bn128_data.clone(),
+            "BLS12381" => prove_data_cache.snark_cache.bls12381_data.clone(),
+            _ => {
+                log::warn!("unsupport cache: {}, use default", args.curve_type);
+                SnarkFile {
+                    already_cached: false,
+                    curve_type: args.curve_type.clone(),
+                    r1cs_file: sp.r1cs_file.clone(),
+                    pk_file: args.pk_file.clone(),
+                    vk_file: args.vk_file.clone(),
+                }
+            }
+        };
+
         groth16_prove(
             &args.curve_type,
-            &sp.r1cs_file,
+            &curve_cache.r1cs_file,
             &wasm_file,
-            &args.pk_file,
+            &curve_cache.pk_file,
             &sp.zkin,
             &args.public_input_file,
             &args.proof_file,
@@ -193,7 +198,7 @@ impl Prover<FinalContext> for FinalProver {
 
         groth16_verify(
             &args.curve_type,
-            &args.vk_file,
+            &curve_cache.vk_file,
             &args.public_input_file,
             &args.proof_file,
         )?;

@@ -8,4 +8,6 @@ mod final_context;
 pub use final_context::FinalContext;
 
 mod cache_context;
-pub use cache_context::{CacheStage, Curve, ProveDataCache, SnarkFileType, StarkFileType};
+pub use cache_context::{
+    CacheStage, Curve, ProveDataCache, SnarkFile, SnarkFileType, StarkFileType,
+};

@@ -45,22 +45,8 @@ impl Prover<AggContext> for AggProver {
         let sp = &ctx.agg_stark;
         let cc = &ctx.agg_circom;
 
-        let mut r1_stark = batch_ctx[0].recursive1_stark.clone();
+        let r1_stark = batch_ctx[0].recursive1_stark.clone();
         let r1_circom = batch_ctx[0].recursive1_circom.clone();
-        if prove_data_cache.agg_cache.already_cached {
-            r1_stark
-                .r1cs_file
-                .clone_from(&prove_data_cache.agg_cache.r1cs_file);
-            r1_stark
-                .pil_file
-                .clone_from(&prove_data_cache.agg_cache.pil_file);
-            r1_stark
-                .const_file
-                .clone_from(&prove_data_cache.agg_cache.const_file);
-            r1_stark
-                .exec_file
-                .clone_from(&prove_data_cache.agg_cache.exec_file);
-        }
 
         log::info!("agg_stark: {:?}", sp);
         log::info!("agg_circom: {:?}", cc);
@@ -138,8 +124,8 @@ impl Prover<AggContext> for AggProver {
         exec(
             &ctx.agg_zkin,
             &wasm_file,
-            &r1_stark.pil_file,
-            &r1_stark.exec_file,
+            &prove_data_cache.agg_cache.pil_file,
+            &prove_data_cache.agg_cache.exec_file,
             &r1_stark.commit_file,
         )?;
 
@@ -156,7 +142,7 @@ impl Prover<AggContext> for AggProver {
             true,
             false,
             false,
-            &r1_stark.const_file,
+            &prove_data_cache.agg_cache.const_file,
             &r1_stark.commit_file,
             &cc.circom_file,
             &prev_zkin_out,
@@ -181,8 +167,8 @@ impl Prover<AggContext> for AggProver {
             exec(
                 &zkin_out,
                 &wasm_file,
-                &r1_stark.pil_file,
-                &r1_stark.exec_file,
+                &prove_data_cache.agg_cache.pil_file,
+                &prove_data_cache.agg_cache.exec_file,
                 &r_stark.commit_file,
             )?;
 
@@ -192,7 +178,7 @@ impl Prover<AggContext> for AggProver {
                 true,
                 false,
                 false,
-                &r1_stark.const_file,
+                &prove_data_cache.agg_cache.const_file,
                 &r_stark.commit_file,
                 &cc.circom_file,
                 &prev_zkin_out,
