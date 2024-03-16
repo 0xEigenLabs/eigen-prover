@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+use super::ProveDataCache;
 use crate::args::CircomCompileArgs;
 use crate::args::StarkProveArgs;
 use crate::stage::Stage;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct AggContext {
@@ -15,6 +17,7 @@ pub struct AggContext {
     pub input: String,
     pub input2: String,
     pub task_name: String,
+    pub prove_data_cache: Arc<Mutex<ProveDataCache>>,
 }
 
 impl AggContext {
@@ -24,6 +27,7 @@ impl AggContext {
         task_name: &str,
         input: String,
         input2: String,
+        prove_data_cache: Arc<Mutex<ProveDataCache>>,
     ) -> Self {
         let task_path = Stage::Aggregate(task_id.to_string(), input.clone(), input2.clone()).path();
         let r2_task_name = format!("{}.recursive2", task_name);
@@ -37,6 +41,7 @@ impl AggContext {
             agg_struct: format!("{}/c12.stark_struct.json", basedir), // should be same as c12
             agg_stark: StarkProveArgs::new(basedir, &task_path, &r2_task_name, "GL"),
             agg_circom: CircomCompileArgs::new(basedir, &task_path, &r2_task_name, "GL"),
+            prove_data_cache,
         }
     }
 }

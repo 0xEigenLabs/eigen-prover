@@ -1,11 +1,11 @@
-use crate::contexts::{AggContext, BatchContext, FinalContext};
+use crate::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
 use crate::provers::{AggProver, BatchProver, FinalProver, Prover};
 use crate::stage::Stage;
 
 use anyhow::{anyhow, bail, Result};
 use std::collections::{HashMap, VecDeque};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 pub struct Pipeline {
@@ -13,16 +13,29 @@ pub struct Pipeline {
     queue: VecDeque<String>, // task_id
     task_map: Mutex<HashMap<String, Stage>>,
     task_name: String,
+    /// Cache the reusable data of rec2 during the final stage.
+    /// include: R1CS, pil, exec, wasm, const
+    prove_data_cache: Arc<Mutex<ProveDataCache>>,
+    _cache_dir: String,
 }
 
 impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
+        // TODO: set env
+        let default_cache_dir = String::from("cache");
+
         // TODO: recover tasks from basedir
         Pipeline {
-            basedir,
+            basedir: basedir.clone(),
             queue: VecDeque::new(),
             task_map: Mutex::new(HashMap::new()),
-            task_name,
+            task_name: task_name.clone(),
+            _cache_dir: default_cache_dir.clone(),
+            prove_data_cache: Arc::new(Mutex::new(ProveDataCache::new(
+                task_name,
+                basedir,
+                default_cache_dir,
+            ))),
         }
     }
 
@@ -38,7 +51,7 @@ impl Pipeline {
             // mkdir
             let workdir = Path::new(&self.basedir).join(status.path());
             log::info!("save_checkpoint, mkdir: {:?}", workdir);
-            let _ = std::fs::create_dir_all(workdir.clone());
+            std::fs::create_dir_all(workdir.clone())?;
 
             if !finished {
                 let p = workdir.join("status");
@@ -153,6 +166,7 @@ impl Pipeline {
                             &self.task_name,
                             input.clone(),
                             input2.clone(),
+                            self.prove_data_cache.clone(),
                         );
                         AggProver::new().prove(&ctx)?;
                     }
@@ -163,6 +177,7 @@ impl Pipeline {
                             self.task_name.clone(),
                             curve_name.clone(),
                             prover_addr.clone(),
+                            self.prove_data_cache.clone(),
                         );
                         FinalProver::new().prove(&ctx)?;
                     }
