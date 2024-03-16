@@ -17,6 +17,7 @@ pub enum StarkFileType {
     #[default]
     R1cs,
     Pil,
+    PilJson,
     Const,
     Exec,
 }
@@ -117,6 +118,7 @@ pub struct StarkFile {
     pub already_cached: bool,
     pub r1cs_file: String,
     pub pil_file: String,
+    pub piljson_file: String,
     pub const_file: String,
     pub exec_file: String,
 }
@@ -126,9 +128,17 @@ impl StarkFile {
         match file_type {
             StarkFileType::R1cs => self.r1cs_file = cache_path,
             StarkFileType::Pil => self.pil_file = cache_path,
+            StarkFileType::PilJson => self.piljson_file = cache_path,
             StarkFileType::Const => self.const_file = cache_path,
             StarkFileType::Exec => self.exec_file = cache_path,
         }
+    }
+
+    pub fn update_pil_json(&mut self) {
+        self.add(
+            format!("{}.json", self.pil_file.clone()),
+            StarkFileType::PilJson,
+        )
     }
 }
 

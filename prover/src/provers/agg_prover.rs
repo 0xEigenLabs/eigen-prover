@@ -129,6 +129,12 @@ impl Prover<AggContext> for AggProver {
             &r1_stark.commit_file,
         )?;
 
+        // exec gen pil.json to the pil path
+        // update pil.json to the cache
+        if !prove_data_cache.agg_cache.already_cached {
+            prove_data_cache.agg_cache.update_pil_json();
+        }
+
         // 5. stark prove
         log::info!("recursive2: {:?} -> {:?}", r1_stark, cc);
         let prev_zkin_out = format!(
@@ -138,7 +144,7 @@ impl Prover<AggContext> for AggProver {
 
         stark_prove(
             &ctx.agg_struct,
-            &r1_stark.piljson,
+            &prove_data_cache.agg_cache.piljson_file,
             true,
             false,
             false,
@@ -174,7 +180,7 @@ impl Prover<AggContext> for AggProver {
 
             stark_prove(
                 &ctx.agg_struct,
-                &r1_stark.piljson,
+                &prove_data_cache.agg_cache.piljson_file,
                 true,
                 false,
                 false,

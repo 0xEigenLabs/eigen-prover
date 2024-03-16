@@ -81,10 +81,16 @@ impl Prover<FinalContext> for FinalProver {
             &r2.commit_file,
         )?;
 
+        // exec gen pil.json to the pil path
+        // update pil.json to the cache
+        if !prove_data_cache.final_cache.already_cached {
+            prove_data_cache.final_cache.update_pil_json();
+        }
+
         log::info!("3. generate final proof");
         stark_prove(
             &ctx.final_stark_struct,
-            &r2.piljson,
+            &prove_data_cache.final_cache.piljson_file,
             false,
             false,
             false,
