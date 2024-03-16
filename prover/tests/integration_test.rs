@@ -23,7 +23,7 @@ fn integration_test() -> anyhow::Result<()> {
 
     let task3 = pipeline.batch_prove("0".into(), "2".into()).unwrap();
     pipeline.prove().unwrap();
-    log::info!("task2: {task3}");
+    log::info!("task3: {task3}");
 
     let task4 = pipeline
         .aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string())
