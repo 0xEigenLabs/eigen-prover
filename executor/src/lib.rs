@@ -21,6 +21,8 @@ use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
 
 use statedb::database::Database as StateDB;
+use storage_layout_extractor::watchdog::LazyWatchdog;
+mod storage_extractor;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 mod merkle_trie;
@@ -71,22 +73,17 @@ pub async fn batch_process(
     let mut db = StateDB::new(None);
 
     let mut test_pre = HashMap::new();
-    let max_slot = 128;
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
-        let mut storages = HashMap::new();
-        for i in 0..max_slot {
-            let slot = ethersdb.storage(from_acc, U256::from(i)).unwrap();
-            storages.insert(U256::from(i), slot);
-        }
+
         log::info!("acc_info: {} => {:?}", from_acc, acc_info);
         let account_info = models::AccountInfo {
             balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
             nonce: acc_info.nonce,
-            storage: storages,
+            storage: HashMap::new(), // the from account should be an EOA
         };
         test_pre.insert(from_acc, account_info);
         cache_db.insert_account_info(from_acc, acc_info);
@@ -98,6 +95,7 @@ pub async fn batch_process(
             // setup storage
 
             let mut storages = HashMap::new();
+
             uint! {
                 let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
                 let account_slot_json_str = account_slot_json.as_str();
@@ -105,15 +103,20 @@ pub async fn batch_process(
                     log::info!("found slot in db, account_slot_json: {:?}", account_slot_json_str);
                 }
 
-                /*
-                let mut storages = HashMap::new();
-                for i in 0..max_slot {
-                    let slot = ethersdb.storage(from_acc, U256::from(i)).unwrap();
-                    storages.insert(U256::from(i), slot);
-                }
-                */
+                let mut account_slot: HashSet<U256>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
+                // replenish the slots
 
-                let account_slot: HashSet<U256>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
+                if acc_info.code.is_some() {
+                    let bytes = acc_info.code.clone().unwrap().bytecode.0.to_vec();
+                    let extractor = storage_extractor::new_extractor_from_bytecode(bytes, LazyWatchdog.in_rc()).unwrap();
+                    // Get the final storage layout for the input contract
+                    let layout = extractor.analyze().unwrap_or_default();
+                    let slots = layout.slots();
+                    for sid in slots {
+                        account_slot.insert(U256::from(sid.index.0.as_u128())); // NOTE: the slot id maybe larger than u128::MAX
+                    }
+                }
+
                 for slot in account_slot {
                     let slot = U256::from(slot);
                     if !acc_info.code.as_ref().unwrap().is_empty() {
