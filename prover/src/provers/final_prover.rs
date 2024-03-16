@@ -132,11 +132,20 @@ impl Prover<FinalContext> for FinalProver {
                 false,
             )?;
 
+            let wasm_file = format!(
+                "{}/{}.final_js/{}.final.wasm",
+                cc.output, ctx.task_name, ctx.task_name
+            );
             match args.curve_type.as_str() {
                 "BN128" => {
                     prove_data_cache.update_cache_flag(CacheStage::Snark(Curve::BN128(
                         SnarkFileType::default(),
                     )));
+                    prove_data_cache.add(
+                        wasm_file,
+                        CacheStage::Snark(Curve::BN128(SnarkFileType::Wasm)),
+                    )?;
+
                     prove_data_cache.add(
                         sp.r1cs_file.clone(),
                         CacheStage::Snark(Curve::BN128(SnarkFileType::R1cs)),
@@ -154,6 +163,10 @@ impl Prover<FinalContext> for FinalProver {
                     prove_data_cache.update_cache_flag(CacheStage::Snark(Curve::BLS12381(
                         SnarkFileType::default(),
                     )));
+                    prove_data_cache.add(
+                        wasm_file,
+                        CacheStage::Snark(Curve::BLS12381(SnarkFileType::Wasm)),
+                    )?;
                     prove_data_cache.add(
                         sp.r1cs_file.clone(),
                         CacheStage::Snark(Curve::BLS12381(SnarkFileType::R1cs)),
@@ -184,6 +197,8 @@ impl Prover<FinalContext> for FinalProver {
                     r1cs_file: sp.r1cs_file.clone(),
                     pk_file: args.pk_file.clone(),
                     vk_file: args.vk_file.clone(),
+                    // default use bn128_data wasm
+                    wasm_file: prove_data_cache.snark_cache.bn128_data.wasm_file.clone(),
                 }
             }
         };
@@ -191,7 +206,7 @@ impl Prover<FinalContext> for FinalProver {
         groth16_prove(
             &args.curve_type,
             &curve_cache.r1cs_file,
-            &prove_data_cache.final_cache.wasm_file,
+            &curve_cache.wasm_file,
             &curve_cache.pk_file,
             &sp.zkin,
             &args.public_input_file,

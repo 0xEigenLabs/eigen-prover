@@ -35,6 +35,7 @@ pub enum SnarkFileType {
     R1cs,
     PK,
     VK,
+    Wasm,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -158,6 +159,7 @@ pub struct SnarkFile {
     pub r1cs_file: String,
     pub pk_file: String,
     pub vk_file: String,
+    pub wasm_file: String,
 }
 
 impl SnarkFile {
@@ -166,6 +168,7 @@ impl SnarkFile {
             SnarkFileType::PK => self.pk_file = cache_path,
             SnarkFileType::VK => self.vk_file = cache_path,
             SnarkFileType::R1cs => self.r1cs_file = cache_path,
+            SnarkFileType::Wasm => self.wasm_file = cache_path,
         }
     }
 }
