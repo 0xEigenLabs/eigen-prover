@@ -68,7 +68,6 @@ impl Prover<AggContext> for AggProver {
                 r1_circom.output, ctx.task_name, ctx.task_name
             );
 
-            prove_data_cache.update_cache_flag(CacheStage::Agg(StarkFileType::default()));
             prove_data_cache.add(
                 r1_stark.r1cs_file.clone(),
                 CacheStage::Agg(StarkFileType::R1cs),
@@ -119,6 +118,7 @@ impl Prover<AggContext> for AggProver {
                 r1_stark.exec_file.clone(),
                 CacheStage::Agg(StarkFileType::Exec),
             )?;
+            prove_data_cache.update_cache_flag(CacheStage::Agg(StarkFileType::default()));
         }
 
         // 4. compress exec

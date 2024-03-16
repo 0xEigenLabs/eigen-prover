@@ -46,7 +46,6 @@ impl Prover<FinalContext> for FinalProver {
                 "{}/{}.recursive2_js/{}.recursive2.wasm",
                 cc.output, ctx.task_name, ctx.task_name
             );
-            prove_data_cache.update_cache_flag(CacheStage::Final(StarkFileType::default()));
             prove_data_cache.add(r2.r1cs_file.clone(), CacheStage::Final(StarkFileType::R1cs))?;
             prove_data_cache.add(wasm_file, CacheStage::Final(StarkFileType::Wasm))?;
         }
@@ -69,6 +68,7 @@ impl Prover<FinalContext> for FinalProver {
             )?;
 
             prove_data_cache.add(r2.exec_file.clone(), CacheStage::Final(StarkFileType::Exec))?;
+            prove_data_cache.update_cache_flag(CacheStage::Final(StarkFileType::default()));
         }
 
         log::info!("2. compress exec");
