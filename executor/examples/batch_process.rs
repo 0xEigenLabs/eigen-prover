@@ -11,7 +11,7 @@ async fn main() -> anyhow::Result<()> {
     let task_id = "0";
     // base_dir is eigen_prover
     let base_dir = "/tmp";
-    let url = stdenv::var("URL").unwrap_or(String::from("http://localhost:8545"));
+    let url = stdenv::var("URL").unwrap_or(String::from("http://localhost:8123"));
     let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
     let client = Provider::<Http>::try_from(url).unwrap();
     let client = Arc::new(client);

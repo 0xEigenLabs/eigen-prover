@@ -21,6 +21,8 @@ use std::{fs, io::Write};
 use zkvm::zkvm_evm_generate_chunks;
 
 use statedb::database::Database as StateDB;
+use storage_layout_extractor::watchdog::LazyWatchdog;
+mod storage_extractor;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 mod merkle_trie;
@@ -59,7 +61,7 @@ pub async fn batch_process(
         Err(error) => panic!("Error: {:?}", error),
     };
 
-    log::info!("Fetched block number: {:?}", block.number.unwrap());
+    log::debug!("Fetched block number: {:?}", block.number.unwrap());
     let previous_block_number = block_number - 1;
 
     let prev_id: BlockId = previous_block_number.into();
@@ -71,22 +73,17 @@ pub async fn batch_process(
     let mut db = StateDB::new(None);
 
     let mut test_pre = HashMap::new();
-    let max_slot = 128;
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
         let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
-        let mut storages = HashMap::new();
-        for i in 0..max_slot {
-            let slot = ethersdb.storage(from_acc, U256::from(i)).unwrap();
-            storages.insert(U256::from(i), slot);
-        }
-        log::info!("acc_info: {} => {:?}", from_acc, acc_info);
+
+        log::debug!("acc_info: {} => {:?}", from_acc, acc_info);
         let account_info = models::AccountInfo {
             balance: acc_info.balance,
             code: acc_info.code.clone().unwrap().bytecode,
             nonce: acc_info.nonce,
-            storage: storages,
+            storage: HashMap::new(), // the from account should be an EOA
         };
         test_pre.insert(from_acc, account_info);
         cache_db.insert_account_info(from_acc, acc_info);
@@ -94,32 +91,39 @@ pub async fn batch_process(
         if tx.to.is_some() {
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
             let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
-            log::info!("to_info: {} => {:?}", to_acc, acc_info);
+            log::debug!("to_info: {} => {:?}", to_acc, acc_info);
             // setup storage
 
             let mut storages = HashMap::new();
+
             uint! {
                 let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
                 let account_slot_json_str = account_slot_json.as_str();
                 if !account_slot_json_str.is_empty() {
-                    log::info!("found slot in db, account_slot_json: {:?}", account_slot_json_str);
+                    log::debug!("found slot in db, account_slot_json: {:?}", account_slot_json_str);
                 }
 
-                /*
-                let mut storages = HashMap::new();
-                for i in 0..max_slot {
-                    let slot = ethersdb.storage(from_acc, U256::from(i)).unwrap();
-                    storages.insert(U256::from(i), slot);
-                }
-                */
+                let mut account_slot: HashSet<U256>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
+                // replenish the slots
 
-                let account_slot: HashSet<U256>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
+                if acc_info.code.is_some() {
+                    let bytes = acc_info.code.clone().unwrap().bytecode.0.to_vec();
+                    let extractor = storage_extractor::new_extractor_from_bytecode(bytes, LazyWatchdog.in_rc()).unwrap();
+                    // Get the final storage layout for the input contract
+                    let layout = extractor.analyze().unwrap_or_default();
+                    let slots = layout.slots();
+                    log::debug!("extracted slots: {:?}", slots);
+                    for sid in slots {
+                        account_slot.insert(U256::from(sid.index.0.as_u128())); // NOTE: the slot id maybe larger than u128::MAX
+                    }
+                }
+
                 for slot in account_slot {
                     let slot = U256::from(slot);
                     if !acc_info.code.as_ref().unwrap().is_empty() {
                         // query value of storage slot at account address
                         let value = ethersdb.storage(to_acc, slot).unwrap();
-                        log::info!("slot:{}, value: {:?}", slot, value);
+                        log::debug!("slot:{}, value: {:?}", slot, value);
 
                         storages.insert(slot, value);
                         cache_db
@@ -162,7 +166,7 @@ pub async fn batch_process(
         .build();
 
     let txs = block.transactions.len();
-    log::info!("Found {txs} transactions.");
+    log::debug!("Found {txs} transactions.");
 
     let _elapsed = std::time::Duration::ZERO;
 
@@ -250,9 +254,16 @@ pub async fn batch_process(
         let mut tx_value = Uint::ZERO;
         local_fill!(tx_value, Some(tx.value), U256::from_limbs);
         transaction_parts.value.push(tx_value);
-        transaction_parts.max_fee_per_gas = Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()));
-        transaction_parts.max_priority_fee_per_gas =
-            Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()));
+        transaction_parts.max_fee_per_gas = if tx.max_fee_per_gas.is_some() {
+            Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()))
+        } else {
+            None
+        };
+        transaction_parts.max_priority_fee_per_gas = if tx.max_priority_fee_per_gas.is_some() {
+            Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()))
+        } else {
+            None
+        };
 
         let access_list_vec = tx.access_list.as_ref().map(|access_list| {
             access_list
@@ -294,21 +305,21 @@ pub async fn batch_process(
         */
         //evm.transact_commit().unwrap();
         let result = evm.transact().unwrap();
-        log::info!("evm transact result: {:?}", result.result);
+        log::debug!("evm transact result: {:?}", result.result);
         evm.context.evm.db.commit(result.state.clone());
         let env = evm.context.evm.env.clone();
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
 
         for (k, v) in &evm.context.evm.db.accounts {
-            log::info!("state: {}=>{:?}", k, v);
+            log::debug!("state: {}=>{:?}", k, v);
             let account_slot_json = db.read_nodes(k.to_string().as_str()).unwrap_or_default();
             let account_slot_json_str = account_slot_json.as_str();
             let mut account_slot: HashSet<Uint<256, 4>> =
                 serde_json::from_str(account_slot_json_str).unwrap_or_default();
             if !v.storage.is_empty() {
                 for (k, v) in v.storage.iter() {
-                    log::info!("slot => storage: {}=>{}", k, v);
+                    log::debug!("slot => storage: {}=>{}", k, v);
                     account_slot.insert(*k);
                 }
             }
@@ -328,22 +339,22 @@ pub async fn batch_process(
         let (txbytes, data, value, ResultAndState { result, state }) = res;
         {
             // 1. expect_exception: Option<String>,
-            log::info!("expect_exception: {:?}", result.is_success());
+            log::debug!("expect_exception: {:?}", result.is_success());
             // indexes: TxPartIndices,
-            log::info!(
+            log::debug!(
                 "indexes: data{:?}, value: {}, gas: {}",
                 data,
                 value,
                 result.gas_used()
             );
-            log::info!("output: {:?}", result.output());
+            log::debug!("output: {:?}", result.output());
 
             // post_state: HashMap<Address, AccountInfo>,
-            log::info!("post_state: {:?}", state);
+            log::debug!("post_state: {:?}", state);
             // logs: B256,
-            log::info!("logs: {:?}", result.logs());
+            log::debug!("logs: {:?}", result.logs());
             // txbytes: Option<Bytes>,
-            log::info!("txbytes: {:?}", txbytes);
+            log::debug!("txbytes: {:?}", txbytes);
 
             let mut new_state: HashMap<Address, models::AccountInfo> = HashMap::new();
 
@@ -441,7 +452,11 @@ pub async fn batch_process(
     test_env.previous_hash = FixedBytes(block.parent_hash.0);
     // local_fill!(test_env.current_random, block.random);
     // local_fill!(test_env.current_beacon_root, block.beacon_root);
-    test_env.current_withdrawals_root = Some(FixedBytes(block.withdrawals_root.unwrap().0));
+    test_env.current_withdrawals_root = if block.withdrawals_root.is_some() {
+        Some(FixedBytes(block.withdrawals_root.unwrap().0))
+    } else {
+        None
+    };
 
     let mut gas_used = Uint::ZERO;
     local_fill!(gas_used, Some(block.gas_used), U256::from_limbs);
@@ -465,7 +480,7 @@ pub async fn batch_process(
     let suite_json = json_string.clone();
 
     let output_path = format!("{}/{}/{}", base_dir, task_id, task);
-    log::info!("output_path: {}", output_path);
+    log::debug!("output_path: {}", output_path);
     std::fs::create_dir_all(output_path.clone())
         .unwrap_or_else(|_| panic!("Failed to write to file, output_path: {}", output_path));
     std::fs::write(format!("{}/batch.json", output_path), json_string)
@@ -478,16 +493,16 @@ pub async fn batch_process(
         project_root_path.to_str().unwrap(),
         task
     );
-    log::info!("workspace: {}", workspace);
+    log::debug!("workspace: {}", workspace);
     let bootloader_inputs =
         zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
     let cnt_chunks: usize = bootloader_inputs.len();
-    log::info!("Generated {} chunks", cnt_chunks);
+    log::debug!("Generated {} chunks", cnt_chunks);
     // save the chunks
     let bi_files: Vec<_> = (0..cnt_chunks)
         .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
         .collect();
-    log::info!("bi_files: {:#?}", bi_files);
+    log::debug!("bi_files: {:#?}", bi_files);
     bootloader_inputs
         .iter()
         .zip(&bi_files)
@@ -521,12 +536,12 @@ mod tests {
             zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str())
                 .unwrap();
         let cnt_chunks: usize = bootloader_inputs.len();
-        log::info!("Generated {} chunks", cnt_chunks);
+        log::debug!("Generated {} chunks", cnt_chunks);
         // save the chunks
         let bi_files: Vec<_> = (0..cnt_chunks)
             .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
             .collect();
-        log::info!("bi_files: {:#?}", bi_files);
+        log::debug!("bi_files: {:#?}", bi_files);
         bootloader_inputs
             .iter()
             .zip(&bi_files)
