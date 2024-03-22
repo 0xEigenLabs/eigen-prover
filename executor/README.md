@@ -17,5 +17,5 @@ NO=1 RUST_LOG=info cargo run --example exec_block -- --nocapture
 
 test example batch_process
 ```
-NO=1 RUST_LOG=info cargo run --example batch_process -- --nocapture
+RUST_LOG=info cargo run --example batch_process -- --nocapture
 ```

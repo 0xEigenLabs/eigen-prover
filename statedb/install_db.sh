@@ -2,7 +2,7 @@
 set -ex
 
 NAME=eigen-prover-statedb
-PORT=5432
+PORT=9432
 
 function create() {
     if [ $# -ne 3 ] && [ $# -ne 4 ]; then

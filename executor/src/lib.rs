@@ -1,7 +1,7 @@
 #![allow(clippy::redundant_closure)]
 use anyhow::Result;
-use ethers_core::types::BlockId;
-use ethers_providers::{Http, Middleware, Provider};
+use ethers_core::types::{Block, Transaction};
+use ethers_providers::{Http, Provider};
 use powdr_number::FieldElement;
 use revm::primitives::HashSet;
 use revm::{
@@ -47,27 +47,13 @@ fn new_storage(storage: &Storage) -> HashMap<U256, U256> {
 
 pub async fn batch_process(
     client: Arc<Provider<Http>>,
-    block_number: u64,
     chain_id: u64,
+    block: Block<Transaction>,
     task: &str,
     task_id: &str,
     base_dir: &str,
 ) -> (ExecResult, usize) {
-    //let client = Provider::<Http>::try_from(url).unwrap();
-    //let client = Arc::new(client);
-    let block = match client.get_block_with_txs(block_number).await {
-        Ok(Some(block)) => block,
-        Ok(None) => panic!("Block not found"),
-        Err(error) => panic!("Error: {:?}", error),
-    };
-
-    log::debug!("Fetched block number: {:?}", block.number.unwrap());
-    let previous_block_number = block_number - 1;
-
-    let prev_id: BlockId = previous_block_number.into();
-    // SAFETY: This cannot fail since this is in the top-level tokio runtime
-    let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
-
+    let mut ethersdb = EthersDB::new(Arc::clone(&client), None).unwrap();
     let mut cache_db = CacheDB::new(EmptyDB::default());
 
     let mut db = StateDB::new(None);

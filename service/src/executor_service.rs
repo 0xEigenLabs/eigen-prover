@@ -1,6 +1,8 @@
 #![allow(clippy::all)]
 #![allow(unknown_lints)]
-
+use ethers_core::types::{Block, Transaction, H160, H256, U256, U64};
+use ethers_core::utils::hex;
+use ethers_core::utils::rlp::{Decodable, Rlp};
 use executor_service::executor_service_server::ExecutorService;
 use executor_service::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse};
 use log::debug;
@@ -14,6 +16,7 @@ pub mod executor_service {
 }
 use executor::batch_process;
 use revm::primitives::ResultAndState;
+
 #[derive(Debug)]
 pub struct ExecutorServiceSVC {
     client: Arc<Provider<Http>>,
@@ -36,34 +39,39 @@ impl ExecutorService for ExecutorServiceSVC {
     ) -> Result<Response<ProcessBatchResponse>, Status> {
         debug!("Got a request: {:?}", request);
         let msg = request.get_ref();
-        let batch_l2_data_result: Result<String, _> = String::from_utf8(msg.batch_l2_data.clone());
-
-        let batch_l2_data = match batch_l2_data_result {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("Error converting to String: {}", e);
-                // Handle the error or return a default string if needed
-                String::default()
-            }
+        // FIXME: need more block data
+        let raw_tx = Rlp::new(&msg.batch_l2_data);
+        let tx = Transaction::decode(&raw_tx).unwrap();
+        let author: Option<H160> = match hex::decode(msg.coinbase.clone()) {
+            Ok(x) => Some(H160::from_slice(&x)),
+            _ => None,
         };
-        // let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
-        let block_number = batch_l2_data.parse::<u64>().unwrap();
+        let block = Block {
+            author: author,
+            number: Some(U64::from(0)),
+            transactions: vec![tx],
+            timestamp: msg.eth_timestamp.into(),
+            gas_limit: U256::from(80_000_000u128),
+            parent_hash: H256::default(),
+            gas_used: U256::from(0),
+            difficulty: U256::from(0),
+            ..Default::default()
+        };
 
         let task = stdenv::var("TASK").unwrap_or(String::from("lr"));
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
         let execute_task_id = uuid::Uuid::new_v4();
-        let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
-        let (_res, cnt_chunks) = batch_process(
+        let (res, cnt_chunks) = batch_process(
             self.client.clone(),
-            block_number,
-            chain_id.parse::<u64>().unwrap(),
+            msg.chain_id,
+            block,
             &task,
             execute_task_id.to_string().as_str(),
             base_dir.as_str(),
         )
         .await;
         let mut response = executor_service::ProcessBatchResponse::default();
-        let last_element = match _res {
+        let last_element = match res {
             Ok(res) => {
                 response.error = ExecutorError::NoError.into();
                 debug!("exec success");
