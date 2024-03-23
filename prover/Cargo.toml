@@ -20,6 +20,7 @@ powdr-riscv =          { git = "https://github.com/eigmax/powdr", branch = "main
 powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main" }
 powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main" }
 
+tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread", "signal", "sync"] }
 
 uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 

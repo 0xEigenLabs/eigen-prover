@@ -21,7 +21,9 @@ use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::Request;
 
+use prover::contexts::BatchContext;
 use prover::pipeline::Pipeline;
+use tokio::sync::mpsc::Sender;
 
 pub mod aggregator_service {
     tonic::include_proto!("aggregator.v1"); // The string specified here must match the proto package name
@@ -38,7 +40,8 @@ lazy_static! {
     };
 }
 
-pub async fn run_prover() -> Result<()> {
+pub async fn run_prover(task_sender: Sender<BatchContext>) -> Result<()> {
+    PIPELINE.lock().unwrap().set_task_sender(task_sender);
     PIPELINE.lock().unwrap().prove()
 }
 
