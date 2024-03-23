@@ -1,11 +1,12 @@
 use crate::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
-use crate::provers::{AggProver, BatchProver, FinalProver, Prover};
+use crate::provers::{AggProver, FinalProver, Prover};
 use crate::stage::Stage;
 
 use anyhow::{anyhow, bail, Result};
 use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 pub struct Pipeline {
@@ -17,6 +18,7 @@ pub struct Pipeline {
     /// include: R1CS, pil, exec, wasm, const
     prove_data_cache: Arc<Mutex<ProveDataCache>>,
     _cache_dir: String,
+    task_sender: Option<Sender<BatchContext>>,
 }
 
 impl Pipeline {
@@ -36,7 +38,12 @@ impl Pipeline {
                 basedir,
                 default_cache_dir,
             ))),
+            task_sender: None,
         }
+    }
+
+    pub fn set_task_sender(&mut self, task_sender: Sender<BatchContext>) {
+        self.task_sender = Some(task_sender);
     }
 
     pub fn get_key(&self, task_id: &String, chunk_id: &String) -> String {
@@ -157,7 +164,11 @@ impl Pipeline {
                             &self.task_name.clone(),
                             chunk_id,
                         );
-                        BatchProver::new().prove(&ctx)?;
+
+                        // send the task's ctx to scheduler
+                        if let Err(e) = self.task_sender.as_ref().unwrap().try_send(ctx) {
+                            log::error!("send task to scheduler failed, {:?}", e);
+                        }
                     }
                     Stage::Aggregate(task_id, input, input2) => {
                         let ctx = AggContext::new(
@@ -169,6 +180,7 @@ impl Pipeline {
                             self.prove_data_cache.clone(),
                         );
                         AggProver::new().prove(&ctx)?;
+                        self.save_checkpoint(&key, true)?;
                     }
                     Stage::Final(task_id, curve_name, prover_addr) => {
                         let ctx = FinalContext::new(
@@ -180,13 +192,13 @@ impl Pipeline {
                             self.prove_data_cache.clone(),
                         );
                         FinalProver::new().prove(&ctx)?;
+                        self.save_checkpoint(&key, true)?;
                     }
                 },
                 _ => {
                     log::info!("Task queue is empty...");
                 }
             };
-            self.save_checkpoint(&key, true)?;
         }
         Ok(())
     }
