@@ -4,7 +4,7 @@ use ethers_core::types::{Block, Transaction, H160, H256, U256, U64};
 use ethers_core::utils::hex;
 use ethers_core::utils::rlp::{Decodable, Rlp};
 use executor_service::executor_service_server::ExecutorService;
-use executor_service::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse};
+use executor_service::{ExecutorError, ProcessBatchRequest, ProcessBatchResponse, ProcessTransactionResponse};
 use log::debug;
 use std::env as stdenv;
 //use models::*;
@@ -61,7 +61,7 @@ impl ExecutorService for ExecutorServiceSVC {
         let task = stdenv::var("TASK").unwrap_or(String::from("lr"));
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
         let execute_task_id = uuid::Uuid::new_v4();
-        let (res, cnt_chunks) = batch_process(
+        let (exec_result, cnt_chunks) = batch_process(
             self.client.clone(),
             msg.chain_id,
             block,
@@ -71,13 +71,13 @@ impl ExecutorService for ExecutorServiceSVC {
         )
         .await;
         let mut response = executor_service::ProcessBatchResponse::default();
-        let last_element = match res {
-            Ok(res) => {
+        let last_element = match exec_result {
+            Ok(ref res) => {
                 response.error = ExecutorError::NoError.into();
                 debug!("exec success");
                 res.last().cloned()
             }
-            Err(e) => {
+            Err(ref e) => {
                 response.error = ExecutorError::Unspecified.into();
                 debug!("exec error: {:?}", e);
                 None
@@ -110,7 +110,29 @@ impl ExecutorService for ExecutorServiceSVC {
             debug!("logs: {:?}", result.logs());
             // txbytes: Option<Bytes>,
             debug!("txbytes: {:?}", txbytes);
+            //response.new_state_root = state;
         }
+
+        for res in exec_result.iter() {
+            let ptx = ProcessTransactionResponse {
+                tx_hash: vec![],
+                return_value: vec![],
+                gas_left: 0,
+                gas_used: 0,
+                gas_refunded: 0,
+                rlp_tx: vec![],
+                r#type: 0,
+                error: 0,
+                create_address: "".to_string(),
+                state_root: vec![],
+                logs: vec![],
+                execution_trace: vec![],
+                call_trace: None,
+            };
+
+            response.responses.push(ptx)
+        }
+
 
         Ok(Response::new(response))
     }
