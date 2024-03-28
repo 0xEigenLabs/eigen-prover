@@ -43,8 +43,8 @@ impl FinalContext {
             basedir: basedir.clone(),
             task_id,
             prover_addr,
-            task_name,
-            final_stark_struct: format!("{}/final.stark_struct.json", basedir),
+            task_name: task_name.clone(),
+            final_stark_struct: format!("{}/{}/final.stark_struct.json", basedir, task_name),
             final_stark: StarkProveArgs::new(&basedir, &prev_task_path, &final_task_name, &curve),
             recursive2_stark: StarkProveArgs::new(&basedir, &prev_task_path, &r2_task_name, &curve),
             final_circom: CircomCompileArgs::new(
