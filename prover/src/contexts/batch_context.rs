@@ -35,8 +35,8 @@ impl BatchContext {
             basedir: basedir.to_string(),
             task_id: task_id.to_string(),
             task_name: task_name.to_string(),
-            batch_struct: format!("{}/batch.stark_struct.json", basedir),
-            c12_struct: format!("{}/c12.stark_struct.json", basedir),
+            batch_struct: format!("{}/{}/batch.stark_struct.json", basedir, task_name),
+            c12_struct: format!("{}/{}/c12.stark_struct.json", basedir, task_name),
 
             batch_circom: CircomCompileArgs::new(basedir, &task_path, &batch_task_name, "GL"),
             l2_data: format!("{}/test.json", basedir),

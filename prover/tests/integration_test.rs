@@ -58,3 +58,20 @@ fn integration_test() -> anyhow::Result<()> {
     log::info!("final task: {task7}");
     Ok(())
 }
+
+#[test]
+#[ignore = "slow"]
+fn integration_test_lr() -> anyhow::Result<()> {
+    env::set_var("RUST_LOG", "info");
+    env_logger::try_init().unwrap_or_default();
+
+    // init pipeline.
+    let mut pipeline = Pipeline::new(
+        env::var("WORKSPACE").unwrap_or("data".to_string()),
+        env::var("TASK_NAME").unwrap_or("lr".to_string()),
+    );
+    let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
+    pipeline.prove().unwrap();
+    log::info!("task: {task1}");
+    Ok(())
+}
