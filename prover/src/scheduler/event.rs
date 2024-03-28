@@ -27,8 +27,14 @@ pub enum Event {
     /// Used to send the proof result to the scheduler
     TaskResult {
         service_id: ServiceId,
-        recursive_proof: String,
+        recursive_proof: ProofResult,
     },
+}
+
+#[derive(Debug, Clone)]
+pub enum ProofResult {
+    Success,
+    Fail,
 }
 
 pub enum AddServiceResult {

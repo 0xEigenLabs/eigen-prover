@@ -13,106 +13,51 @@ service SchedulerService {
 message BatchProverMessage
 {
   string id = 1;
-  oneof request
+  oneof message_type
   {
-    // status response
-    GetStatusResponse get_status_response = 2;
-    // batch proof response
-    GenBatchProofResponse gen_batch_proof_response = 3;
-
-    CancelRequest cancel_request = 4;
-    // proof response
-    GetProofResponse get_proof_response = 5;
+    // registry to scheduler
+    Registry registry = 2;
+    // take a task
+    TakeBatchProofTask take_batch_proof_task = 3;
+    // batch proof result of a task
+    BatchProofResult batch_proof_result = 4;
   }
 }
+
+message Registry {
+  string prover_name = 1;
+  string prover_id = 2;
+}
+
+message TakeBatchProofTask {
+  string prover_id = 1;
+}
+
+message BatchProofResult {
+  string prover_id = 1;
+  Result result = 2;
+}
+
+enum Result {
+  RESULT_ERROR = 0;
+  RESULT_OK = 1;
+}
+
 
 message SchedulerMessage
 {
   string id = 1;
-  oneof response
+  oneof message_type
   {
-    // get status
-    GetStatusRequest get_status_request = 2;
-    // gen batch proof
-    GenBatchProofRequest gen_batch_proof_request = 3;
-
-    CancelResponse cancel_response = 4;
-    // get proof
-    GetProofRequest get_proof_request = 5;
-
+    TakeBatchProofTaskResponse take_batch_proof_task_response = 2;
   }
 }
 
-message GetStatusRequest {}
-
-message GenBatchProofRequest {
-  InputProver input = 1;
-  string execute_task_id = 2;
-  string chunk_id = 3;
+message TakeBatchProofTaskResponse {
+  string prover_id = 1;
+  BatchContextBytes batch_context_bytes = 2;
 }
 
-message CancelRequest {
-  string id = 1;
+message BatchContextBytes {
+  bytes data = 1;
 }
-
-message GetProofRequest {
-  string id = 1;
-  uint64 timeout = 2;
-}
-
-message GetStatusResponse {
-  enum Status {
-    STATUS_UNSPECIFIED = 0;
-    STATUS_BOOTING = 1;
-    STATUS_COMPUTING = 2;
-    STATUS_IDLE = 3;
-    STATUS_HALT = 4;
-  }
-  Status status = 1;
-  string prover_name = 2;
-  string prover_id = 3;
-}
-
-enum Result {
-  RESULT_UNSPECIFIED = 0;
-  RESULT_OK = 1;
-  RESULT_ERROR = 2;
-  RESULT_INTERNAL_ERROR = 3;
-}
-
-message GenBatchProofResponse {
-  string id = 1;
-  Result result = 2;
-}
-
-message CancelResponse {
-  Result result = 1;
-}
-
-message GetProofResponse {
-  enum Result {
-    RESULT_UNSPECIFIED = 0;
-    RESULT_COMPLETED_OK = 1;
-    RESULT_ERROR = 2;
-    RESULT_COMPLETED_ERROR = 3;
-    RESULT_PENDING = 4;
-    RESULT_INTERNAL_ERROR = 5;
-    RESULT_CANCEL = 6;
-  }
-  string id = 1;
-  string recursive_proof =2;
-  Result result = 3;
-  string result_string = 4;
-}
-
-message PublicInputs {
-  uint64 old_batch_num = 3;
-}
-
-message InputProver {
-  PublicInputs public_inputs = 1;
-  map<string, string> db = 4; // For debug/testing purpposes only. Don't fill this on production
-  map<string, string> contracts_bytecode = 5; // For debug/testing purpposes only. Don't fill this on production
-}
-
-

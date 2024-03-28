@@ -2,7 +2,7 @@ use std::collections::HashMap;
 // use std::sync::Mutex;
 use super::event::Event;
 use crate::contexts::BatchContext;
-use crate::scheduler::{AddServiceResult, TakeTaskResult};
+use crate::scheduler::{AddServiceResult, ProofResult, TakeTaskResult};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
@@ -161,7 +161,11 @@ impl Scheduler {
         self.service_table.remove(&service_id);
     }
 
-    pub async fn handle_task_result(&mut self, service_id: ServiceId, _recursive_proof: String) {
+    pub async fn handle_task_result(
+        &mut self,
+        service_id: ServiceId,
+        _recursive_proof: ProofResult,
+    ) {
         if let Some(service) = self.service_table.get_mut(&service_id) {
             service.status = ServiceStatus::Idle;
             service.current_task = None;

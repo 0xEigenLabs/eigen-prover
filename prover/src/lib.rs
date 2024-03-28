@@ -1,4 +1,4 @@
-pub(crate) mod args;
+pub mod args;
 pub mod contexts;
 pub mod provers;
 pub(crate) mod stage;

@@ -166,6 +166,7 @@ impl Pipeline {
                         );
 
                         // send the task's ctx to scheduler
+                        // TODO: send the task key to scheduler, to save the checkpoint
                         if let Err(e) = self.task_sender.as_ref().unwrap().try_send(ctx) {
                             log::error!("send task to scheduler failed, {:?}", e);
                         }

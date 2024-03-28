@@ -1,11 +1,12 @@
+use crate::scheduler_service::scheduler_service::{BatchContextBytes, TakeBatchProofTaskResponse};
 use anyhow::anyhow;
 use anyhow::Result;
 use ethers_providers::{Http, Provider};
-use prover::scheduler::{AddServiceResult, Event, TakeTaskResult};
+use prover::scheduler::{AddServiceResult, Event, ProofResult, TakeTaskResult};
 use scheduler_service::scheduler_service_server::SchedulerService;
 use scheduler_service::{
-    batch_prover_message, scheduler_message, BatchProverMessage, GenBatchProofRequest,
-    GetProofResponse, GetStatusResponse, SchedulerMessage,
+    batch_prover_message, scheduler_message, BatchProofResult, BatchProverMessage, Registry,
+    SchedulerMessage,
 };
 use std::pin::Pin;
 use std::sync::Arc;
@@ -13,6 +14,8 @@ use tokio::sync::mpsc;
 use tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status, Streaming};
 
+// TODO: rename
+#[allow(clippy::module_inception)]
 pub mod scheduler_service {
     tonic::include_proto!("scheduler.v1");
 }
@@ -53,10 +56,10 @@ impl SchedulerService for SchedulerServiceSVC {
                     Some(result) = stream.next() => {
                         match result {
                             Ok(batch_prover_msg) => {
-                                if let Some(msg) = batch_prover_msg.request {
+                                if let Some(msg) = batch_prover_msg.message_type {
                                     let resp = match msg {
                                         // update pb, we don't need too much information
-                                        batch_prover_message::Request::GetStatusResponse(r) => {
+                                        batch_prover_message::MessageType::Registry(r) => {
                                             if let Ok(schdeduler_msg) = handle_get_status_response(r, scheduler_sender.clone()).await {
                                                 schdeduler_msg
                                             } else {
@@ -66,8 +69,9 @@ impl SchedulerService for SchedulerServiceSVC {
                                         }
                                         // update pb, we don't need GeneBatchProofResponse
                                         // just wait for the result, don't need to get again
-                                        batch_prover_message::Request::GenBatchProofResponse(r) => {
-                                            if let Ok(scheduler_msg) = handle_gen_batch_proof_response(r.id, scheduler_sender.clone()).await {
+                                        batch_prover_message::MessageType::TakeBatchProofTask(r) => {
+                                            // TODO: id
+                                            if let Ok(scheduler_msg) = handle_gen_batch_proof_response(r.prover_id.clone(), scheduler_sender.clone()).await {
                                                 scheduler_msg
                                             } else {
                                                 // close the connection
@@ -75,17 +79,13 @@ impl SchedulerService for SchedulerServiceSVC {
                                             }
                                         }
                                         // receive proof, trigger next batch_proof task
-                                        batch_prover_message::Request::GetProofResponse(r) => {
+                                        batch_prover_message::MessageType::BatchProofResult(r) => {
                                             if let Ok(scheduler_msg) = handle_get_proof_response(r, scheduler_sender.clone()).await {
                                                 scheduler_msg
                                             } else {
                                                 // close the connection
                                                 break;
                                             }
-                                        }
-                                        batch_prover_message::Request::CancelRequest(_r) => {
-                                            // TODO: cancel the task
-                                            todo!()
                                         }
                                     };
 
@@ -128,7 +128,7 @@ impl SchedulerService for SchedulerServiceSVC {
 }
 
 async fn handle_get_status_response(
-    r: GetStatusResponse,
+    r: Registry,
     scheduler_sender: mpsc::Sender<Event>,
 ) -> Result<SchedulerMessage> {
     // send Event::AddService to the scheduler, registry the service to the scheduler
@@ -200,14 +200,17 @@ async fn handle_gen_batch_proof_response(
             TakeTaskResult::Success(batch_ctx) => {
                 Ok(SchedulerMessage {
                     // TODO: received id
-                    id: "uid".into(),
-                    response: Some(
-                        // TODO: send BatchContext
-                        scheduler_message::Response::GenBatchProofRequest(GenBatchProofRequest {
-                            input: None,
-                            execute_task_id: batch_ctx.task_id,
-                            chunk_id: batch_ctx.chunk_id,
-                        }),
+                    id: "".into(),
+                    message_type: Some(
+                        // TODO: impl into trait for BatchContext?
+                        scheduler_message::MessageType::TakeBatchProofTaskResponse(
+                            TakeBatchProofTaskResponse {
+                                prover_id: provider_id.clone(),
+                                batch_context_bytes: Some(BatchContextBytes {
+                                    data: serde_json::to_vec(&batch_ctx).unwrap(),
+                                }),
+                            },
+                        ),
                     ),
                 })
             }
@@ -222,13 +225,21 @@ async fn handle_gen_batch_proof_response(
 }
 
 async fn handle_get_proof_response(
-    r: GetProofResponse,
+    r: BatchProofResult,
     scheduler_sender: mpsc::Sender<Event>,
 ) -> Result<SchedulerMessage> {
-    let event = Event::TaskResult {
-        service_id: r.id.clone(),
-        recursive_proof: r.recursive_proof.clone(),
+    let event = if r.result == scheduler_service::Result::Ok as i32 {
+        Event::TaskResult {
+            service_id: r.prover_id.clone(),
+            recursive_proof: ProofResult::Fail,
+        }
+    } else {
+        Event::TaskResult {
+            service_id: r.prover_id.clone(),
+            recursive_proof: ProofResult::Success,
+        }
     };
+
     if let Err(e) = scheduler_sender.send(event.clone()).await {
         // can't send event to scheduler, close the connection
         log::error!("Failed to send Event: {:?}, receiver dropped: {}", event, e);
@@ -239,10 +250,22 @@ async fn handle_get_proof_response(
         ));
     }
 
-    if let Ok(scheduler_msg) = handle_gen_batch_proof_response(r.id, scheduler_sender).await {
+    if let Ok(scheduler_msg) = handle_gen_batch_proof_response(r.prover_id, scheduler_sender).await
+    {
         Ok(scheduler_msg)
     } else {
         // close the connection
         Err(anyhow!("Failed to handle GenBatchProofResponse"))
+    }
+}
+
+async fn remove_service(service_id: String, scheduler_sender: mpsc::Sender<Event>) {
+    // send Event::RemoveService to the scheduler, remove the service from the scheduler
+    let event = Event::RemoveService {
+        service_id: service_id.clone(),
+    };
+    if let Err(e) = scheduler_sender.send(event.clone()).await {
+        // can't send event to scheduler, close the connection
+        log::error!("Failed to send Event: {:?}, receiver dropped: {}", event, e);
     }
 }
