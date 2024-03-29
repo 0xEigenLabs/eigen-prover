@@ -1,2 +1,1 @@
 pub mod batch_prover_service;
-pub use batch_prover_service::launch_batch_prover_service_with_addr;

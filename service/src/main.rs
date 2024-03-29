@@ -1,6 +1,7 @@
 #![allow(clippy::large_enum_variant)]
 #![allow(dead_code)]
 
+use std::sync::Arc;
 use tonic::transport::Server;
 mod aggregator_client;
 mod batch_prover_service;
@@ -13,8 +14,8 @@ extern crate lazy_static;
 use crate::statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
 use prover::scheduler::Scheduler;
-use prover_scheduler::scheduler_service::scheduler_service::scheduler_service_server::SchedulerServiceServer;
-use prover_scheduler::scheduler_service::SchedulerServiceSVC;
+use prover_scheduler::scheduler_server::scheduler_service::scheduler_service_server::SchedulerServiceServer;
+use prover_scheduler::scheduler_server::{SchedulerServerHandler, SchedulerServiceSVC};
 use tokio::{
     signal::unix::{signal, SignalKind},
     spawn,
@@ -104,7 +105,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // SchedulerServiceSVC holds the event_tx
     // all client will connect to this instance
     // they will send events to the scheduler by the event_tx, such as AddService, TakeTask etc.
-    let scheduler_server = SchedulerServiceSVC::new(event_tx);
+    let scheduler_server_addr =
+        std::env::var("SCHEDULER_URL").unwrap_or("http://localhost:8545".to_string());
+    let scheduler_handler = Arc::new(SchedulerServerHandler::default());
+    let scheduler_server =
+        SchedulerServiceSVC::new(scheduler_server_addr, event_tx, scheduler_handler);
     Server::builder()
         .add_service(StateDbServiceServer::new(sdb))
         .add_service(ExecutorServiceServer::new(executor))

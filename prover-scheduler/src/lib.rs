@@ -1,3 +1,3 @@
-pub mod scheduler_service;
+pub mod scheduler_server;
 
 pub mod service;
