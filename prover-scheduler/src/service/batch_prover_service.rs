@@ -12,9 +12,9 @@ pub mod scheduler_service {
     tonic::include_proto!("scheduler.v1");
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "http://localhost:8545";
+pub async fn launch_batch_prover_service_with_addr(
+    addr: String,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = SchedulerServiceClient::connect(addr).await?;
     let batch_prover_id = Uuid::new_v4().to_string();
     let batch_prover_name = format!("BatchProverService-{}", batch_prover_id);
@@ -42,8 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         &r.batch_context_bytes.unwrap().data,
                     )
                     .unwrap();
-                    // TODO: async prover execution and return immediately
-                    // or block until prover finish?
+                    // TODO: async service execution and return immediately
+                    // or block until service finish?
                     provers::BatchProver::new().prove(&ctx)?;
                     // TODO: save checkpoint
                     // save_checkpoint()

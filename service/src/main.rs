@@ -3,20 +3,18 @@
 
 use tonic::transport::Server;
 mod aggregator_client;
-mod batch_prover;
+mod batch_prover_service;
 mod config;
 mod executor_service;
-mod scheduler_service;
 mod statedb;
 
 #[macro_use]
 extern crate lazy_static;
-
-use crate::scheduler_service::scheduler_service::scheduler_service_server::SchedulerServiceServer;
-use crate::scheduler_service::SchedulerServiceSVC;
 use crate::statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
 use prover::scheduler::Scheduler;
+use prover_scheduler::scheduler_service::scheduler_service::scheduler_service_server::SchedulerServiceServer;
+use prover_scheduler::scheduler_service::SchedulerServiceSVC;
 use tokio::{
     signal::unix::{signal, SignalKind},
     spawn,

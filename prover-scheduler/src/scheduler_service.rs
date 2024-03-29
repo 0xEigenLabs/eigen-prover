@@ -1,4 +1,3 @@
-use crate::scheduler_service::scheduler_service::{BatchContextBytes, TakeBatchProofTaskResponse};
 use anyhow::anyhow;
 use anyhow::Result;
 use ethers_providers::{Http, Provider};
@@ -8,6 +7,7 @@ use scheduler_service::{
     batch_prover_message, scheduler_message, BatchProofResult, BatchProverMessage, Registry,
     SchedulerMessage,
 };
+use scheduler_service::{BatchContextBytes, TakeBatchProofTaskResponse};
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -20,6 +20,7 @@ pub mod scheduler_service {
     tonic::include_proto!("scheduler.v1");
 }
 
+#[allow(dead_code)]
 pub struct SchedulerServiceSVC {
     client: Arc<Provider<Http>>,
     scheduler_sender: mpsc::Sender<Event>,
@@ -259,6 +260,7 @@ async fn handle_get_proof_response(
     }
 }
 
+#[allow(dead_code)]
 async fn remove_service(service_id: String, scheduler_sender: mpsc::Sender<Event>) {
     // send Event::RemoveService to the scheduler, remove the service from the scheduler
     let event = Event::RemoveService {
