@@ -37,7 +37,7 @@ impl BatchProverService {
         let batch_prover_id = Uuid::new_v4().to_string();
         let batch_prover_name = format!("BatchProverService-{}", batch_prover_id);
 
-        println!(
+        log::info!(
             "[Batch Prover Service: {}] connect to {}",
             batch_prover_name.clone(),
             self.addr.clone()

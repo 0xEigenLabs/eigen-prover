@@ -48,7 +48,7 @@ impl SchedulerServiceSVC {
 
     pub async fn launch_server(&self, addr: String) -> Result<(), Box<dyn std::error::Error>> {
         let socket_addr = addr.as_str().parse()?;
-        println!("[Scheduler Server] listening on {}", socket_addr);
+        log::info!("[Scheduler Server] listening on {}", socket_addr);
         let svc =
             SchedulerServiceSVC::new(addr, self.scheduler_sender.clone(), self.handler.clone());
         Server::builder()

@@ -29,3 +29,4 @@ Cargo.lock
 .idea
 .vscode
 prover/data/proof
+prover-scheduler/data
