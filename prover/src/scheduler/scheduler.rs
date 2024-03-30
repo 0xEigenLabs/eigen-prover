@@ -1,11 +1,12 @@
 use std::collections::HashMap;
-// use std::sync::Mutex;
+use std::path::Path;
 use super::event::Event;
-use crate::contexts::BatchContext;
+use crate::contexts::{ BatchContext};
 use crate::scheduler::{AddServiceResult, ProofResult, TakeTaskResult};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
+use crate::stage::Stage;
 
 pub struct Scheduler {
     // Service <-> Scheduler
@@ -168,15 +169,53 @@ impl Scheduler {
     pub async fn handle_task_result(
         &mut self,
         service_id: ServiceId,
-        _recursive_proof: ProofResult,
+        recursive_proof: ProofResult,
     ) {
+        log::info!("[service:{}] task result{:?}", &service_id, &recursive_proof);
+
+        let finished = match recursive_proof {
+            ProofResult::Success => true,
+            ProofResult::Fail => false,
+       };
         if let Some(service) = self.service_table.get_mut(&service_id) {
+            let task_ctx = service.clone().current_task.unwrap();
+            let task_stage = Stage::Batch(task_ctx.task_id, task_ctx.chunk_id);
+            let workdir = Path::new(&task_ctx.basedir).join(task_stage.path());
+
             service.status = ServiceStatus::Idle;
             service.current_task = None;
             service.current_task_id = None;
+
+            log::info!("save_checkpoint, mkdir: {:?}", workdir);
+            if let Err(e) = std::fs::create_dir_all(workdir.clone()){
+                log::error!("Failed to create checkpoint dir: {:?}, err: {}", workdir, e);
+                return
+            }
+
+            if !finished {
+                let p = workdir.join("status");
+                let stage_str = match task_stage.to_string() {
+                    Ok(str) => str,
+                    Err(e) => {
+                        log::error!("Failed to serialize stage: {:?}, err: {}", task_stage, e);
+                        return
+                    },
+                };
+
+                if let Err(e) = std::fs::write(p.clone(), stage_str){
+                    log::error!("Failed to write status file: {:?}, err: {}", p, e);
+                    return
+                }
+
+            }
+
+            let p = workdir.join("status.finished");
+            let proof_result = if finished { "1" } else { "0" };
+            log::info!("batch proof finished! save_checkpoint with result: {}, dir: {:?}", proof_result, workdir);
+            if let Err(e) = std::fs::write(p.clone(), proof_result) {
+                log::error!("Failed to write status.finished file: {:?}, err: {}", p, e);
+            }
         }
-        // TODO: save checkpoint here or batch_prover client?
-        // TODO: save_checkpoint
     }
 }
 

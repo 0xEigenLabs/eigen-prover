@@ -285,12 +285,12 @@ impl SchedulerHandler for SchedulerServerHandler {
         let event = if r.result == scheduler_service::Result::Ok as i32 {
             Event::TaskResult {
                 service_id: r.prover_id.clone(),
-                recursive_proof: ProofResult::Fail,
+                recursive_proof: ProofResult::Success,
             }
         } else {
             Event::TaskResult {
                 service_id: r.prover_id.clone(),
-                recursive_proof: ProofResult::Success,
+                recursive_proof: ProofResult::Fail,
             }
         };
 
