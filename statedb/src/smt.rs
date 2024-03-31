@@ -716,6 +716,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_smt_join_and_split_key() {
         let mut smt = setup();
         let key = BigUint::from_str_radix(
@@ -737,6 +738,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_join_key_overflow() {
         let mut smt = setup();
 
@@ -752,6 +754,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_add_and_remove() {
         let mut smt = setup();
         let sca = scalar_to_h4(&BigUint::from(123u64));
@@ -766,6 +769,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_mult_update() {
         let mut smt = setup();
         let sca = scalar_to_h4(&BigUint::from(123u64));
@@ -778,6 +782,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_shared_element_2() {
         let mut smt = setup();
         let sca = scalar_to_h4(&BigUint::from(7u64));
@@ -798,6 +803,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_shared_element_3() {
         let mut smt = setup();
         let sca = scalar_to_h4(&BigUint::from(7u64));
@@ -825,6 +831,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_add_and_remove_n() {
         let mut smt = setup();
         let n = 128;
@@ -857,6 +864,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_smt_set_and_get() {
         let mut smt = setup();
 

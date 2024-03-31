@@ -2,7 +2,7 @@
 use anyhow::Result;
 use ethers_core::types::BlockId;
 use ethers_providers::{Http, Middleware, Provider};
-use powdr_number::FieldElement;
+use powdr::number::FieldElement;
 use revm::primitives::HashSet;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB, PlainAccount},
@@ -508,10 +508,11 @@ pub async fn batch_process(
         .zip(&bi_files)
         .for_each(|(data, filename)| {
             let mut f = fs::File::create(filename).unwrap();
-            for d in data {
+            for d in &data.0 {
                 f.write_all(&d.to_bytes_le()[0..8]).unwrap();
             }
         });
+
     (Ok(all_result), cnt_chunks)
 }
 
@@ -547,7 +548,7 @@ mod tests {
             .zip(&bi_files)
             .for_each(|(data, filename)| {
                 let mut f = fs::File::create(filename).unwrap();
-                for d in data {
+                for d in &data.0 {
                     f.write_all(&d.to_bytes_le()[0..8]).unwrap();
                 }
             });
