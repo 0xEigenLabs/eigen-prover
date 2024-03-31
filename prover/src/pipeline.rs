@@ -47,7 +47,9 @@ impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
         // TODO: set env
         let default_cache_dir = String::from("cache");
-        let prover_model: ProverModel = env::var("PROVER_MODEL").unwrap_or("local".to_string()).into();
+        let prover_model: ProverModel = env::var("PROVER_MODEL")
+            .unwrap_or("local".to_string())
+            .into();
         log::info!("start pipeline with prover model: {:?}", prover_model);
 
         // TODO: recover tasks from basedir

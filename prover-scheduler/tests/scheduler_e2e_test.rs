@@ -26,7 +26,7 @@ async fn scheduler_e2e_test() {
     // init log
     env::set_var("RUST_LOG", "info");
     env::set_var("PROVER_MODEL", "grpc");
-    
+
     env_logger::try_init().unwrap_or_default();
     // Start the server
     log::info!("====================1. Start the server====================");
