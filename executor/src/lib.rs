@@ -489,7 +489,7 @@ pub async fn batch_process(
     let project_root_path = project_root::get_project_root()
         .unwrap_or_else(|_| panic!("Failed to get project root path"));
     let workspace = format!(
-        "{}/executor/vm/{}",
+        "{}/executor/program/{}",
         project_root_path.to_str().unwrap(),
         task
     );
@@ -532,7 +532,7 @@ mod tests {
         let task: String = stdenv::var("TASK").unwrap_or(String::from("evm"));
         let task_id = "0";
         let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
-        let workspace = format!("vm/{}", task);
+        let workspace = format!("program/{}", task);
         let bootloader_inputs =
             zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str())
                 .unwrap();
