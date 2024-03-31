@@ -37,11 +37,10 @@ async fn prover_scheduler_e2e_mock_test() {
 
     // Start the server
     log::info!("====================1. Start the server====================");
-    let url = std::env::var("URL").unwrap_or(String::from("http://localhost:8545"));
     // MOCK ServerHandler to test
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
     let scheduler_service_svc =
-        SchedulerServiceSVC::new(url, event_tx, result_sender, scheduler_handler.clone());
+        SchedulerServiceSVC::new(event_tx, result_sender, scheduler_handler.clone());
 
     // [::1]:50051
     let addr = "[::1]:50051".to_string();

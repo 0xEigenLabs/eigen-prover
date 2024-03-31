@@ -28,17 +28,12 @@ async fn scheduler_e2e_test() {
     env_logger::try_init().unwrap_or_default();
     // Start the server
     log::info!("====================1. Start the server====================");
-    let url = std::env::var("URL").unwrap_or(String::from("http://localhost:8545"));
     let (scheduler_sender, _rx) = tokio::sync::mpsc::channel(100);
     let (result_sender, _rx) = tokio::sync::mpsc::channel(100);
     // MOCK ServerHandler to test
     let scheduler_handler = Arc::new(MockSchedulerServerHandler::default());
-    let scheduler_service_svc = SchedulerServiceSVC::new(
-        url,
-        scheduler_sender,
-        result_sender,
-        scheduler_handler.clone(),
-    );
+    let scheduler_service_svc =
+        SchedulerServiceSVC::new(scheduler_sender, result_sender, scheduler_handler.clone());
 
     // [::1]:50051
     let addr = "[::1]:50051".to_string();

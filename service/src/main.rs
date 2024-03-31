@@ -106,15 +106,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // SchedulerServiceSVC holds the event_tx
     // all client will connect to this instance
     // they will send events to the scheduler by the event_tx, such as AddService, TakeTask etc.
-    let scheduler_server_addr =
-        std::env::var("SCHEDULER_URL").unwrap_or("http://localhost:8545".to_string());
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
-    let scheduler_server = SchedulerServiceSVC::new(
-        scheduler_server_addr,
-        event_tx,
-        result_tx,
-        scheduler_handler,
-    );
+    let scheduler_server = SchedulerServiceSVC::new(event_tx, result_tx, scheduler_handler);
     Server::builder()
         .add_service(StateDbServiceServer::new(sdb))
         .add_service(ExecutorServiceServer::new(executor))

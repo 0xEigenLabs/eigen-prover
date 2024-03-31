@@ -1,6 +1,5 @@
-use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Result;
-use ethers_providers::{Http, Provider};
 use prover::scheduler::{
     AddServiceResult, Event, ProofResult, ResultStatus, TakeTaskResult, TaskResult,
 };
@@ -26,7 +25,6 @@ pub mod scheduler_service {
 
 #[allow(dead_code)]
 pub struct SchedulerServiceSVC {
-    client: Arc<Provider<Http>>,
     scheduler_sender: mpsc::Sender<Event>,
     result_sender: mpsc::Sender<TaskResult>,
     handler: Arc<dyn SchedulerHandler + Send + Sync>,
@@ -34,17 +32,11 @@ pub struct SchedulerServiceSVC {
 
 impl SchedulerServiceSVC {
     pub fn new(
-        _url: String,
         scheduler_sender: mpsc::Sender<Event>,
         result_sender: mpsc::Sender<TaskResult>,
         handler: Arc<dyn SchedulerHandler + Send + Sync>,
     ) -> Self {
-        // invoker try to get the addr from env, if not, use default value
-        let url = std::env::var("URL").unwrap_or(String::from("http://localhost:8545"));
-        let client = Provider::<Http>::try_from(url).unwrap();
-        let client = Arc::new(client);
         SchedulerServiceSVC {
-            client,
             scheduler_sender,
             result_sender,
             handler,
@@ -55,7 +47,6 @@ impl SchedulerServiceSVC {
         let socket_addr = addr.as_str().parse()?;
         log::info!("[Scheduler Server] listening on {}", socket_addr);
         let svc = SchedulerServiceSVC::new(
-            addr,
             self.scheduler_sender.clone(),
             self.result_sender.clone(),
             self.handler.clone(),
@@ -203,11 +194,7 @@ impl SchedulerHandler for SchedulerServerHandler {
         if let Err(e) = scheduler_sender.send(event.clone()).await {
             // can't send event to scheduler, close the connection
             log::error!("Failed to send Event: {:?}, receiver dropped: {}", event, e);
-            return Err(anyhow!(
-                "Failed to send Event: {:?}, receiver dropped: {}",
-                event,
-                e
-            ));
+            bail!("Failed to send Event: {:?}, receiver dropped: {}", event, e)
         }
 
         if let Some(add_service_result) = relay.recv().await {
@@ -220,19 +207,17 @@ impl SchedulerHandler for SchedulerServerHandler {
                         Ok(scheduler_msg)
                     } else {
                         // close the connection
-                        Err(anyhow!("Failed to handle GenBatchProofResponse"))
+                        bail!("Failed to handle GenBatchProofResponse")
                     }
                 }
                 AddServiceResult::Fail(service_id) => {
                     // close the connection
-                    Err(anyhow!("Failed to add service: {}", service_id))
+                    bail!("Failed to add service: {}", service_id)
                 }
             }
         } else {
             // channel closed
-            Err(anyhow!(
-                "Failed to receive AddServiceResult, channel closed"
-            ))
+            bail!("Failed to receive AddServiceResult, channel closed")
         }
     }
 
@@ -251,11 +236,7 @@ impl SchedulerHandler for SchedulerServerHandler {
         if let Err(e) = scheduler_sender.send(event.clone()).await {
             // can't send event to scheduler, close the connection
             log::error!("Failed to send Event: {:?}, receiver dropped: {}", event, e);
-            return Err(anyhow!(
-                "Failed to send Event: {:?}, receiver dropped: {}",
-                event,
-                e
-            ));
+            bail!("Failed to send Event: {:?}, receiver dropped: {}", event, e)
         }
 
         // wait for the event result
@@ -279,12 +260,12 @@ impl SchedulerHandler for SchedulerServerHandler {
                     })
                 }
                 TakeTaskResult::Fail(service_id) => {
-                    Err(anyhow!("Failed to take task for service: {}", service_id))
+                    bail!("Failed to take task for service: {}", service_id)
                 }
             }
         } else {
             // channel closed
-            Err(anyhow!("Failed to receive TakeTaskResult, channel closed"))
+            bail!("Failed to receive TakeTaskResult, channel closed")
         }
     }
 
@@ -321,11 +302,11 @@ impl SchedulerHandler for SchedulerServerHandler {
                 task_result,
                 e
             );
-            return Err(anyhow!(
+            bail!(
                 "Failed to send Event: {:?}, receiver dropped: {}",
                 task_result,
                 e
-            ));
+            )
         }
 
         if let Ok(scheduler_msg) = self
@@ -335,7 +316,7 @@ impl SchedulerHandler for SchedulerServerHandler {
             Ok(scheduler_msg)
         } else {
             // close the connection
-            Err(anyhow!("Failed to handle GenBatchProofResponse"))
+            bail!("Failed to handle GenBatchProofResponse")
         }
     }
 
