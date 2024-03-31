@@ -1,17 +1,21 @@
 #![allow(clippy::large_enum_variant)]
 #![allow(dead_code)]
 
+use std::sync::Arc;
 use tonic::transport::Server;
 mod aggregator_client;
+mod batch_prover_service;
 mod config;
 mod executor_service;
 mod statedb;
 
 #[macro_use]
 extern crate lazy_static;
-
 use crate::statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
+use prover::scheduler::Scheduler;
+use prover_scheduler::scheduler_server::scheduler_service::scheduler_service_server::SchedulerServiceServer;
+use prover_scheduler::scheduler_server::{SchedulerServerHandler, SchedulerServiceSVC};
 use tokio::{
     signal::unix::{signal, SignalKind},
     spawn,
@@ -58,11 +62,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    let (task_tx, task_rx) = tokio::sync::mpsc::channel(128);
+    let (event_tx, event_rx) = tokio::sync::mpsc::channel(128);
+    let (result_tx, result_rx) = tokio::sync::mpsc::channel(128);
+    let task_tx_clone = task_tx.clone();
+
+    // scheduler holds the event_rx, task_rx, task_tx
+    //   - event_rx: receive the event from the SchedulerServiceSVC
+    //   - task_rx: receive the task from the Pipeline
+    //   - task_tx: used to retry tasks by itself
+    let mut scheduler = Scheduler::new(result_rx, event_rx, task_rx, task_tx_clone);
+    tokio::spawn(async move {
+        // TODO: quit signal
+        scheduler.run().await;
+    });
+
     tokio::spawn(async move {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    match aggregator_client::run_prover().await {
+                    // pipeline holds the task_tx to send tasks to the scheduler
+                    match aggregator_client::run_prover(task_tx.clone()).await {
                         Ok(_) => {
                             log::debug!("prove one task");
                         }
@@ -83,9 +103,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::info!("StateDB service and Executor service Listening on {}", addr);
 
+    // SchedulerServiceSVC holds the event_tx
+    // all client will connect to this instance
+    // they will send events to the scheduler by the event_tx, such as AddService, TakeTask etc.
+    let scheduler_handler = Arc::new(SchedulerServerHandler::default());
+    let scheduler_server = SchedulerServiceSVC::new(event_tx, result_tx, scheduler_handler);
     Server::builder()
         .add_service(StateDbServiceServer::new(sdb))
         .add_service(ExecutorServiceServer::new(executor))
+        .add_service(SchedulerServiceServer::new(scheduler_server))
         .serve_with_shutdown(addr, async {
             signal_rx.await.ok();
             log::info!("Graceful context shutdown");

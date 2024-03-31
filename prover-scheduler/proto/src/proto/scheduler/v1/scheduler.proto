@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package scheduler.v1;
+
+message Version {
+  string v0_0_1 = 1;
+}
+
+service SchedulerService {
+  rpc SchedulerStream(stream BatchProverMessage) returns (stream SchedulerMessage) {}
+}
+
+message BatchProverMessage
+{
+  string id = 1;
+  oneof message_type
+  {
+    // registry to scheduler
+    Registry registry = 2;
+    // take a task
+    TakeBatchProofTask take_batch_proof_task = 3;
+    // batch proof result of a task
+    BatchProofResult batch_proof_result = 4;
+  }
+}
+
+message Registry {
+  string prover_name = 1;
+  string prover_id = 2;
+}
+
+message TakeBatchProofTask {
+  string prover_id = 1;
+}
+
+message BatchProofResult {
+  string prover_id = 1;
+  string task_id = 2;
+  string chunk_id = 3;
+  Result result = 4;
+}
+
+enum Result {
+  RESULT_ERROR = 0;
+  RESULT_OK = 1;
+}
+
+
+message SchedulerMessage
+{
+  string id = 1;
+  oneof message_type
+  {
+    TakeBatchProofTaskResponse take_batch_proof_task_response = 2;
+  }
+}
+
+message TakeBatchProofTaskResponse {
+  string prover_id = 1;
+  BatchContextBytes batch_context_bytes = 2;
+}
+
+message BatchContextBytes {
+  bytes data = 1;
+}
