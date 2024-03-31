@@ -19,6 +19,7 @@ use tonic::async_trait;
 async fn prover_scheduler_e2e_mock_test() {
     // init log
     env::set_var("RUST_LOG", "info");
+    env::set_var("PROVER_MODEL", "grpc");
     env_logger::try_init().unwrap_or_default();
 
     // init scheduler
@@ -58,13 +59,13 @@ async fn prover_scheduler_e2e_mock_test() {
         log::info!("====================1. Task incoming ====================");
         let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
         log::info!("task: {task1}");
-
+        
         let task2 = pipeline.batch_prove("0".into(), "1".into()).unwrap();
         log::info!("task2: {task2}");
-
+        
         let task3 = pipeline.batch_prove("0".into(), "2".into()).unwrap();
         log::info!("task3: {task3}");
-
+        
         loop {
             pipeline.prove().unwrap();
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;

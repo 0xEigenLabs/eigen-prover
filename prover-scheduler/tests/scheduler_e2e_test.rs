@@ -25,6 +25,8 @@ use tonic::async_trait;
 async fn scheduler_e2e_test() {
     // init log
     env::set_var("RUST_LOG", "info");
+    env::set_var("PROVER_MODEL", "grpc");
+    
     env_logger::try_init().unwrap_or_default();
     // Start the server
     log::info!("====================1. Start the server====================");
@@ -79,7 +81,7 @@ async fn scheduler_e2e_test() {
     let client_result3 = client_future3.await;
     assert!(client_result3.is_ok(), "Client 3 encountered an error");
 
-    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
     // Wait for the client to finish
     server_future.abort();

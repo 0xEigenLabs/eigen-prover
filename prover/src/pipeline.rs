@@ -1,9 +1,10 @@
 use crate::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
-use crate::provers::{AggProver, FinalProver, Prover};
+use crate::provers::{AggProver, BatchProver, FinalProver, Prover};
 use crate::stage::Stage;
 
 use anyhow::{anyhow, bail, Result};
 use std::collections::{HashMap, VecDeque};
+use std::env;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::Sender;
@@ -19,12 +20,35 @@ pub struct Pipeline {
     prove_data_cache: Arc<Mutex<ProveDataCache>>,
     _cache_dir: String,
     task_sender: Option<Sender<BatchContext>>,
+    prover_model: ProverModel,
+}
+
+#[derive(Debug)]
+pub enum ProverModel {
+    Local,
+    GRPC,
+}
+
+impl From<String> for ProverModel {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "local" => ProverModel::Local,
+            "grpc" => ProverModel::GRPC,
+            // invalid env value, use default local model
+            _ => {
+                log::error!("invalid prover model: {}, please set the env PROVER_MODEL to local or grpc, use default local model", value);
+                ProverModel::Local
+            }
+        }
+    }
 }
 
 impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
         // TODO: set env
         let default_cache_dir = String::from("cache");
+        let prover_model: ProverModel = env::var("PROVER_MODEL").unwrap_or("local".to_string()).into();
+        log::info!("start pipeline with prover model: {:?}", prover_model);
 
         // TODO: recover tasks from basedir
         Pipeline {
@@ -39,6 +63,7 @@ impl Pipeline {
                 default_cache_dir,
             ))),
             task_sender: None,
+            prover_model,
         }
     }
 
@@ -165,15 +190,22 @@ impl Pipeline {
                             chunk_id,
                         );
 
-                        // send the task's ctx to scheduler
-                        // TODO: send the task key to scheduler, to save the checkpoint
-                        log::info!(
-                            "send task to scheduler: [id:{}], [name:{}]",
-                            ctx.task_id,
-                            ctx.task_name
-                        );
-                        if let Err(e) = self.task_sender.as_ref().unwrap().try_send(ctx) {
-                            log::error!("send task to scheduler failed, {:?}", e);
+                        match self.prover_model {
+                            ProverModel::Local => {
+                                BatchProver::new().prove(&ctx)?;
+                                self.save_checkpoint(&key, true)?;
+                            }
+                            ProverModel::GRPC => {
+                                // send the task's ctx to scheduler
+                                log::info!(
+                                    "send task to scheduler: [id:{}], [name:{}]",
+                                    ctx.task_id,
+                                    ctx.task_name
+                                );
+                                if let Err(e) = self.task_sender.as_ref().unwrap().try_send(ctx) {
+                                    log::error!("send task to scheduler failed, {:?}", e);
+                                }
+                            }
                         }
                     }
                     Stage::Aggregate(task_id, input, input2) => {
