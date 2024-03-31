@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use prover::contexts::BatchContext;
-use prover::scheduler::Event;
+use prover::scheduler::{Event, TaskResult};
 use prover_scheduler::scheduler_server::scheduler_service::{
     scheduler_message as server_scheduler_message, BatchContextBytes as ServerBatchContextBytes,
     BatchProofResult as ServerBatchProofResult, Registry as ServerRegistry,
@@ -30,10 +30,15 @@ async fn scheduler_e2e_test() {
     log::info!("====================1. Start the server====================");
     let url = std::env::var("URL").unwrap_or(String::from("http://localhost:8545"));
     let (scheduler_sender, _rx) = tokio::sync::mpsc::channel(100);
+    let (result_sender, _rx) = tokio::sync::mpsc::channel(100);
     // MOCK ServerHandler to test
     let scheduler_handler = Arc::new(MockSchedulerServerHandler::default());
-    let scheduler_service_svc =
-        SchedulerServiceSVC::new(url, scheduler_sender, scheduler_handler.clone());
+    let scheduler_service_svc = SchedulerServiceSVC::new(
+        url,
+        scheduler_sender,
+        result_sender,
+        scheduler_handler.clone(),
+    );
 
     // [::1]:50051
     let addr = "[::1]:50051".to_string();
@@ -138,6 +143,7 @@ impl SchedulerHandler for MockSchedulerServerHandler {
         &self,
         r: ServerBatchProofResult,
         _scheduler_sender: Sender<Event>,
+        _result_sender: Sender<TaskResult>,
     ) -> anyhow::Result<ServerSchedulerMessage> {
         log::info!(
             "[Scheduler Server] receive the proof result msg {:?}, from [Prover Service: {}]",
@@ -184,6 +190,8 @@ impl BatchProverHandler for MockBatchProverHandler {
             message_type: Some(client_batch_prover_message::MessageType::BatchProofResult(
                 ClientBatchProofResult {
                     prover_id: take_batch_proof_task_response.prover_id,
+                    task_id: ctx.task_id.clone(),
+                    chunk_id: ctx.chunk_id.clone(),
                     result: 1,
                 },
             )),

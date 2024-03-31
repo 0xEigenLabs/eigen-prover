@@ -24,8 +24,9 @@ async fn prover_scheduler_e2e_mock_test() {
     // init scheduler
     let (task_tx, task_rx) = tokio::sync::mpsc::channel(128);
     let (event_tx, event_rx) = tokio::sync::mpsc::channel(128);
+    let (result_sender, result_receiver) = tokio::sync::mpsc::channel(128);
     let task_tx_clone = task_tx.clone();
-    let mut scheduler = Scheduler::new(event_rx, task_rx, task_tx_clone);
+    let mut scheduler = Scheduler::new(result_receiver, event_rx, task_rx, task_tx_clone);
 
     // init pipeline.
     let mut pipeline = Pipeline::new(
@@ -39,7 +40,8 @@ async fn prover_scheduler_e2e_mock_test() {
     let url = std::env::var("URL").unwrap_or(String::from("http://localhost:8545"));
     // MOCK ServerHandler to test
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
-    let scheduler_service_svc = SchedulerServiceSVC::new(url, event_tx, scheduler_handler.clone());
+    let scheduler_service_svc =
+        SchedulerServiceSVC::new(url, event_tx, result_sender, scheduler_handler.clone());
 
     // [::1]:50051
     let addr = "[::1]:50051".to_string();
@@ -154,6 +156,8 @@ impl BatchProverHandler for MockBatchProverHandler {
             message_type: Some(client_batch_prover_message::MessageType::BatchProofResult(
                 ClientBatchProofResult {
                     prover_id: take_batch_proof_task_response.prover_id,
+                    task_id: ctx.task_id.clone(),
+                    chunk_id: ctx.chunk_id.clone(),
                     result: 1,
                 },
             )),

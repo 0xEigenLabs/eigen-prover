@@ -64,13 +64,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (task_tx, task_rx) = tokio::sync::mpsc::channel(128);
     let (event_tx, event_rx) = tokio::sync::mpsc::channel(128);
+    let (result_tx, result_rx) = tokio::sync::mpsc::channel(128);
     let task_tx_clone = task_tx.clone();
 
     // scheduler holds the event_rx, task_rx, task_tx
     //   - event_rx: receive the event from the SchedulerServiceSVC
     //   - task_rx: receive the task from the Pipeline
     //   - task_tx: used to retry tasks by itself
-    let mut scheduler = Scheduler::new(event_rx, task_rx, task_tx_clone);
+    let mut scheduler = Scheduler::new(result_rx, event_rx, task_rx, task_tx_clone);
     tokio::spawn(async move {
         // TODO: quit signal
         scheduler.run().await;
@@ -108,8 +109,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduler_server_addr =
         std::env::var("SCHEDULER_URL").unwrap_or("http://localhost:8545".to_string());
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
-    let scheduler_server =
-        SchedulerServiceSVC::new(scheduler_server_addr, event_tx, scheduler_handler);
+    let scheduler_server = SchedulerServiceSVC::new(
+        scheduler_server_addr,
+        event_tx,
+        result_tx,
+        scheduler_handler,
+    );
     Server::builder()
         .add_service(StateDbServiceServer::new(sdb))
         .add_service(ExecutorServiceServer::new(executor))

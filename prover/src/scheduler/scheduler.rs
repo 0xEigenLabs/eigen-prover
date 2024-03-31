@@ -1,23 +1,85 @@
+use super::event::{Event, ResultStatus, TaskResult};
+use crate::contexts::BatchContext;
+use crate::scheduler::{AddServiceResult, ProofResult, TakeTaskResult};
+use crate::stage::Stage;
 use std::collections::HashMap;
 use std::path::Path;
-use super::event::Event;
-use crate::contexts::{ BatchContext};
-use crate::scheduler::{AddServiceResult, ProofResult, TakeTaskResult};
 use std::sync::Arc;
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
-use crate::stage::Stage;
+use tokio::sync::{mpsc, Mutex as TokioMutex};
 
 pub struct Scheduler {
-    // Service <-> Scheduler
     pub service_table: HashMap<ServiceId, Service>,
 
-    pub event_receiver: mpsc::Receiver<Event>,
+    // it's concurrency safe
+    // handle_take_task will put the task into the pending_results
+    // handle_task_result will take the task from the pending_results
+    // but they are in different branches of the same select
+    pub pending_results: HashMap<ServiceId, BatchContext>,
 
+    pub retry_to: Sender<BatchContext>,
+
+    pub event_handler: EventHandler,
+    pub result_handler: ResultHandler,
+}
+
+pub struct EventHandler {
+    // Service <-> Scheduler
+    pub event_receiver: Arc<TokioMutex<mpsc::Receiver<Event>>>,
     // Pipeline <-> Scheduler
     // Pipeline send task to the channel
-    pub task_receiver: mpsc::Receiver<BatchContext>,
+    pub task_receiver: Arc<TokioMutex<mpsc::Receiver<BatchContext>>>,
     pub retry_to: Sender<BatchContext>,
+}
+
+impl EventHandler {
+    fn new(
+        event_receiver: Arc<TokioMutex<mpsc::Receiver<Event>>>,
+        task_receiver: Arc<TokioMutex<mpsc::Receiver<BatchContext>>>,
+        retry_to: Sender<BatchContext>,
+    ) -> Self {
+        EventHandler {
+            event_receiver,
+            task_receiver,
+            retry_to,
+        }
+    }
+    pub async fn recv_both(&self) -> (Event, BatchContext) {
+        let event = self.event_receiver.lock().await.recv().await.unwrap();
+        match event {
+            Event::TakeTask { .. } => {
+                // wait for the task
+                log::info!("take a task");
+                let task = self.task_receiver.lock().await.recv().await.unwrap();
+                (event, task)
+            }
+            // don't need task
+            Event::AddService { .. } | Event::RemoveService { .. } => {
+                (event, BatchContext::default())
+            }
+        }
+    }
+}
+
+pub struct ResultHandler {
+    pub result_receiver: Arc<TokioMutex<mpsc::Receiver<TaskResult>>>,
+    pub retry_to: Sender<BatchContext>,
+}
+
+impl ResultHandler {
+    fn new(
+        result_receiver: Arc<TokioMutex<mpsc::Receiver<TaskResult>>>,
+        retry_to: Sender<BatchContext>,
+    ) -> Self {
+        ResultHandler {
+            result_receiver,
+            retry_to,
+        }
+    }
+
+    pub async fn take_result(&self) -> TaskResult {
+        self.result_receiver.lock().await.recv().await.unwrap()
+    }
 }
 
 pub type ServiceId = String;
@@ -37,57 +99,72 @@ pub struct Service {
 
 impl Scheduler {
     pub fn new(
+        result_receiver: mpsc::Receiver<TaskResult>,
         event_receiver: mpsc::Receiver<Event>,
         task_receiver: mpsc::Receiver<BatchContext>,
         retry_to: Sender<BatchContext>,
     ) -> Self {
         Scheduler {
             service_table: HashMap::new(),
-            event_receiver,
-            task_receiver,
-            retry_to,
+            retry_to: retry_to.clone(),
+            pending_results: Default::default(),
+            result_handler: ResultHandler::new(
+                Arc::new(TokioMutex::new(result_receiver)),
+                retry_to.clone(),
+            ),
+            event_handler: EventHandler::new(
+                Arc::new(TokioMutex::new(event_receiver)),
+                Arc::new(TokioMutex::new(task_receiver)),
+                retry_to.clone(),
+            ),
         }
     }
 
     pub async fn run(&mut self) {
         loop {
-            match self.event_receiver.recv().await {
-                Some(event) => match event {
-                    Event::AddService {
-                        service_id,
-                        relay_to,
-                    } => {
-                        log::info!("add service: {}", service_id);
-                        self.handle_add_service(service_id, relay_to).await;
-                    }
-                    Event::RemoveService { service_id } => {
-                        log::info!("remove service: {}", service_id);
-                        self.handle_remove_service(service_id).await;
-                    }
-                    Event::TakeTask {
-                        service_id,
-                        relay_to,
-                    } => {
-                        log::info!("[service:{}] take a task", service_id);
-                        self.handle_take_task(service_id, relay_to).await;
-                    }
-                    Event::TaskResult {
-                        service_id,
-                        recursive_proof,
-                    } => {
-                        log::info!("[service:{}] task result", service_id);
-                        self.handle_task_result(service_id, recursive_proof).await;
-                    }
+            tokio::select! {
+                // listen the event from the scheduler serve and task from the pipeline
+                (event, ctx) = self.event_handler.recv_both()  => {
+                         self.handle_event(event, ctx).await;
+                     },
+                // listen the result from the scheduler server
+                result = self.result_handler.take_result() => {
+                    self.handle_result(result).await;
                 },
-                None => {
-                    log::error!("Failed to receive event, all sender have been dropped, exit the scheduler loop");
-                }
+            }
+        }
+    }
+    pub async fn handle_event(&mut self, event: Event, ctx: BatchContext) {
+        match event {
+            Event::AddService {
+                service_id,
+                relay_to,
+            } => {
+                log::info!("add service: {}", service_id);
+                self.handle_add_service(service_id, relay_to).await
+            }
+            Event::RemoveService { service_id } => {
+                log::info!("remove service: {}", service_id);
+                self.handle_remove_service(service_id).await
+            }
+            Event::TakeTask {
+                service_id,
+                relay_to,
+            } => {
+                // log::info!("[service:{}] take a task", service_id);
+                self.handle_take_task(service_id, relay_to, ctx).await
             }
         }
     }
 
-    pub async fn take_task(&mut self) -> Option<BatchContext> {
-        self.task_receiver.recv().await
+    pub async fn handle_result(&mut self, result: TaskResult) {
+        log::info!(
+            "[service:{}] task result: {:?}",
+            &result.service_id,
+            &result.recursive_proof
+        );
+        self.handle_task_result(result.service_id, result.recursive_proof)
+            .await;
     }
 
     pub async fn handle_add_service(
@@ -99,7 +176,7 @@ impl Scheduler {
             service_id: service_id.clone(),
             task_name: None,
             service_type: BatchProver::GRPC,
-            status: ServiceStatus::Idle,
+            status: ServiceStatus::Prepare,
             current_task_id: None,
             current_task: None,
             proof_receiver: None,
@@ -119,7 +196,33 @@ impl Scheduler {
         &mut self,
         service_id: ServiceId,
         relay_to: Sender<TakeTaskResult>,
+        task: BatchContext,
     ) {
+        // record the task, so that we can retry it when an error occurs during the proof generation
+        if let Err(e) = relay_to.send(TakeTaskResult::Success(task.clone())).await {
+            if let Err(e) = self.retry_to.send(task.clone()).await {
+                // TODO: in the case, is it allowed to discard the task?
+                log::error!(
+                    "Failed to retry task: {}, the task will be discarded here, err: {}",
+                    service_id,
+                    e
+                );
+            }
+
+            // retry the task
+            log::error!("Failed to take task: {}, err: {}", service_id, e);
+        }
+
+        // put task to pending_results
+        log::info!(
+            "put task to pending_results: {}, task: {:?}",
+            service_id,
+            task.clone()
+        );
+        let task_key = self.construct_task_key(&task.task_id, &task.chunk_id);
+        self.pending_results.insert(task_key, task.clone());
+
+        /*
         if let Some(service) = self.service_table.get_mut(&service_id) {
             if service.status != ServiceStatus::Idle {
                 // the service is not idle, can't take task
@@ -130,28 +233,7 @@ impl Scheduler {
                     log::error!("Failed to take task: {}, err: {}", service_id, e);
                 }
             }
-            if let Some(task) = self.task_receiver.recv().await {
-                // record the task, so that we can retry it when an error occurs during the proof generation
-                service.status = ServiceStatus::Running;
-                service.current_task_id = Some(task.task_id.clone());
-                service.current_task = Some(task.clone());
-                if let Err(e) = relay_to.send(TakeTaskResult::Success(task.clone())).await {
-                    // retry the task
-                    service.status = ServiceStatus::Idle;
-                    service.current_task_id = None;
-                    service.current_task = None;
-                    if let Err(e) = self.retry_to.send(task).await {
-                        // TODO: in the case, is it allowed to discard the task?
-                        log::error!(
-                            "Failed to retry task: {}, the task will be discarded here, err: {}",
-                            service_id,
-                            e
-                        );
-                    }
-                    log::error!("Failed to take task: {}, err: {}", service_id, e);
-                }
-            }
-        } else {
+            } else {
             // the service has not been added to the scheduler, please add it first
             if let Err(e) = relay_to
                 .send(TakeTaskResult::Fail(service_id.clone()))
@@ -160,6 +242,7 @@ impl Scheduler {
                 log::error!("Failed to take task: {}, err: {}", service_id, e);
             }
         }
+         */
     }
 
     pub async fn handle_remove_service(&mut self, service_id: ServiceId) {
@@ -169,27 +252,25 @@ impl Scheduler {
     pub async fn handle_task_result(
         &mut self,
         service_id: ServiceId,
-        recursive_proof: ProofResult,
+        recursive_proof_result: ProofResult,
     ) {
-        log::info!("[service:{}] task result{:?}", &service_id, &recursive_proof);
+        let finished = match recursive_proof_result.result_code {
+            ResultStatus::Success => true,
+            ResultStatus::Fail => false,
+        };
 
-        let finished = match recursive_proof {
-            ProofResult::Success => true,
-            ProofResult::Fail => false,
-       };
-        if let Some(service) = self.service_table.get_mut(&service_id) {
-            let task_ctx = service.clone().current_task.unwrap();
+        let key = self.construct_task_key(
+            &recursive_proof_result.task_id,
+            &recursive_proof_result.chunk_id,
+        );
+        if let Some(task_ctx) = self.pending_results.remove(&key) {
             let task_stage = Stage::Batch(task_ctx.task_id, task_ctx.chunk_id);
             let workdir = Path::new(&task_ctx.basedir).join(task_stage.path());
 
-            service.status = ServiceStatus::Idle;
-            service.current_task = None;
-            service.current_task_id = None;
-
             log::info!("save_checkpoint, mkdir: {:?}", workdir);
-            if let Err(e) = std::fs::create_dir_all(workdir.clone()){
+            if let Err(e) = std::fs::create_dir_all(workdir.clone()) {
                 log::error!("Failed to create checkpoint dir: {:?}, err: {}", workdir, e);
-                return
+                return;
             }
 
             if !finished {
@@ -198,27 +279,38 @@ impl Scheduler {
                     Ok(str) => str,
                     Err(e) => {
                         log::error!("Failed to serialize stage: {:?}, err: {}", task_stage, e);
-                        return
-                    },
+                        return;
+                    }
                 };
 
-                if let Err(e) = std::fs::write(p.clone(), stage_str){
+                if let Err(e) = std::fs::write(p.clone(), stage_str) {
                     log::error!("Failed to write status file: {:?}, err: {}", p, e);
-                    return
+                    return;
                 }
-
             }
 
             let p = workdir.join("status.finished");
             let proof_result = if finished { "1" } else { "0" };
-            log::info!("batch proof finished! save_checkpoint with result: {}, dir: {:?}", proof_result, workdir);
+            log::info!(
+                "batch proof finished! save_checkpoint with result: {}, dir: {:?}",
+                proof_result,
+                workdir
+            );
             if let Err(e) = std::fs::write(p.clone(), proof_result) {
                 log::error!("Failed to write status.finished file: {:?}, err: {}", p, e);
             }
+        } else {
+            log::error!(
+                "Failed to find task in pending_results, discard the result from service: {}",
+                service_id
+            );
         }
     }
-}
 
+    fn construct_task_key(&self, task_id: &String, chunk_id: &String) -> String {
+        format!("{}_{}", task_id, chunk_id)
+    }
+}
 #[derive(Clone)]
 pub enum BatchProver {
     InMemory,

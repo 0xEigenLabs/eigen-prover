@@ -23,16 +23,29 @@ pub enum Event {
         service_id: ServiceId,
         relay_to: Sender<TakeTaskResult>,
     },
-
-    /// Used to send the proof result to the scheduler
-    TaskResult {
-        service_id: ServiceId,
-        recursive_proof: ProofResult,
-    },
+    // Used to send the proof result to the scheduler
+    // TaskResult {
+    //     service_id: ServiceId,
+    //     recursive_proof: ProofResult,
+    // },
 }
 
-#[derive(Debug, Clone)]
-pub enum ProofResult {
+#[derive(Debug, Default, Clone)]
+pub struct TaskResult {
+    pub service_id: ServiceId,
+    pub recursive_proof: ProofResult,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ProofResult {
+    pub task_id: String,
+    pub chunk_id: String,
+    pub result_code: ResultStatus,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum ResultStatus {
+    #[default]
     Success,
     Fail,
 }
@@ -43,6 +56,7 @@ pub enum AddServiceResult {
 }
 
 #[allow(clippy::large_enum_variant)]
+#[derive(Clone, Debug)]
 pub enum TakeTaskResult {
     Success(BatchContext),
     Fail(ServiceId),

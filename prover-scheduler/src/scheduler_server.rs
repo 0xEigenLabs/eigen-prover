@@ -1,7 +1,9 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use ethers_providers::{Http, Provider};
-use prover::scheduler::{AddServiceResult, Event, ProofResult, TakeTaskResult};
+use prover::scheduler::{
+    AddServiceResult, Event, ProofResult, ResultStatus, TakeTaskResult, TaskResult,
+};
 use scheduler_service::scheduler_service_server::SchedulerService;
 use scheduler_service::scheduler_service_server::SchedulerServiceServer;
 use scheduler_service::{
@@ -26,6 +28,7 @@ pub mod scheduler_service {
 pub struct SchedulerServiceSVC {
     client: Arc<Provider<Http>>,
     scheduler_sender: mpsc::Sender<Event>,
+    result_sender: mpsc::Sender<TaskResult>,
     handler: Arc<dyn SchedulerHandler + Send + Sync>,
 }
 
@@ -33,6 +36,7 @@ impl SchedulerServiceSVC {
     pub fn new(
         _url: String,
         scheduler_sender: mpsc::Sender<Event>,
+        result_sender: mpsc::Sender<TaskResult>,
         handler: Arc<dyn SchedulerHandler + Send + Sync>,
     ) -> Self {
         // invoker try to get the addr from env, if not, use default value
@@ -42,6 +46,7 @@ impl SchedulerServiceSVC {
         SchedulerServiceSVC {
             client,
             scheduler_sender,
+            result_sender,
             handler,
         }
     }
@@ -49,8 +54,12 @@ impl SchedulerServiceSVC {
     pub async fn launch_server(&self, addr: String) -> Result<(), Box<dyn std::error::Error>> {
         let socket_addr = addr.as_str().parse()?;
         log::info!("[Scheduler Server] listening on {}", socket_addr);
-        let svc =
-            SchedulerServiceSVC::new(addr, self.scheduler_sender.clone(), self.handler.clone());
+        let svc = SchedulerServiceSVC::new(
+            addr,
+            self.scheduler_sender.clone(),
+            self.result_sender.clone(),
+            self.handler.clone(),
+        );
         Server::builder()
             .add_service(SchedulerServiceServer::new(svc))
             .serve(socket_addr)
@@ -71,6 +80,7 @@ impl SchedulerService for SchedulerServiceSVC {
         let mut stream = request.into_inner();
         let (tx, rx) = mpsc::channel(10);
         let scheduler_sender = self.scheduler_sender.clone();
+        let result_sender = self.result_sender.clone();
         let handle_clone = self.handler.clone();
 
         tokio::spawn(async move {
@@ -103,7 +113,7 @@ impl SchedulerService for SchedulerServiceSVC {
                                         }
                                         // receive proof, trigger next batch_proof task
                                         batch_prover_message::MessageType::BatchProofResult(r) => {
-                                            if let Ok(scheduler_msg) = handle_clone.handle_get_proof_response(r, scheduler_sender.clone()).await {
+                                            if let Ok(scheduler_msg) = handle_clone.handle_get_proof_response(r, scheduler_sender.clone(), result_sender.clone()).await {
                                                 scheduler_msg
                                             } else {
                                                 // close the connection
@@ -167,6 +177,7 @@ pub trait SchedulerHandler {
         &self,
         r: BatchProofResult,
         scheduler_sender: mpsc::Sender<Event>,
+        result_sender: mpsc::Sender<TaskResult>,
     ) -> Result<SchedulerMessage>;
 
     async fn remove_service(&self, service_id: String, scheduler_sender: mpsc::Sender<Event>);
@@ -281,25 +292,38 @@ impl SchedulerHandler for SchedulerServerHandler {
         &self,
         r: BatchProofResult,
         scheduler_sender: mpsc::Sender<Event>,
+        result_sender: mpsc::Sender<TaskResult>,
     ) -> Result<SchedulerMessage> {
-        let event = if r.result == scheduler_service::Result::Ok as i32 {
-            Event::TaskResult {
+        let task_result = if r.result == scheduler_service::Result::Ok as i32 {
+            TaskResult {
                 service_id: r.prover_id.clone(),
-                recursive_proof: ProofResult::Success,
+                recursive_proof: ProofResult {
+                    task_id: r.task_id.clone(),
+                    chunk_id: r.chunk_id.clone(),
+                    result_code: ResultStatus::Success,
+                },
             }
         } else {
-            Event::TaskResult {
+            TaskResult {
                 service_id: r.prover_id.clone(),
-                recursive_proof: ProofResult::Fail,
+                recursive_proof: ProofResult {
+                    task_id: r.task_id.clone(),
+                    chunk_id: r.chunk_id.clone(),
+                    result_code: ResultStatus::Fail,
+                },
             }
         };
 
-        if let Err(e) = scheduler_sender.send(event.clone()).await {
+        if let Err(e) = result_sender.send(task_result.clone()).await {
             // can't send event to scheduler, close the connection
-            log::error!("Failed to send Event: {:?}, receiver dropped: {}", event, e);
+            log::error!(
+                "Failed to send Event: {:?}, receiver dropped: {}",
+                task_result,
+                e
+            );
             return Err(anyhow!(
                 "Failed to send Event: {:?}, receiver dropped: {}",
-                event,
+                task_result,
                 e
             ));
         }

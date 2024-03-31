@@ -109,6 +109,8 @@ impl BatchProverHandler for BatchProverServiceHandler {
                     message_type: Some(batch_prover_message::MessageType::BatchProofResult(
                         BatchProofResult {
                             prover_id: take_batch_proof_task_response.prover_id,
+                            task_id: ctx.task_id.clone(),
+                            chunk_id: ctx.chunk_id.clone(),
                             result: 1,
                         },
                     )),
@@ -121,6 +123,8 @@ impl BatchProverHandler for BatchProverServiceHandler {
                     message_type: Some(batch_prover_message::MessageType::BatchProofResult(
                         BatchProofResult {
                             prover_id: take_batch_proof_task_response.prover_id,
+                            task_id: ctx.task_id.clone(),
+                            chunk_id: ctx.chunk_id.clone(),
                             result: 0, // Indicate failure
                         },
                     )),
