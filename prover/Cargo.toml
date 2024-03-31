@@ -14,11 +14,7 @@ algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main"
 dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
 zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
 
-powdr-backend =        { git = "https://github.com/eigmax/powdr", branch = "main" }
-powdr-pipeline =       { git = "https://github.com/eigmax/powdr", branch = "main" }
-powdr-riscv =          { git = "https://github.com/eigmax/powdr", branch = "main" }
-powdr-riscv-executor = { git = "https://github.com/eigmax/powdr", branch = "main" }
-powdr-number =         { git = "https://github.com/eigmax/powdr", branch = "main" }
+powdr = { git = "https://github.com/powdr-labs/powdr", rev = "450e3f1" }
 
 
 uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }

@@ -2,7 +2,7 @@ use super::Prover;
 use crate::contexts::BatchContext;
 
 use anyhow::Result;
-use powdr_number::{FieldElement, GoldilocksField};
+use powdr::number::{FieldElement, GoldilocksField};
 
 use dsl_compile::circom_compiler;
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
@@ -68,27 +68,27 @@ impl Prover<BatchContext> for BatchProver {
         log::info!(
             "circom file path: {:?}",
             format!(
-                "{}/{}_chunk_{}_proof.bin_1",
+                "{}/{}_chunk_{}.circom",
                 ctx.evm_output, ctx.task_name, &ctx.chunk_id
             )
         );
         log::info!(
             "zkin file path: {:?}",
             format!(
-                "{}/{}_chunk_{}_proof.bin_0",
+                "{}/{}_chunk_{}_proof.bin",
                 ctx.evm_output, ctx.task_name, &ctx.chunk_id
             )
         );
         std::fs::copy(
             format!(
-                "{}/{}_chunk_{}_proof.bin_1",
+                "{}/{}_chunk_{}.circom",
                 ctx.evm_output, ctx.task_name, &ctx.chunk_id
             ),
             batch_circom.circom_file.clone(),
         )?;
         std::fs::copy(
             format!(
-                "{}/{}_chunk_{}_proof.bin_0",
+                "{}/{}_chunk_{}_proof.bin",
                 ctx.evm_output, ctx.task_name, &ctx.chunk_id
             ),
             batch_stark.zkin.clone(),
