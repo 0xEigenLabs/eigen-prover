@@ -59,7 +59,7 @@ basedir/
 ## Testing
 TASK=evm
 ```bash
-FORCE_BIT=21 RUST_MIN_STACK=2073741821 RUST_BACKTRACE=1 RUST_LOG=debug \
+FORCE_BIT=18 RUST_MIN_STACK=2073741821 RUST_BACKTRACE=1 RUST_LOG=debug \
     CIRCOMLIB=../executor/node_modules/circomlib/circuits \
     STARK_VERIFIER_GL=../executor/node_modules/pil-stark/circuits.gl \
     STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128 \
