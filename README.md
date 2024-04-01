@@ -10,32 +10,31 @@ This repo aims to build components:
 
 ### Use [grpc server](https://github.com/hyperium/tonic/blob/master/examples/helloworld-tutorial.md)
 
-> 💡 We offer two modes for you to use the eigen-prover.
+> 💡 We provide two modes for using the Eigen-Prover.
 
-#### 1. Single node mode
+#### 1. Single Node Mode
 
-All services are running in a single process.
-Convenient for you to test or quickly experience eigen-prover.
-
+In this mode, all services run within a single process.
+It's convenient for testing or quickly getting started with the Eigen-Prover.
 ```
 cd service
 RUST_LOG=info cargo run --bin service -- --nocapture --release
 ```
 
-#### 2. Distributed node mode
+#### 2. Distributed Node Mode
 
-Expanding any number of remote services to provide batch-proof distributed parallel computing in this mode.
-If you want to use it in production or experience the ultimate performance of Engen Pro, we recommend using this mode.
+This mode allows the expansion of any number of remote services to provide batch-proof distributed parallel computing.
+If you're aiming for production deployment or want to experience the peak performance of Eigen-Prover, this mode is recommended.
 
-first, start the Server
-> ⚠️ Remember the IP and port of your server, We will use it later.
+First, start the Server:
+> ⚠️ Remember to note the IP and Port of your server, as they will be needed later.
 ```shell
 cd service
 PROVER_MODEL=grpc RUST_LOG=info cargo run --bin service -- --nocapture --release
 ```
 
-then, start any number of batch-proof computing nodes.
-> 🚀 The speed of the eigen-prover depends on the number of computing nodes you initiate.
+Next, initiate any number of batch-proof computing nodes:
+> 🚀 The speed of the Eigen-Prover depends on the number of computing nodes you initiate.
 ```shell
 cd service
 SCHEDULER_ADDR="http://server_ip:server_port" cargo run --bin batch-prover -- --nocapture --release
