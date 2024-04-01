@@ -10,21 +10,15 @@ RUN apt-get update && apt-get install -y \
     g++ \
     unzip \
     libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# install protoc
-RUN curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v26.0/protoc-26.0-linux-x86_64.zip -o protobuf.zip \
-    && unzip protobuf.zip -d /usr/local/bin \
-    && rm protobuf.zip
-
-ENV PROTOC=/usr/local/bin/bin/protoc
-ENV PATH=$PATH:/usr/local/bin/bin/protoc
+    protobuf-compiler \
+    libprotobuf-dev \
+    && rm -rf /var/lib/apt/lists/* \
 
 WORKDIR /app
 
 COPY . /app/
 
-RUN cargo build --release
+RUN cd app && cargo build --release
 
 FROM debian:stable-slim
 
@@ -40,6 +34,6 @@ ENV CONF_DIR=/usr/local/bin/
 RUN adduser --disabled-password --gecos '' --uid 1000 appuser && chown -R appuser:appuser /usr/local/bin/service
 USER appuser
 
-EXPOSE 50000
+EXPOSE 50061
 
 CMD ["/usr/local/bin/service"]
