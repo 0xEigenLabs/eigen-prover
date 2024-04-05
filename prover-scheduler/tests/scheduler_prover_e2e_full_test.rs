@@ -67,7 +67,6 @@ async fn prover_scheduler_e2e_full_test() {
     log::info!("task3: {task3}");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-
     // Give the server a little time to start
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
@@ -75,10 +74,9 @@ async fn prover_scheduler_e2e_full_test() {
     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
     log::info!("====================6. Start Batch Proof... ====================");
 
-
     log::info!("====================7. Wait Batch Proof result... ====================");
     tokio::time::sleep(tokio::time::Duration::from_secs(5400)).await;
-    
+
     log::info!("====================8. Start 2 rounds of Agg and Final... ====================");
     let task4 = pipeline
         .aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string())
