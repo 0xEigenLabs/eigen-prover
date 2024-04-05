@@ -5,5 +5,35 @@ services:
     build:
       context: .
       dockerfile: service.Dockerfile
+    volumes:
+      - ${HOST_PATH}:/./data
     ports:
       - "50061:50061"
+  batch-prover:
+    build:
+      context: .
+      dockerfile: batch-prover.Dockerfile
+    volumes:
+      - ${HOST_PATH}:/./data
+    environment:
+      - SCHEDULER_ADDR=http://127.0.0.1:50061
+  scheduler-test:
+    build:
+      context: .
+      dockerfile: scheduler-test.Dockerfile
+    volumes:
+      - ${HOST_PATH}:/./data
+    environment:
+      - TEST_NAME=my_test_name
+    ports:
+      - "50051:50051"
+  scheduler-batch-prover-e2e-test:
+    build:
+      context: .
+      dockerfile: batch-prover.Dockerfile
+    volumes:
+      - ${HOST_PATH}:/./data
+    environment:
+      - SCHEDULER_ADDR=http://your-scheduler-address:50061
+    depends_on:
+      - scheduler-test

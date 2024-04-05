@@ -16,6 +16,7 @@ Cargo.lock
 # IDE
 .idea
 .vscode
+.DS_Store
 
 =======
 
