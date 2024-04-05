@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::{fs, io::Write};
-use zkvm::zkvm_evm_generate_chunks;
+use zkvm::zkvm_generate_chunks;
 
 use statedb::database::Database as StateDB;
 use storage_layout_extractor::watchdog::LazyWatchdog;
@@ -495,7 +495,7 @@ pub async fn batch_process(
     );
     log::debug!("workspace: {}", workspace);
     let bootloader_inputs =
-        zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
+        zkvm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
     let cnt_chunks: usize = bootloader_inputs.len();
     log::debug!("Generated {} chunks", cnt_chunks);
     // save the chunks
@@ -534,8 +534,7 @@ mod tests {
         let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
         let workspace = format!("program/{}", task);
         let bootloader_inputs =
-            zkvm_evm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str())
-                .unwrap();
+            zkvm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
         let cnt_chunks: usize = bootloader_inputs.len();
         log::debug!("Generated {} chunks", cnt_chunks);
         // save the chunks
