@@ -8,7 +8,7 @@ use dsl_compile::circom_compiler;
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
 use std::{fs, io::Read};
-use zkvm::zkvm_evm_prove_only;
+use zkvm::zkvm_prove_only;
 
 #[derive(Default)]
 pub struct BatchProver {}
@@ -58,7 +58,7 @@ impl Prover<BatchContext> for BatchProver {
             *out = GoldilocksField::from_bytes_le(bin);
         });
 
-        zkvm_evm_prove_only(
+        zkvm_prove_only(
             &ctx.task_name,
             &serde_data,
             bi,
