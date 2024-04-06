@@ -22,9 +22,19 @@ services:
       context: .
       dockerfile: scheduler-test.Dockerfile
     volumes:
-      - ${HOST_PATH}:/./data
+      - ${HOST_DATA_PATH}:/./data
+      - ${HOST_WORK_BASE}:/./starkjs
     environment:
-      - TEST_NAME=my_test_name
+      - TEST_NAME=prover_scheduler_e2e_full_test
+      - CONTINER_WORK_BASE=/.starkjs
+      - FORCE_BIT=21
+      - RUSTFLAGS="-C target-feature=+avx2"
+      - RUST_MIN_STACK=2073741821
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+      - CIRCOMLIB=${CONTINER_WORK_BASE}/node_modules/circomlib/circuits
+      - STARK_VERIFIER_GL=${CONTINER_WORK_BASE}/node_modules/pil-stark/circuits.gl
+      - STARK_VERIFIER_BN128=${CONTINER_WORK_BASE}/node_modules/pil-stark/circuits.bn128
     ports:
       - "50051:50051"
   scheduler-batch-prover-e2e-test:
@@ -32,8 +42,18 @@ services:
       context: .
       dockerfile: batch-prover.Dockerfile
     volumes:
-      - ${HOST_PATH}:/./data
+      - ${HOST_DATA_PATH}:/./data
+      - ${HOST_WORK_BASE}:/./starkjs
     environment:
-      - SCHEDULER_ADDR=http://your-scheduler-address:50061
+      - SCHEDULER_ADDR=http://127.0.0.1:50061
+      - CONTINER_WORK_BASE=/.starkjs
+      - FORCE_BIT=21
+      - RUSTFLAGS="-C target-feature=+avx2"
+      - RUST_MIN_STACK=2073741821
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+      - CIRCOMLIB=${CONTINER_WORK_BASE}/node_modules/circomlib/circuits
+      - STARK_VERIFIER_GL=${CONTINER_WORK_BASE}/node_modules/pil-stark/circuits.gl
+      - STARK_VERIFIER_BN128=${CONTINER_WORK_BASE}/node_modules/pil-stark/circuits.bn128
     depends_on:
       - scheduler-test
