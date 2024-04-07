@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: service.Dockerfile
     volumes:
-      - ${HOST_DATA_PATH}:/app/data
+      - ${HOST_DATA_PATH}:/app/prover/data
     ports:
       - "50061:50061"
   batch-prover:
@@ -14,7 +14,7 @@ services:
       context: .
       dockerfile: batch-prover.Dockerfile
     volumes:
-      - ${HOST_DATA_PATH}:/app/data
+      - ${HOST_DATA_PATH}:/app/prover/data
     environment:
       - SCHEDULER_ADDR=http://127.0.0.1:50061
   scheduler-test:
@@ -22,7 +22,7 @@ services:
       context: .
       dockerfile: scheduler-test.Dockerfile
     volumes:
-      - ${HOST_DATA_PATH}:/app/data
+      - ${HOST_DATA_PATH}:/app/prover/data
     environment:
       - TEST_NAME=prover_scheduler_e2e_full_test
       - FORCE_BIT=18
@@ -36,7 +36,7 @@ services:
       context: .
       dockerfile: batch-prover.Dockerfile
     volumes:
-      - ${HOST_DATA_PATH}:/app/data
+      - ${HOST_DATA_PATH}:/app/prover/data
     environment:
       - SCHEDULER_ADDR=http://127.0.0.1:50051
       - FORCE_BIT=18
