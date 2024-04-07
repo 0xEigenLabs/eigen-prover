@@ -9,6 +9,25 @@ services:
       - ${HOST_DATA_PATH}:/app/prover/data
     ports:
       - "50061:50061"
+    environment:
+      - FORCE_BIT=18
+      - RUSTFLAGS=-C target-feature=+avx2
+      - RUST_MIN_STACK=2073741821
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+      - DATABASE_URL=postgresql://root:password@127.0.0.1:6432/state
+      - NODE_ADDR=http://[::1]:50081
+    network_mode: host
+    depends_on:
+      - db
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: state
+    ports:
+      - "6432:5432"
   batch-prover:
     build:
       context: .
