@@ -5,5 +5,64 @@ services:
     build:
       context: .
       dockerfile: service.Dockerfile
+    volumes:
+      - ${HOST_DATA_PATH}:/app/prover/data
     ports:
       - "50061:50061"
+    environment:
+      - FORCE_BIT=18
+      - RUSTFLAGS=-C target-feature=+avx2
+      - RUST_MIN_STACK=2073741821
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+      - DATABASE_URL=postgresql://root:password@127.0.0.1:6432/state
+      - NODE_ADDR=http://[::1]:50081
+    network_mode: host
+    depends_on:
+      - db
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: state
+    ports:
+      - "6432:5432"
+  batch-prover:
+    build:
+      context: .
+      dockerfile: batch-prover.Dockerfile
+    volumes:
+      - ${HOST_DATA_PATH}:/app/prover/data
+    environment:
+      - SCHEDULER_ADDR=http://127.0.0.1:50061
+  scheduler-test:
+    build:
+      context: .
+      dockerfile: scheduler-test.Dockerfile
+    volumes:
+      - ${HOST_DATA_PATH}:/app/prover/data
+    environment:
+      - TEST_NAME=prover_scheduler_e2e_full_test
+      - FORCE_BIT=18
+      - RUSTFLAGS=-C target-feature=+avx2
+      - RUST_MIN_STACK=2073741821
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+    network_mode: host
+  scheduler-batch-prover-e2e-test:
+    build:
+      context: .
+      dockerfile: batch-prover.Dockerfile
+    volumes:
+      - ${HOST_DATA_PATH}:/app/prover/data
+    environment:
+      - SCHEDULER_ADDR=http://127.0.0.1:50051
+      - FORCE_BIT=18
+      - RUSTFLAGS=-C target-feature=+avx2
+      - RUST_MIN_STACK=2073741821
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug
+    network_mode: host
+    depends_on:
+      - scheduler-test
