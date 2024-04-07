@@ -1,15 +1,9 @@
 use std::env;
-
-use prover_scheduler::scheduler_server::{SchedulerServerHandler, SchedulerServiceSVC};
-
-use prover_scheduler::service::batch_prover_service::{
-    BatchProverService, BatchProverServiceHandler,
-};
+use std::sync::Arc;
 
 use prover::pipeline::Pipeline;
 use prover::scheduler::Scheduler;
-use std::sync::Arc;
-use tonic::async_trait;
+use prover_scheduler::scheduler_server::{SchedulerServerHandler, SchedulerServiceSVC};
 
 #[tokio::test]
 #[ignore = "slow"]
