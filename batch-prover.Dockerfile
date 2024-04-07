@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends apt
 RUN apt-get update && apt-get install -y --no-install-recommends openssl
 RUN apt-get update && apt-get install -y --no-install-recommends libpq5
 
-COPY --from=builder /app/service/target/release/batch-prover /usr/local/bin/batch-prover
+COPY --from=builder /app/target/release/batch-prover /usr/local/bin/batch-prover
 
 RUN adduser --disabled-password --gecos '' --uid 1000 appuser && chown -R appuser:appuser /usr/local/bin/batch-prover
 USER appuser

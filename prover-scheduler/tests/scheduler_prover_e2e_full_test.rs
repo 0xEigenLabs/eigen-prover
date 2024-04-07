@@ -40,7 +40,7 @@ async fn prover_scheduler_e2e_full_test() {
         SchedulerServiceSVC::new(event_tx, result_sender, scheduler_handler.clone());
 
     // [::1]:50051
-    let addr = "[::1]:50051".to_string();
+    let addr = "0.0.0.0:50051".to_string();
     let server_future = tokio::spawn(async move {
         scheduler_service_svc.launch_server(addr).await.unwrap();
     });
