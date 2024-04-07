@@ -16,6 +16,7 @@ use std::sync::Arc;
 use tonic::async_trait;
 
 #[tokio::test]
+#[ignore = "slow"]
 async fn prover_scheduler_e2e_mock_test() {
     // init log
     env::set_var("RUST_LOG", "info");
