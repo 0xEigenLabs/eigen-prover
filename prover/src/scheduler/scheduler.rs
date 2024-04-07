@@ -285,8 +285,8 @@ impl Scheduler {
 
                 if let Err(e) = std::fs::write(p.clone(), stage_str) {
                     log::error!("Failed to write status file: {:?}, err: {}", p, e);
+                    return;
                 }
-                return;
             }
 
             let p = workdir.join("status.finished");
