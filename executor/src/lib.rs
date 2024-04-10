@@ -24,7 +24,6 @@ use std::{fs, io::Write};
 use zkvm::zkvm_generate_chunks;
 
 use statedb::database::Database as StateDB;
-mod storage_extractor;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 mod merkle_trie;
