@@ -2,7 +2,7 @@
 use anyhow::Result;
 use ethers_core::types::{
     BlockId, GethDebugBuiltInTracerType, GethDebugTracerType, GethDebugTracingOptions, GethTrace,
-    GethTraceFrame, PreStateFrame,
+    GethTraceFrame, PreStateFrame, H160,
 };
 use ethers_providers::{Http, Middleware, Provider};
 use powdr::number::FieldElement;
@@ -118,6 +118,13 @@ pub async fn batch_process(
                                 let new_key = U256::from_le_bytes(key.0);
                                 let new_value = U256::from_le_bytes(value.0);
                                 account_info.storage.insert(new_key, new_value);
+                                cache_db
+                                    .insert_account_storage(
+                                        Address::from(address.as_fixed_bytes()),
+                                        new_key,
+                                        new_value,
+                                    )
+                                    .unwrap();
                             }
                         }
                         test_pre.insert(Address::from(address.as_fixed_bytes()), account_info);
@@ -133,6 +140,30 @@ pub async fn batch_process(
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
             let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
             log::debug!("to_info: {} => {:?}", to_acc, acc_info);
+
+            // match geth_trace.clone() {
+            //     GethTrace::Known(frame) => {
+            //         if let GethTraceFrame::PreStateTracer(PreStateFrame::Default(pre_state_mode)) =
+            //             frame
+            //         {
+            //             if let Some(account_state) =
+            //                 pre_state_mode.clone().0.get_mut(&H160::from(to_acc.0 .0))
+            //             {
+            //                 if let Some(storage) = &mut account_state.storage {
+            //                     for (key, value) in storage.iter() {
+            //                         let new_key = U256::from_le_bytes(key.0);
+            //                         let new_value = U256::from_le_bytes(value.0);
+            //                         cache_db
+            //                             .insert_account_storage(to_acc, new_key, new_value)
+            //                             .unwrap();
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            //     GethTrace::Unknown(_) => {}
+            // }
+
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
