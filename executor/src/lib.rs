@@ -133,7 +133,7 @@ pub async fn batch_process(
                             code: Some(revm::primitives::Bytecode::new_raw(
                                 account_info.code.clone(),
                             )),
-                            code_hash: keccak256(hex::encode(account_info.code.clone())),
+                            code_hash: keccak256(&account_info.code),
                         };
                         let cache_db_acc_info = ethersdb
                             .basic(Address::from(address.as_fixed_bytes()))
