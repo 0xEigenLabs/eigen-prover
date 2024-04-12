@@ -127,7 +127,7 @@ pub async fn batch_process(
                                     .unwrap();
                             }
                         }
-                        let cache_db_acc_info2 = revm::primitives::AccountInfo {
+                        let cache_db_acc_info = revm::primitives::AccountInfo {
                             balance: account_info.balance,
                             nonce: account_info.nonce,
                             code: Some(revm::primitives::Bytecode::new_raw(
@@ -135,20 +135,12 @@ pub async fn batch_process(
                             )),
                             code_hash: keccak256(&account_info.code),
                         };
-                        let cache_db_acc_info = ethersdb
-                            .basic(Address::from(address.as_fixed_bytes()))
-                            .unwrap()
-                            .unwrap();
-                        println!(
+                        log::debug!(
                             "cache_db_acc_info: {:?} => {:#?}",
                             Address::from(address.as_fixed_bytes()),
                             cache_db_acc_info
                         );
-                        println!(
-                            "cache_db_acc_info2: {:?} => {:#?}",
-                            Address::from(address.as_fixed_bytes()),
-                            cache_db_acc_info2
-                        );
+
                         cache_db.insert_account_info(
                             Address::from(address.as_fixed_bytes()),
                             cache_db_acc_info,
@@ -166,29 +158,6 @@ pub async fn batch_process(
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
             let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
             log::debug!("to_info: {} => {:?}", to_acc, acc_info);
-
-            // match geth_trace.clone() {
-            //     GethTrace::Known(frame) => {
-            //         if let GethTraceFrame::PreStateTracer(PreStateFrame::Default(pre_state_mode)) =
-            //             frame
-            //         {
-            //             if let Some(account_state) =
-            //                 pre_state_mode.clone().0.get_mut(&H160::from(to_acc.0 .0))
-            //             {
-            //                 if let Some(storage) = &mut account_state.storage {
-            //                     for (key, value) in storage.iter() {
-            //                         let new_key = U256::from_le_bytes(key.0);
-            //                         let new_value = U256::from_le_bytes(value.0);
-            //                         cache_db
-            //                             .insert_account_storage(to_acc, new_key, new_value)
-            //                             .unwrap();
-            //                     }
-            //                 }
-            //             }
-            //         }
-            //     }
-            //     GethTrace::Unknown(_) => {}
-            // }
 
             cache_db.insert_account_info(to_acc, acc_info);
         }
