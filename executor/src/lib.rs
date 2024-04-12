@@ -2,11 +2,11 @@
 use anyhow::Result;
 use ethers_core::types::{
     BlockId, GethDebugBuiltInTracerType, GethDebugTracerType, GethDebugTracingOptions, GethTrace,
-    GethTraceFrame, PreStateFrame, H160,
+    GethTraceFrame, PreStateFrame,
 };
 use ethers_providers::{Http, Middleware, Provider};
 use powdr::number::FieldElement;
-use revm::primitives::HashSet;
+use revm::primitives::{keccak256, HashSet};
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB, PlainAccount},
     inspector_handle_register,
@@ -77,7 +77,7 @@ pub async fn batch_process(
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
-        let acc_info = ethersdb.basic(from_acc).unwrap().unwrap();
+        let acc_info: revm::primitives::AccountInfo = ethersdb.basic(from_acc).unwrap().unwrap();
         log::debug!("acc_info: {} => {:?}", from_acc, acc_info);
 
         let trace_options = GethDebugTracingOptions {
@@ -115,8 +115,8 @@ pub async fn batch_process(
 
                         if let Some(storage) = account_state.storage.clone() {
                             for (key, value) in storage.iter() {
-                                let new_key = U256::from_le_bytes(key.0);
-                                let new_value = U256::from_le_bytes(value.0);
+                                let new_key: Uint<256, 4> = U256::from_be_bytes(key.0);
+                                let new_value: Uint<256, 4> = U256::from_be_bytes(value.0);
                                 account_info.storage.insert(new_key, new_value);
                                 cache_db
                                     .insert_account_storage(
@@ -127,6 +127,32 @@ pub async fn batch_process(
                                     .unwrap();
                             }
                         }
+                        let cache_db_acc_info2 = revm::primitives::AccountInfo {
+                            balance: account_info.balance,
+                            nonce: account_info.nonce,
+                            code: Some(revm::primitives::Bytecode::new_raw(
+                                account_info.code.clone(),
+                            )),
+                            code_hash: keccak256(hex::encode(account_info.code.clone())),
+                        };
+                        let cache_db_acc_info = ethersdb
+                            .basic(Address::from(address.as_fixed_bytes()))
+                            .unwrap()
+                            .unwrap();
+                        println!(
+                            "cache_db_acc_info: {:?} => {:#?}",
+                            Address::from(address.as_fixed_bytes()),
+                            cache_db_acc_info
+                        );
+                        println!(
+                            "cache_db_acc_info2: {:?} => {:#?}",
+                            Address::from(address.as_fixed_bytes()),
+                            cache_db_acc_info2
+                        );
+                        cache_db.insert_account_info(
+                            Address::from(address.as_fixed_bytes()),
+                            cache_db_acc_info,
+                        );
                         test_pre.insert(Address::from(address.as_fixed_bytes()), account_info);
                     }
                 }
