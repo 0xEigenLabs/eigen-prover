@@ -5,18 +5,13 @@ use ethers_providers::{Http, Provider};
 use indicatif::ProgressBar;
 use revm::db::{CacheDB, EmptyDB, EthersDB};
 use revm::inspectors::TracerEip3155;
-use revm::primitives::HashSet;
 use revm::primitives::{Address, ResultAndState, TransactTo, U256};
 use revm::{inspector_handle_register, Database, DatabaseCommit, Evm};
-use ruint::uint;
-use ruint::Uint;
 use std::env as stdenv;
 use std::io::BufWriter;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
-
-use statedb::database::Database as StateDB;
 
 macro_rules! local_fill {
     ($left:expr, $right:expr, $fun:expr) => {
@@ -82,8 +77,6 @@ async fn main() -> anyhow::Result<()> {
     let mut cache_db = CacheDB::new(EmptyDB::default());
     // get pre
 
-    let mut db = StateDB::new(None);
-
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
@@ -97,26 +90,6 @@ async fn main() -> anyhow::Result<()> {
             log::info!("to_info: {} => {:?}", to_acc, acc_info);
             // setup storage
 
-            uint! {
-                let account_slot_json = db.read_nodes(to_acc.to_string().as_str()).unwrap_or_default();
-                let account_slot_json_str = account_slot_json.as_str();
-                if !account_slot_json_str.is_empty() {
-                    println!("not found slot in db, account_slot_json: {:?}", account_slot_json_str);
-                }
-                let account_slot: HashSet<Uint<256,4>>= serde_json::from_str(account_slot_json_str).unwrap_or_default();
-                for slot in account_slot {
-                    let slot = U256::from(slot);
-                    if !acc_info.code.as_ref().unwrap().is_empty() {
-                        // query value of storage slot at account address
-                        let value = ethersdb.storage(to_acc, slot).unwrap();
-                        log::info!("slot:{}, value: {:?}", slot, value);
-
-                        cache_db
-                            .insert_account_storage(to_acc, slot, value)
-                            .unwrap();
-                    }
-                }
-            }
             cache_db.insert_account_info(to_acc, acc_info);
         }
     }
@@ -222,28 +195,6 @@ async fn main() -> anyhow::Result<()> {
         // // Flush the file writer
         // inner.lock().unwrap().flush().expect("Failed to flush file");
 
-        for (k, v) in &evm.context.evm.db.accounts {
-            log::info!("state: {}=>{:?}", k, v);
-            let account_slot_json = db.read_nodes(k.to_string().as_str()).unwrap_or_default();
-            let account_slot_json_str = account_slot_json.as_str();
-
-            let mut account_slot: HashSet<Uint<256, 4>> =
-                serde_json::from_str(account_slot_json_str).unwrap_or_default();
-            if !v.storage.is_empty() {
-                for (k, v) in v.storage.iter() {
-                    log::info!("slot => storage: {}=>{}", k, v);
-                    account_slot.insert(*k);
-                }
-            }
-            let new_account_slot_json =
-                serde_json::to_string(&account_slot).expect("Failed to serialize");
-
-            let write_res =
-                db.write_nodes(k.to_string().as_str(), new_account_slot_json.as_str(), true);
-            if write_res.is_err() {
-                panic!("Failed to write nodes: {:?}", write_res);
-            }
-        }
         console_bar.inc(1);
     }
     for (k, v) in &evm.context.evm.db.accounts {

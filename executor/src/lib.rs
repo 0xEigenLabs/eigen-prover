@@ -6,7 +6,7 @@ use ethers_core::types::{
 };
 use ethers_providers::{Http, Middleware, Provider};
 use powdr::number::FieldElement;
-use revm::primitives::{keccak256, HashSet};
+use revm::primitives::keccak256;
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB, PlainAccount},
     inspector_handle_register,
@@ -22,8 +22,6 @@ use std::path::Path;
 use std::sync::Arc;
 use std::{fs, io::Write};
 use zkvm::zkvm_generate_chunks;
-
-use statedb::database::Database as StateDB;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 mod merkle_trie;
@@ -70,8 +68,6 @@ pub async fn batch_process(
     let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
 
     let mut cache_db = CacheDB::new(EmptyDB::default());
-
-    let mut db = StateDB::new(None);
 
     let mut test_pre: HashMap<Address, models::AccountInfo> = HashMap::new();
     for tx in &block.transactions {
@@ -330,28 +326,6 @@ pub async fn batch_process(
         let env = evm.context.evm.env.clone();
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
-
-        for (k, v) in &evm.context.evm.db.accounts {
-            log::debug!("state: {}=>{:?}", k, v);
-            let account_slot_json = db.read_nodes(k.to_string().as_str()).unwrap_or_default();
-            let account_slot_json_str = account_slot_json.as_str();
-            let mut account_slot: HashSet<Uint<256, 4>> =
-                serde_json::from_str(account_slot_json_str).unwrap_or_default();
-            if !v.storage.is_empty() {
-                for (k, v) in v.storage.iter() {
-                    log::debug!("slot => storage: {}=>{}", k, v);
-                    account_slot.insert(*k);
-                }
-            }
-            let new_account_slot_json =
-                serde_json::to_string(&account_slot).expect("Failed to serialize");
-
-            let write_res =
-                db.write_nodes(k.to_string().as_str(), new_account_slot_json.as_str(), true);
-            if write_res.is_err() {
-                log::error!("Failed to write nodes: {:?}", write_res);
-            }
-        }
     }
 
     let mut test_post = BTreeMap::new();
