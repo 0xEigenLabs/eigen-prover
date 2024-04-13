@@ -16,7 +16,6 @@ tokio-stream = { version = "0.1" }
 revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
 serde_json = "1.0.108"
 # biz
-statedb = { path = "../statedb" }
 executor = { path = "../executor" }
 prover = { path = "../prover" }
 prover-scheduler = { path = "../prover-scheduler" }

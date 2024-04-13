@@ -1,6 +1,5 @@
 [workspace]
 members = [
-  "statedb",
   "prover",
   "service",
   "executor",

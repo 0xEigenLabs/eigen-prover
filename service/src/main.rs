@@ -7,11 +7,9 @@ mod aggregator_client;
 mod batch_prover_service;
 mod config;
 mod executor_service;
-mod statedb;
 
 #[macro_use]
 extern crate lazy_static;
-use crate::statedb::statedb_service::state_db_service_server::StateDbServiceServer;
 use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
 use prover::scheduler::Scheduler;
 use prover_scheduler::scheduler_server::scheduler_service::scheduler_service_server::SchedulerServiceServer;
@@ -32,7 +30,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let runtime_config = config::RuntimeConfig::from_toml(conf_path).expect("Config is missing");
     let addr = runtime_config.addr.as_str().parse()?;
 
-    let sdb = crate::statedb::StateDBServiceSVC::default();
     let executor = executor_service::ExecutorServiceSVC::new();
 
     log::info!("Launching sigterm handler");
@@ -101,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         log::info!("finished in the walking task");
     });
 
-    log::info!("StateDB service and Executor service Listening on {}", addr);
+    log::info!("Executor service Listening on {}", addr);
 
     // SchedulerServiceSVC holds the event_tx
     // all client will connect to this instance
@@ -109,7 +106,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
     let scheduler_server = SchedulerServiceSVC::new(event_tx, result_tx, scheduler_handler);
     Server::builder()
-        .add_service(StateDbServiceServer::new(sdb))
         .add_service(ExecutorServiceServer::new(executor))
         .add_service(SchedulerServiceServer::new(scheduler_server))
         .serve_with_shutdown(addr, async {

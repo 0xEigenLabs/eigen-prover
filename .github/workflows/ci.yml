@@ -10,7 +10,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  DATABASE_URL: postgresql://root:password@localhost:5432/state
   RUST_BACKTRACE: 1
   RUST_LOG: info
 
@@ -25,33 +24,12 @@ jobs:
           - beta
           - nightly
 
-    services:
-      postgres:
-        image: postgres
-
-        env:
-          POSTGRES_PASSWORD: password
-          POSTGRES_USER: root
-          POSTGRES_DB: state
-
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
       - uses: actions/checkout@v2
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - run: rustup update nightly-2024-02-01 && rustup component add rust-src --toolchain nightly-2024-02-01-x86_64-unknown-linux-gnu
       - name: Install Dependencies
         run: sudo apt install protobuf-compiler
-      #- name: Install diesel
-      #  run: cargo install diesel_cli
-      #- name: DB Migration
-      #  run: cd statedb && diesel migration run && cd ..
       - name: Cargo test
         run: cargo test --release --verbose
       - name: Cargo test prover
