@@ -14,7 +14,7 @@ log = "0.4.0"
 
 anyhow =  "1.0"
 revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
-powdr = { git = "https://github.com/powdr-labs/powdr", rev = "450e3f1" }
+powdr = { git = "https://github.com/powdr-labs/powdr", branch = "avx" }
 
 zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
 models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
