@@ -6,7 +6,6 @@ use ethers_core::types::{
 };
 use ethers_providers::{Http, Middleware, Provider};
 use powdr::number::FieldElement;
-use revm::primitives::keccak256;
 use revm::{
     db::{CacheDB, EthersDB, PlainAccount, StateBuilder},
     inspector_handle_register,
@@ -116,19 +115,6 @@ pub async fn batch_process(
                                 account_info.storage.insert(new_key, new_value);
                             }
                         }
-                        let cache_db_acc_info = revm::primitives::AccountInfo {
-                            balance: account_info.balance,
-                            nonce: account_info.nonce,
-                            code: Some(revm::primitives::Bytecode::new_raw(
-                                account_info.code.clone(),
-                            )),
-                            code_hash: keccak256(&account_info.code),
-                        };
-                        log::debug!(
-                            "cache_db_acc_info: {:?} => {:#?}",
-                            Address::from(address.as_fixed_bytes()),
-                            cache_db_acc_info
-                        );
                         test_pre.insert(Address::from(address.as_fixed_bytes()), account_info);
                     }
                 }
