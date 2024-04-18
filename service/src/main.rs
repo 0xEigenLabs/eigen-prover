@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 use tonic::transport::Server;
-mod aggregator_client;
 mod batch_prover_service;
 mod config;
 mod executor_service;
@@ -62,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tokio::select! {
                 _ = interval.tick() => {
                     // pipeline holds the task_tx to send tasks to the scheduler
-                    match aggregator_client::run_prover(task_tx.clone()).await {
+                    match prover_service::run_prover(task_tx.clone()).await {
                         Ok(_) => {
                             log::debug!("prove one task");
                         }
