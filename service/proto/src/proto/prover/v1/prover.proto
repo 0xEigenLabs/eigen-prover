@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package prover.v1;
+
+message Version {
+  string v0_0_1 = 1;
+}
+
+service ProverService {
+  rpc ProverStream(stream ProverRequest) returns (stream ProverResponse) {}
+}
+
+message ProverRequest
+{
+  string id = 1;
+  oneof request_type
+  {
+    GetStatusRequest get_status_request = 2;
+    GenBatchProofRequest gen_batch_proof_request = 3;
+    GenAggregatedProofRequest gen_aggregated_proof_request = 4;
+    GenFinalProofRequest gen_final_proof_request = 5;
+  }
+}
+
+message ProverResponse
+{
+  string id = 1;
+
+  oneof response_type
+  {
+    GetStatusResponse get_status_response = 2;
+    GenBatchProofResponse gen_batch_proof_response = 3;
+    GenAggregatedProofResponse gen_aggregated_proof_response = 4;
+    GenFinalProofResponse gen_final_proof_response = 5;
+  }
+}
+
+
+// batch proof
+
+message GenBatchProofRequest {
+  string id = 1;
+  Batch batch = 2;
+}
+
+message Batch {
+  repeated uint64 block_number = 1;
+}
+
+message GenBatchProofResponse {
+  string id = 1;
+  ProofResultStatus result_code = 2;
+  BatchProofResult batch_proof_result = 3;
+  string error_message = 4;
+}
+
+message BatchProofResult {
+  string task_id = 1;
+  repeated ChunkProof chunk_proofs = 2;
+}
+
+message ChunkProof {
+  uint64 chunk_id = 1;
+  string proof_key = 3;
+  string proof = 2;
+}
+
+// aggregated proof
+
+message GenAggregatedProofRequest {
+  string recursive_proof_1 = 1;
+  string recursive_proof_2 = 2;
+}
+
+message GenAggregatedProofResponse {
+  string id = 1;
+  ProofResultStatus result_code = 2;
+  string result_string = 3;
+  string error_message = 4;
+}
+
+// final proof
+
+message GenFinalProofRequest {
+  string recursive_proof = 1;
+  string curve_name = 2;
+  string aggregator_addr = 3;
+}
+
+message GenFinalProofResponse {
+  string id = 1;
+  ProofResultStatus result_code = 2;
+  string result_string = 3;
+  FinalProof final_proof = 4;
+  string error_message = 5;
+}
+
+message FinalProof {
+  string proof = 1;
+  PublicInputs public = 2;
+}
+
+message PublicInputs {
+  bytes pre_state_root = 1;
+  bytes post_state_root = 2;
+  bytes batch_data = 3;
+}
+
+// proof result
+
+enum ProofResultStatus {
+  RESULT_UNSPECIFIED = 0;
+  RESULT_COMPLETED_OK = 1;
+  RESULT_ERROR = 2;
+  RESULT_COMPLETED_ERROR = 3;
+  RESULT_PENDING = 4;
+  RESULT_INTERNAL_ERROR = 5;
+  RESULT_CANCEL = 6;
+}
+
+// get status
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_BOOTING = 1;
+    STATUS_COMPUTING = 2;
+    STATUS_IDLE = 3;
+    STATUS_HALT = 4;
+  }
+  string id = 1;
+  GetStatusResultCode result_code= 2;
+  Status status = 3;
+  ProverStatus prover_status = 4;
+  string error_message = 5;
+}
+
+message ProverStatus {
+  string last_computed_request_id = 2;
+  uint64 last_computed_end_time = 3;
+  string current_computing_request_id = 4;
+  uint64 current_computing_start_time = 5;
+  string version_proto = 6;
+  string version_server = 7;
+  repeated string pending_request_queue_ids = 8;
+  string prover_name = 9;
+  string prover_id = 10;
+  uint64 number_of_cores = 11;
+  uint64 total_memory = 12;
+  uint64 free_memory = 13;
+  uint64 fork_id = 14;
+}
+
+enum GetStatusResultCode {
+   OK = 0;
+   FAIL = 1;
+}

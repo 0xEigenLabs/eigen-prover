@@ -8,8 +8,12 @@ mod batch_prover_service;
 mod config;
 mod executor_service;
 
+mod prover_service;
+
 #[macro_use]
 extern crate lazy_static;
+use crate::prover_service::prover_service::prover_service_server::ProverServiceServer;
+use crate::prover_service::ProverServiceSVC;
 use executor_service::executor_service::executor_service_server::ExecutorServiceServer;
 use prover::scheduler::Scheduler;
 use prover_scheduler::scheduler_server::scheduler_service::scheduler_service_server::SchedulerServiceServer;
@@ -35,29 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("Launching sigterm handler");
     let (signal_tx, signal_rx) = oneshot::channel();
     let mut interval = time::interval(time::Duration::from_secs(1));
-    let mut interval_client = time::interval(time::Duration::from_secs(5));
     let (send, mut recv) = watch::channel::<()>(());
-    let (send_client, mut recv_client) = watch::channel::<()>(());
-    spawn(wait_for_sigterm(signal_tx, send, send_client));
-
-    tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                _ = interval_client.tick() => {
-                    match aggregator_client::run_client().await {
-                        Ok(_) => {},
-                        _ => {
-                            log::info!("client quit, retrying after 5 seconds...");
-                        }
-                    }
-                },
-                _ = recv_client.changed() => {
-                    log::info!("finished, break the client loop, call it a day");
-                    break;
-                }
-            }
-        }
-    });
+    spawn(wait_for_sigterm(signal_tx, send));
 
     let (task_tx, task_rx) = tokio::sync::mpsc::channel(128);
     let (event_tx, event_rx) = tokio::sync::mpsc::channel(128);
@@ -100,6 +83,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::info!("Executor service Listening on {}", addr);
 
+    log::info!("Prover service Listening on {}", addr);
+
+    log::info!("BatchProverScheduler service Listening on {}", addr);
+    let prover_request_handler = Arc::new(prover_service::ProverRequestHandler::default());
+    let prover_server = ProverServiceSVC::new(prover_request_handler);
+
     // SchedulerServiceSVC holds the event_tx
     // all client will connect to this instance
     // they will send events to the scheduler by the event_tx, such as AddService, TakeTask etc.
@@ -108,6 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Server::builder()
         .add_service(ExecutorServiceServer::new(executor))
         .add_service(SchedulerServiceServer::new(scheduler_server))
+        .add_service(ProverServiceServer::new(prover_server))
         .serve_with_shutdown(addr, async {
             signal_rx.await.ok();
             log::info!("Graceful context shutdown");
@@ -116,7 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn wait_for_sigterm(tx: Sender<()>, send: watch::Sender<()>, send_client: watch::Sender<()>) {
+async fn wait_for_sigterm(tx: Sender<()>, send: watch::Sender<()>) {
     // close prover, NOTE: should use terminate?
     let _ = signal(SignalKind::interrupt())
         .expect("failed to install signal handler")
@@ -124,6 +114,5 @@ async fn wait_for_sigterm(tx: Sender<()>, send: watch::Sender<()>, send_client: 
         .await;
     let _ = tx.send(());
     let _ = send.send(());
-    let _ = send_client.send(());
     log::info!("SIGTERM received: shutting down");
 }
