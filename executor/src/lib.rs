@@ -6,9 +6,8 @@ use ethers_core::types::{
 };
 use ethers_providers::{Http, Middleware, Provider};
 use powdr::number::FieldElement;
-use revm::primitives::keccak256;
 use revm::{
-    db::{CacheDB, EmptyDB, EthersDB, PlainAccount},
+    db::{CacheDB, EthersDB, PlainAccount, StateBuilder},
     inspector_handle_register,
     inspectors::TracerEip3155,
     primitives::{
@@ -65,15 +64,15 @@ pub async fn batch_process(
 
     let prev_id: BlockId = previous_block_number.into();
     // SAFETY: This cannot fail since this is in the top-level tokio runtime
-    let mut ethersdb = EthersDB::new(Arc::clone(&client), Some(prev_id)).unwrap();
-
-    let mut cache_db = CacheDB::new(EmptyDB::default());
+    let state_db = EthersDB::new(Arc::clone(&client), Some(prev_id)).expect("panic");
+    let cache_db: CacheDB<EthersDB<Provider<Http>>> = CacheDB::new(state_db);
+    let mut state = StateBuilder::new_with_database(cache_db).build();
 
     let mut test_pre: HashMap<Address, models::AccountInfo> = HashMap::new();
     for tx in &block.transactions {
         let from_acc = Address::from(tx.from.as_fixed_bytes());
         // query basic properties of an account incl bytecode
-        let acc_info: revm::primitives::AccountInfo = ethersdb.basic(from_acc).unwrap().unwrap();
+        let acc_info: revm::primitives::AccountInfo = state.basic(from_acc).unwrap().unwrap();
         log::debug!("acc_info: {} => {:?}", from_acc, acc_info);
 
         let trace_options = GethDebugTracingOptions {
@@ -114,33 +113,8 @@ pub async fn batch_process(
                                 let new_key: Uint<256, 4> = U256::from_be_bytes(key.0);
                                 let new_value: Uint<256, 4> = U256::from_be_bytes(value.0);
                                 account_info.storage.insert(new_key, new_value);
-                                cache_db
-                                    .insert_account_storage(
-                                        Address::from(address.as_fixed_bytes()),
-                                        new_key,
-                                        new_value,
-                                    )
-                                    .unwrap();
                             }
                         }
-                        let cache_db_acc_info = revm::primitives::AccountInfo {
-                            balance: account_info.balance,
-                            nonce: account_info.nonce,
-                            code: Some(revm::primitives::Bytecode::new_raw(
-                                account_info.code.clone(),
-                            )),
-                            code_hash: keccak256(&account_info.code),
-                        };
-                        log::debug!(
-                            "cache_db_acc_info: {:?} => {:#?}",
-                            Address::from(address.as_fixed_bytes()),
-                            cache_db_acc_info
-                        );
-
-                        cache_db.insert_account_info(
-                            Address::from(address.as_fixed_bytes()),
-                            cache_db_acc_info,
-                        );
                         test_pre.insert(Address::from(address.as_fixed_bytes()), account_info);
                     }
                 }
@@ -148,19 +122,15 @@ pub async fn batch_process(
             GethTrace::Unknown(_) => {}
         }
 
-        cache_db.insert_account_info(from_acc, acc_info);
-
         if tx.to.is_some() {
             let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
-            let acc_info = ethersdb.basic(to_acc).unwrap().unwrap();
+            let acc_info = state.basic(to_acc).unwrap().unwrap();
             log::debug!("to_info: {} => {:?}", to_acc, acc_info);
-
-            cache_db.insert_account_info(to_acc, acc_info);
         }
     }
 
     let mut evm = Evm::builder()
-        .with_db(&mut cache_db)
+        .with_db(&mut state)
         .with_external_context(TracerEip3155::new(Box::new(std::io::stdout()), true, true))
         .modify_block_env(|b| {
             if let Some(number) = block.number {
