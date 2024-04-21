@@ -59,18 +59,20 @@ basedir/
 ## Testing
 TASK=evm
 ```bash
+export STARKJS=/zkp/eigen-zkvm/starkjs
 FORCE_BIT=18 RUST_MIN_STACK=2073741821 RUST_BACKTRACE=1 RUST_LOG=debug \
-    CIRCOMLIB=../executor/node_modules/circomlib/circuits \
-    STARK_VERIFIER_GL=../executor/node_modules/pil-stark/circuits.gl \
-    STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128 \
+    CIRCOMLIB=$STARKJS/node_modules/circomlib/circuits \
+    STARK_VERIFIER_GL=$STARKJS/node_modules/pil-stark/circuits.gl \
+    STARK_VERIFIER_BN128=$STARKJS/node_modules/pil-stark/circuits.bn128 \
     cargo test --release integration_test -- --nocapture
 ```
 TASK=lr
 ```bash
+export STARKJS=/zkp/eigen-zkvm/starkjs
 FORCE_BIT=18 RUST_MIN_STACK=2073741821 RUST_BACKTRACE=1 RUST_LOG=debug \
-    CIRCOMLIB=../executor/node_modules/circomlib/circuits \
-    STARK_VERIFIER_GL=../executor/node_modules/pil-stark/circuits.gl \
-    STARK_VERIFIER_BN128=../executor/node_modules/pil-stark/circuits.bn128 \
+    CIRCOMLIB=$STARKJS/node_modules/circomlib/circuits \
+    STARK_VERIFIER_GL=$STARKJS/node_modules/pil-stark/circuits.gl \
+    STARK_VERIFIER_BN128=$STARKJS/node_modules/pil-stark/circuits.bn128 \
     cargo test --release integration_test_lr -- --nocapture
 ```
 Note that the `FORCE_BIT` can be adjusted as per to different circuits.
