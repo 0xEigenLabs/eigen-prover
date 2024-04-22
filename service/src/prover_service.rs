@@ -13,7 +13,7 @@ use crate::prover_service::prover_service::{
     get_status_response, BatchProofResult, ChunkProof, GenAggregatedProofRequest,
     GenAggregatedProofResponse, GenBatchProofRequest, GenBatchProofResponse, GenFinalProofRequest,
     GenFinalProofResponse, GetStatusRequest, GetStatusResponse, GetStatusResultCode,
-    ProofResultStatus, ProverRequest, ProverResponse, ProverStatus,
+    ProofResultCode, ProverRequest, ProverResponse, ProverStatus,
 };
 use anyhow::{bail, Result};
 use ethers_providers::{Http, Provider};
@@ -101,22 +101,20 @@ impl ProverService for ProverServiceSVC {
 
                 if let Some(req_type) = request.request_type {
                     let resp = match req_type {
-                        RequestType::GetStatusRequest(req) => handler_clone
+                        RequestType::GetStatus(req) => handler_clone
                             .handle_get_status_request(request_id.clone(), req)
                             .await
                             .unwrap_or_else(|e| ProverResponse {
                                 id: request_id.clone(),
-                                response_type: Some(ResponseType::GetStatusResponse(
-                                    GetStatusResponse {
-                                        id: "".to_string(),
-                                        result_code: GetStatusResultCode::Fail as i32,
-                                        status: Idle as i32,
-                                        prover_status: None,
-                                        error_message: e.to_string(),
-                                    },
-                                )),
+                                response_type: Some(ResponseType::GetStatus(GetStatusResponse {
+                                    id: "".to_string(),
+                                    result_code: GetStatusResultCode::Fail as i32,
+                                    status: Idle as i32,
+                                    prover_status: None,
+                                    error_message: e.to_string(),
+                                })),
                             }),
-                        RequestType::GenBatchProofRequest(req) => handler_clone
+                        RequestType::GenBatchProof(req) => handler_clone
                             .handle_gen_batch_proof_request(
                                 request_id.clone(),
                                 req,
@@ -125,38 +123,38 @@ impl ProverService for ProverServiceSVC {
                             .await
                             .unwrap_or_else(|e| ProverResponse {
                                 id: request_id.clone(),
-                                response_type: Some(ResponseType::GenBatchProofResponse(
+                                response_type: Some(ResponseType::GenBatchProof(
                                     GenBatchProofResponse {
                                         id: "".to_string(),
-                                        result_code: ProofResultStatus::ResultError as i32,
+                                        result_code: ProofResultCode::CompletedError as i32,
                                         batch_proof_result: None,
                                         error_message: e.to_string(),
                                     },
                                 )),
                             }),
-                        RequestType::GenAggregatedProofRequest(r) => handler_clone
+                        RequestType::GenAggregatedProof(r) => handler_clone
                             .handle_gen_aggregated_proof_request(request_id.clone(), r)
                             .await
                             .unwrap_or_else(|e| ProverResponse {
                                 id: request_id.clone(),
-                                response_type: Some(ResponseType::GenAggregatedProofResponse(
+                                response_type: Some(ResponseType::GenAggregatedProof(
                                     GenAggregatedProofResponse {
                                         id: "".to_string(),
-                                        result_code: ProofResultStatus::ResultError as i32,
+                                        result_code: ProofResultCode::CompletedError as i32,
                                         result_string: "".to_string(),
                                         error_message: e.to_string(),
                                     },
                                 )),
                             }),
-                        RequestType::GenFinalProofRequest(r) => handler_clone
+                        RequestType::GenFinalProof(r) => handler_clone
                             .handle_gen_final_proof_request(request_id.clone(), r)
                             .await
                             .unwrap_or_else(|e| ProverResponse {
                                 id: request_id.clone(),
-                                response_type: Some(ResponseType::GenFinalProofResponse(
+                                response_type: Some(ResponseType::GenFinalProof(
                                     GenFinalProofResponse {
                                         id: "".to_string(),
-                                        result_code: ProofResultStatus::ResultError as i32,
+                                        result_code: ProofResultCode::CompletedError as i32,
                                         result_string: "".to_string(),
                                         final_proof: None,
                                         error_message: e.to_string(),
@@ -229,7 +227,7 @@ impl ProverHandler for ProverRequestHandler {
 
         Ok(ProverResponse {
             id: msg_id,
-            response_type: Some(ResponseType::GetStatusResponse(GetStatusResponse {
+            response_type: Some(ResponseType::GetStatus(GetStatusResponse {
                 id: "".to_string(),
                 result_code: GetStatusResultCode::Ok as i32,
                 status: status.into(),
@@ -371,9 +369,9 @@ impl ProverHandler for ProverRequestHandler {
 
         Ok(ProverResponse {
             id: msg_id,
-            response_type: Some(ResponseType::GenBatchProofResponse(GenBatchProofResponse {
+            response_type: Some(ResponseType::GenBatchProof(GenBatchProofResponse {
                 id: "".to_string(),
-                result_code: ProofResultStatus::ResultCompletedOk as i32,
+                result_code: ProofResultCode::CompletedOk as i32,
                 batch_proof_result: Some(batch_proof_result),
                 error_message: "".to_string(),
             })),
@@ -423,10 +421,10 @@ impl ProverHandler for ProverRequestHandler {
 
         Ok(ProverResponse {
             id: msg_id,
-            response_type: Some(ResponseType::GenAggregatedProofResponse(
+            response_type: Some(ResponseType::GenAggregatedProof(
                 GenAggregatedProofResponse {
                     id: task_id,
-                    result_code: ProofResultStatus::ResultCompletedOk as i32,
+                    result_code: ProofResultCode::CompletedOk as i32,
                     result_string: result_key,
                     error_message: "".to_string(),
                 },
@@ -478,9 +476,9 @@ impl ProverHandler for ProverRequestHandler {
         // TODO: Get the public_input from disk
         Ok(ProverResponse {
             id: msg_id,
-            response_type: Some(ResponseType::GenFinalProofResponse(GenFinalProofResponse {
+            response_type: Some(ResponseType::GenFinalProof(GenFinalProofResponse {
                 id: task_id,
-                result_code: ProofResultStatus::ResultCompletedOk as i32,
+                result_code: ProofResultCode::CompletedOk as i32,
                 result_string: "".to_string(),
                 final_proof: None,
                 error_message: "".to_string(),
