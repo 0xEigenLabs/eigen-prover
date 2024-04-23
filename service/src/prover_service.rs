@@ -1,3 +1,4 @@
+// TODO: Fixme
 #![allow(clippy::all)]
 #![allow(unknown_lints)]
 
@@ -98,6 +99,10 @@ impl ProverService for ProverServiceSVC {
                 };
 
                 let request_id = request.id.clone();
+                log::info!(
+                    "receive the request from eigen-zeth, request: {:?}",
+                    request
+                );
 
                 if let Some(req_type) = request.request_type {
                     let resp = match req_type {
@@ -163,6 +168,7 @@ impl ProverService for ProverServiceSVC {
                             }),
                     };
 
+                    log::info!("send the response to eigen-zeth, response: {:?}", resp);
                     if let Err(e) = tx.send(Ok(resp)).await {
                         log::error!("Failed to send response: {}", e);
                         break;
@@ -260,10 +266,12 @@ impl ProverHandler for ProverRequestHandler {
         // parse the block number from the request
         let block_number = match request.batch {
             None => {
+                log::error!("Batch is empty, request id: {:?}", msg_id);
                 bail!("Batch is empty");
             }
             Some(batch) => {
                 if batch.block_number.is_empty() {
+                    log::error!("Block List is empty, request id: {:?}", msg_id);
                     bail!("Block List is empty");
                 } else {
                     // currently, batch only contains one block
@@ -275,10 +283,15 @@ impl ProverHandler for ProverRequestHandler {
         // TODO: get from request?
         let task = var("TASK").unwrap_or(String::from("evm"));
 
-        let base_dir = var("BASEDIR").unwrap_or(String::from("/tmp"));
+        let base_dir = var("BASEDIR").unwrap_or(String::from("/tmp/prover/data/proof"));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = var("CHAINID").unwrap_or(String::from("1"));
 
+        log::info!(
+            "generate chunks for Block: {:?}, request id {:?}",
+            block_number,
+            msg_id
+        );
         // gen chunk
         let (_res, cnt_chunks) = batch_process(
             client,
@@ -290,6 +303,11 @@ impl ProverHandler for ProverRequestHandler {
         )
         .await;
 
+        log::info!(
+            "put the task to pipline, Block: {:?} request id {:?}",
+            block_number,
+            msg_id
+        );
         // gen proof
         // distribute tasks according to the number of chunks
         // put the task into the pipeline
@@ -309,10 +327,17 @@ impl ProverHandler for ProverRequestHandler {
 
         // waiting for the proof result
         let mut polling_ticker = time::interval(DEFAULT_BATCH_PROOF_POLLING_INTERVAL);
-        let mut timeout_ticker = time::interval(DEFAULT_BATCH_PROOF_POLLING_TIMEOUT);
+        let timeout_start = time::Instant::now() + DEFAULT_BATCH_PROOF_POLLING_TIMEOUT;
+        let mut timeout_ticker =
+            time::interval_at(timeout_start, DEFAULT_BATCH_PROOF_POLLING_TIMEOUT);
         let (finish_tx, mut finish_rx) = watch::channel::<()>(());
         let mut finished_tasks = vec![];
         let mut results = vec![];
+        log::info!(
+            "polling the batch proof of Block: {:?}, request id {:?}",
+            block_number,
+            msg_id
+        );
         loop {
             tokio::select! {
                 _ = polling_ticker.tick() => {
@@ -347,10 +372,17 @@ impl ProverHandler for ProverRequestHandler {
                     break;
                 }
                 _ = timeout_ticker.tick() => {
+                    log::info!("generate the proof timeout: {:?}, request id {:?}", block_number, msg_id);
                     bail!("generate batch proof timeout");
                 }
             }
         }
+
+        log::info!(
+            "Finished the task of generate batch proof, Block: {:?}, request id {:?}",
+            block_number,
+            msg_id
+        );
 
         let mut batch_proof_result = BatchProofResult::default();
         batch_proof_result.task_id = execute_task_id.to_string();
@@ -392,9 +424,23 @@ impl ProverHandler for ProverRequestHandler {
             Err(e) => bail!("Failed to generate aggregated proof: {:?}", e.to_string()),
         };
 
+        log::info!(
+            "generate agg proof, task_id: {:?}, request id {:?}",
+            task_id,
+            msg_id
+        );
+
         // waiting for the proof result
         let mut polling_ticker = time::interval(DEFAULT_AGGREGATED_PROOF_POLLING_INTERVAL);
-        let mut timeout_ticker = time::interval(DEFAULT_AGGREGATED_PROOF_POLLING_TIMEOUT);
+        let timeout_start = time::Instant::now() + DEFAULT_AGGREGATED_PROOF_POLLING_TIMEOUT;
+        let mut timeout_ticker =
+            time::interval_at(timeout_start, DEFAULT_AGGREGATED_PROOF_POLLING_TIMEOUT);
+
+        log::info!(
+            "polling the agg proof of agg_task: {:?}, request id {:?}",
+            task_id,
+            msg_id
+        );
 
         let result_key: String;
         loop {
@@ -414,6 +460,7 @@ impl ProverHandler for ProverRequestHandler {
                     }
                 }
                 _ = timeout_ticker.tick() => {
+                    log::info!("generate agg proof timeout, task_id: {:?}, request id {:?}", task_id, msg_id);
                     bail!("generate aggregated proof timeout");
                 }
             }
@@ -439,16 +486,31 @@ impl ProverHandler for ProverRequestHandler {
     ) -> Result<ProverResponse> {
         let task_id = match PIPELINE.lock().unwrap().final_prove(
             request.recursive_proof.clone(),
-            request.curve_name.clone(),
+            // request.curve_name.clone(),
+            "BN128".to_string(),
             request.aggregator_addr.clone(),
         ) {
             Ok(id) => id,
             Err(e) => bail!("Failed to generate final proof: {:?}", e.to_string()),
         };
 
+        log::info!(
+            "generate final proof, task_id: {:?}, request id {:?}",
+            task_id,
+            msg_id
+        );
+
         // waiting for the proof result
         let mut polling_ticker = time::interval(DEFAULT_FINAL_PROOF_POLLING_INTERVAL);
-        let mut timeout_ticker = time::interval(DEFAULT_FINAL_PROOF_POLLING_TIMEOUT);
+        let timeout_start = time::Instant::now() + DEFAULT_FINAL_PROOF_POLLING_TIMEOUT;
+        let mut timeout_ticker =
+            time::interval_at(timeout_start, DEFAULT_FINAL_PROOF_POLLING_TIMEOUT);
+
+        log::info!(
+            "polling the final proof of agg_task: {:?}, request id {:?}",
+            task_id,
+            msg_id
+        );
 
         loop {
             tokio::select! {
