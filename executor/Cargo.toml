@@ -16,7 +16,7 @@ anyhow =  "1.0"
 revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
 powdr = { git = "https://github.com/powdr-labs/powdr", branch = "avx" }
 
-zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
 models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
 hex = "0.4.3"
 alloy-rlp = { version = "0.3", default-features = false, features = [
@@ -42,3 +42,7 @@ indicatif = "0.17"
 
 [dev-dependencies]
 env_logger = "0.10"
+
+[features]
+default = []
+avx512 = ["zkvm/avx512"]
