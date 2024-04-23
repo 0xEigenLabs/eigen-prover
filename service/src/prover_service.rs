@@ -211,16 +211,11 @@ pub trait ProverHandler {
 }
 
 #[derive(Default, Clone)]
-pub struct ProverRequestHandler {
-    // TODO: refactor
-    curve_type: String,
-}
+pub struct ProverRequestHandler {}
 
 impl ProverRequestHandler {
     pub fn new() -> Self {
-        ProverRequestHandler {
-            curve_type: var("CURVE_TYPE").unwrap_or(String::from("BN128")),
-        }
+        ProverRequestHandler {}
     }
 }
 
@@ -491,8 +486,7 @@ impl ProverHandler for ProverRequestHandler {
     ) -> Result<ProverResponse> {
         let task_id = match PIPELINE.lock().unwrap().final_prove(
             request.recursive_proof.clone(),
-            // request.curve_name.clone(),
-            self.curve_type.clone(),
+            request.curve_name.clone(),
             request.aggregator_addr.clone(),
         ) {
             Ok(id) => id,
