@@ -57,7 +57,8 @@ impl Prover<BatchContext> for BatchProver {
         let start_of_shutdown_routine: u64 = u64::from_le_bytes(buffer);
         log::debug!("start_of_shutdown_routine: {start_of_shutdown_routine}");
 
-        let mut buffer = vec![0; file_size - 8];
+        let file_size = file_size - 8;
+        let mut buffer = vec![0; file_size];
         f.read_exact(&mut buffer)?;
         let mut bi = vec![GoldilocksField::default(); file_size / 8];
         bi.iter_mut().zip(buffer.chunks(8)).for_each(|(out, bin)| {
