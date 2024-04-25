@@ -512,6 +512,7 @@ mod tests {
             .zip(&bi_files)
             .for_each(|(data, filename)| {
                 let mut f = fs::File::create(filename).unwrap();
+                f.write_all(&data.1.to_le_bytes()).unwrap();
                 for d in &data.0 {
                     f.write_all(&d.to_bytes_le()[0..8]).unwrap();
                 }
