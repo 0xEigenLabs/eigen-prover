@@ -439,15 +439,14 @@ pub async fn batch_process(
         out: None,
     };
 
-    // println!("test_unit: {:#?}", test_unit);
     let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
-    let suite_json = json_string.clone();
+    log::debug!("test_unit: {}", json_string);
 
     let output_path = format!("{}/{}/{}", base_dir, task_id, task);
     log::debug!("output_path: {}", output_path);
     std::fs::create_dir_all(output_path.clone())
         .unwrap_or_else(|_| panic!("Failed to write to file, output_path: {}", output_path));
-    std::fs::write(format!("{}/batch.json", output_path), json_string)
+    std::fs::write(format!("{}/batch.json", output_path), json_string.clone())
         .expect("Failed to write to file");
 
     let project_root_path = project_root::get_project_root()
@@ -459,7 +458,7 @@ pub async fn batch_process(
     );
     log::debug!("workspace: {}", workspace);
     let bootloader_inputs =
-        zkvm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
+        zkvm_generate_chunks(workspace.as_str(), &json_string, output_path.as_str()).unwrap();
     let cnt_chunks: usize = bootloader_inputs.len();
     log::debug!("Generated {} chunks", cnt_chunks);
     // save the chunks
@@ -472,6 +471,8 @@ pub async fn batch_process(
         .zip(&bi_files)
         .for_each(|(data, filename)| {
             let mut f = fs::File::create(filename).unwrap();
+            // write the start_of_shutdown_routine
+            f.write_all(&data.1.to_le_bytes()).unwrap();
             for d in &data.0 {
                 f.write_all(&d.to_bytes_le()[0..8]).unwrap();
             }

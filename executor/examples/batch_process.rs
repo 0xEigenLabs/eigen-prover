@@ -7,10 +7,10 @@ async fn main() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
     let env_block_number = stdenv::var("NO").unwrap_or(String::from("1"));
     let block_number: u64 = env_block_number.parse().unwrap();
-    let task = "lr";
+    let task = stdenv::var("TASK").unwrap_or("lr".to_string());
     let task_id = "0";
     // base_dir is eigen_prover
-    let base_dir = "/tmp";
+    let base_dir = stdenv::var("BASEDIR").unwrap_or("/tmp".to_string());
     let url = stdenv::var("URL").unwrap_or(String::from("http://localhost:8123"));
     let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
     let client = Provider::<Http>::try_from(url).unwrap();
@@ -19,9 +19,9 @@ async fn main() -> anyhow::Result<()> {
         client,
         block_number,
         chain_id.parse::<u64>().unwrap(),
-        task,
+        &task,
         task_id,
-        base_dir,
+        &base_dir,
     )
     .await;
     println!("Generated {} chunks", cnt_chunks);

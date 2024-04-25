@@ -51,17 +51,25 @@ impl Prover<BatchContext> for BatchProver {
         let metadata = fs::metadata(bootloader_input_path)?;
         let file_size = metadata.len() as usize;
         assert!(file_size % 8 == 0);
-        let mut buffer = vec![0; file_size];
+        // read the start_of_shutdown_routine
+        let mut buffer = [0u8; 8];
+        f.read_exact(&mut buffer).unwrap();
+        let start_of_shutdown_routine: u64 = u64::from_le_bytes(buffer);
+        log::debug!("start_of_shutdown_routine: {start_of_shutdown_routine}");
+
+        let mut buffer = vec![0; file_size - 8];
         f.read_exact(&mut buffer)?;
         let mut bi = vec![GoldilocksField::default(); file_size / 8];
         bi.iter_mut().zip(buffer.chunks(8)).for_each(|(out, bin)| {
             *out = GoldilocksField::from_bytes_le(bin);
         });
+        log::debug!("read bootstrap input done");
 
         zkvm_prove_only(
             &ctx.task_name,
             &serde_data,
             bi,
+            start_of_shutdown_routine,
             ctx.chunk_id.parse()?,
             &ctx.evm_output,
         )?;

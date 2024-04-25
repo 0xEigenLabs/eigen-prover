@@ -3,9 +3,7 @@ use std::env;
 use prover::pipeline::Pipeline;
 
 #[test]
-#[ignore = "slow"]
 fn integration_test() -> anyhow::Result<()> {
-    env::set_var("RUST_LOG", "info");
     env_logger::try_init().unwrap_or_default();
 
     // init pipeline.
@@ -16,6 +14,8 @@ fn integration_test() -> anyhow::Result<()> {
     let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
+
+    panic!("Done");
 
     let task2 = pipeline.batch_prove("0".into(), "1".into()).unwrap();
     pipeline.prove().unwrap();
