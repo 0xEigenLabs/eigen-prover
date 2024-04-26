@@ -12,7 +12,8 @@ fn integration_test() -> anyhow::Result<()> {
         env::var("TASK_NAME").unwrap_or("evm".to_string()),
     );
     let l2_batch_data = std::fs::read_to_string(
-        env::var("SUITE_JSON").unwrap_or("../executor/test-vectors/solidityExample.json".to_string()),
+        env::var("SUITE_JSON")
+            .unwrap_or("../executor/test-vectors/solidityExample.json".to_string()),
     )
     .unwrap();
     let task1 = pipeline

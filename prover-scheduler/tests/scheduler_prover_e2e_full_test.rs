@@ -46,18 +46,29 @@ async fn prover_scheduler_e2e_full_test() {
     });
     log::info!("====================3. Start pipeline====================");
 
+    let l2_batch_data = std::fs::read_to_string(
+        env::var("SUITE_JSON")
+            .unwrap_or("../executor/test-vectors/solidityExample.json".to_string()),
+    )
+    .unwrap();
     log::info!("====================4. Task incoming ====================");
-    let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
+    let task1 = pipeline
+        .batch_prove("0".into(), "0".into(), l2_batch_data.clone())
+        .unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-    let task2 = pipeline.batch_prove("0".into(), "1".into()).unwrap();
+    let task2 = pipeline
+        .batch_prove("0".into(), "1".into(), l2_batch_data.clone())
+        .unwrap();
     pipeline.prove().unwrap();
     log::info!("task2: {task2}");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-    let task3 = pipeline.batch_prove("0".into(), "2".into()).unwrap();
+    let task3 = pipeline
+        .batch_prove("0".into(), "2".into(), l2_batch_data)
+        .unwrap();
     pipeline.prove().unwrap();
     log::info!("task3: {task3}");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;

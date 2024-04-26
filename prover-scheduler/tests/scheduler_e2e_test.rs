@@ -103,7 +103,12 @@ impl SchedulerHandler for MockSchedulerServerHandler {
         let task_id = "task_id_1";
         let task_name = "task_name_1";
         let chunk_id = "chunk_id_1";
-        let first_task = BatchContext::new(basedir, task_id, task_name, chunk_id);
+        let l2_batch_data = std::fs::read_to_string(
+            env::var("SUITE_JSON")
+                .unwrap_or("../executor/test-vectors/solidityExample.json".to_string()),
+        )
+        .unwrap();
+        let first_task = BatchContext::new(basedir, task_id, task_name, chunk_id, l2_batch_data);
         // just test the server and client communication
         // we will test the message sending in lib prover
         log::info!(
