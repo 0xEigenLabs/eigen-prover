@@ -53,7 +53,7 @@ impl ExecutorService for ExecutorServiceSVC {
         let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
-        let (_res, cnt_chunks) = batch_process(
+        let (state_result, _l2_batch_data, cnt_chunks) = batch_process(
             self.client.clone(),
             block_number,
             chain_id.parse::<u64>().unwrap(),
@@ -63,7 +63,7 @@ impl ExecutorService for ExecutorServiceSVC {
         )
         .await;
         let mut response = executor_service::ProcessBatchResponse::default();
-        let last_element = match _res {
+        let last_element = match state_result {
             Ok(res) => {
                 response.error = ExecutorError::NoError.into();
                 debug!("exec success");

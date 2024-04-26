@@ -5,7 +5,6 @@ use prover::pipeline::Pipeline;
 #[test]
 #[ignore = "slow"]
 fn integration_test() -> anyhow::Result<()> {
-    env::set_var("RUST_LOG", "info");
     env_logger::try_init().unwrap_or_default();
 
     // init pipeline.
@@ -13,15 +12,26 @@ fn integration_test() -> anyhow::Result<()> {
         env::var("WORKSPACE").unwrap_or("data".to_string()),
         env::var("TASK_NAME").unwrap_or("evm".to_string()),
     );
-    let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
+    let l2_batch_data = std::fs::read_to_string(
+        env::var("SUITE_JSON")
+            .unwrap_or("../executor/test-vectors/solidityExample.json".to_string()),
+    )
+    .unwrap();
+    let task1 = pipeline
+        .batch_prove("0".into(), "0".into(), l2_batch_data.clone())
+        .unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
 
-    let task2 = pipeline.batch_prove("0".into(), "1".into()).unwrap();
+    let task2 = pipeline
+        .batch_prove("0".into(), "1".into(), l2_batch_data.clone())
+        .unwrap();
     pipeline.prove().unwrap();
     log::info!("task2: {task2}");
 
-    let task3 = pipeline.batch_prove("0".into(), "2".into()).unwrap();
+    let task3 = pipeline
+        .batch_prove("0".into(), "2".into(), l2_batch_data)
+        .unwrap();
     pipeline.prove().unwrap();
     log::info!("task3: {task3}");
 
@@ -70,7 +80,12 @@ fn integration_test_lr() -> anyhow::Result<()> {
         env::var("WORKSPACE").unwrap_or("data".to_string()),
         env::var("TASK_NAME").unwrap_or("lr".to_string()),
     );
-    let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
+    let l2_batch_data =
+        std::fs::read_to_string(env::var("SUIT_JSON").unwrap_or("data/test.json".to_string()))
+            .unwrap();
+    let task1 = pipeline
+        .batch_prove("0".into(), "0".into(), l2_batch_data)
+        .unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
     Ok(())

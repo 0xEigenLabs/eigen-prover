@@ -55,15 +55,27 @@ async fn prover_scheduler_e2e_mock_test() {
     });
     log::info!("====================1. Start pipeline====================");
 
+    let l2_batch_data = std::fs::read_to_string(
+        env::var("SUITE_JSON")
+            .unwrap_or("../executor/test-vectors/solidityExample.json".to_string()),
+    )
+    .unwrap();
+
     tokio::spawn(async move {
         log::info!("====================1. Task incoming ====================");
-        let task1 = pipeline.batch_prove("0".into(), "0".into()).unwrap();
+        let task1 = pipeline
+            .batch_prove("0".into(), "0".into(), l2_batch_data.clone())
+            .unwrap();
         log::info!("task: {task1}");
 
-        let task2 = pipeline.batch_prove("0".into(), "1".into()).unwrap();
+        let task2 = pipeline
+            .batch_prove("0".into(), "1".into(), l2_batch_data.clone())
+            .unwrap();
         log::info!("task2: {task2}");
 
-        let task3 = pipeline.batch_prove("0".into(), "2".into()).unwrap();
+        let task3 = pipeline
+            .batch_prove("0".into(), "2".into(), l2_batch_data)
+            .unwrap();
         log::info!("task3: {task3}");
 
         loop {

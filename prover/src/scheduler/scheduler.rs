@@ -264,7 +264,8 @@ impl Scheduler {
             &recursive_proof_result.chunk_id,
         );
         if let Some(task_ctx) = self.pending_results.remove(&key) {
-            let task_stage = Stage::Batch(task_ctx.task_id, task_ctx.chunk_id);
+            let task_stage =
+                Stage::Batch(task_ctx.task_id, task_ctx.chunk_id, task_ctx.l2_batch_data);
             let workdir = Path::new(&task_ctx.basedir).join(task_stage.path());
 
             log::info!("save_checkpoint, mkdir: {:?}", workdir);

@@ -110,12 +110,20 @@ impl Pipeline {
         Ok(status)
     }
 
-    pub fn batch_prove(&mut self, task_id: String, chunk_id: String) -> Result<String> {
+    pub fn batch_prove(
+        &mut self,
+        task_id: String,
+        chunk_id: String,
+        l2_batch_data: String,
+    ) -> Result<String> {
         let key = self.get_key(&task_id, &chunk_id);
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
-                w.insert(key.clone(), Stage::Batch(task_id.clone(), chunk_id));
+                w.insert(
+                    key.clone(),
+                    Stage::Batch(task_id.clone(), chunk_id, l2_batch_data),
+                );
                 self.save_checkpoint(&key, false)
             }
             _ => bail!("Task queue is full".to_string()),
@@ -184,12 +192,13 @@ impl Pipeline {
         if let Some(key) = self.queue.pop_front() {
             match self.task_map.get_mut().unwrap().get(&key) {
                 Some(v) => match v {
-                    Stage::Batch(task_id, chunk_id) => {
+                    Stage::Batch(task_id, chunk_id, l2_batch_data) => {
                         let ctx = BatchContext::new(
                             &self.basedir,
                             task_id,
                             &self.task_name.clone(),
                             chunk_id,
+                            l2_batch_data.clone(),
                         );
 
                         match self.prover_model {
