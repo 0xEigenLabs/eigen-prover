@@ -494,7 +494,6 @@ mod tests {
         //let test_file = "test-vectors/blockInfo.json";
         let test_file = "test-vectors/solidityExample.json";
         let suite_json = fs::read_to_string(test_file).unwrap();
-        let _ = std::fs::copy(test_file, format!("../prover/data/test.json"));
         let task: String = stdenv::var("TASK").unwrap_or(String::from("evm"));
         let task_id = "0";
         let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
