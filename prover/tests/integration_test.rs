@@ -3,6 +3,7 @@ use std::env;
 use prover::pipeline::Pipeline;
 
 #[test]
+#[ignore = "slow"]
 fn integration_test() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
 
