@@ -30,6 +30,7 @@ impl BatchContext {
         let c12_task_name = format!("{}.c12", task_name);
 
         let r1_task_name = format!("{}.recursive1", task_name);
+        let suite_json = std::env::var("JSON").unwrap_or(format!("{}/test.json", basedir));
 
         BatchContext {
             basedir: basedir.to_string(),
@@ -37,9 +38,8 @@ impl BatchContext {
             task_name: task_name.to_string(),
             batch_struct: format!("{}/{}/batch.stark_struct.json", basedir, task_name),
             c12_struct: format!("{}/{}/c12.stark_struct.json", basedir, task_name),
-
             batch_circom: CircomCompileArgs::new(basedir, &task_path, &batch_task_name, "GL"),
-            l2_data: format!("{}/test.json", basedir),
+            l2_data: suite_json,
 
             batch_stark: StarkProveArgs {
                 commit_file: format!("{}/{}.cm", executor_dir, task_name),
