@@ -50,7 +50,7 @@ pub async fn batch_process(
     task: &str,
     task_id: &str,
     base_dir: &str,
-) -> (ExecResult, usize) {
+) -> (ExecResult, String, usize) {
     //let client = Provider::<Http>::try_from(url).unwrap();
     //let client = Arc::new(client);
     let block = match client.get_block_with_txs(block_number).await {
@@ -478,7 +478,7 @@ pub async fn batch_process(
             }
         });
 
-    (Ok(all_result), cnt_chunks)
+    (Ok(all_result), json_string, cnt_chunks)
 }
 
 #[cfg(test)]
@@ -494,10 +494,7 @@ mod tests {
         //let test_file = "test-vectors/blockInfo.json";
         let test_file = "test-vectors/solidityExample.json";
         let suite_json = fs::read_to_string(test_file).unwrap();
-        let _ = std::fs::copy(
-            test_file,
-            format!("../prover/data/test.json"),
-        );
+        let _ = std::fs::copy(test_file, format!("../prover/data/test.json"));
         let task: String = stdenv::var("TASK").unwrap_or(String::from("evm"));
         let task_id = "0";
         let output_path = format!("../prover/data/proof/{}/{}", task_id, task);

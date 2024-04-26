@@ -13,9 +13,10 @@ async fn main() -> anyhow::Result<()> {
     let base_dir = stdenv::var("BASEDIR").unwrap_or("/tmp".to_string());
     let url = stdenv::var("URL").unwrap_or(String::from("http://localhost:8123"));
     let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
+    let suite_json = stdenv::var("SUITE_JSON").unwrap_or(String::from("/tmp/suite.json"));
     let client = Provider::<Http>::try_from(url).unwrap();
     let client = Arc::new(client);
-    let (_res, cnt_chunks) = batch_process(
+    let (_res, json_string, cnt_chunks) = batch_process(
         client,
         block_number,
         chain_id.parse::<u64>().unwrap(),
@@ -24,6 +25,7 @@ async fn main() -> anyhow::Result<()> {
         &base_dir,
     )
     .await;
+    std::fs::write(suite_json, json_string).expect("Unable to write file");
     println!("Generated {} chunks", cnt_chunks);
     Ok(())
 }

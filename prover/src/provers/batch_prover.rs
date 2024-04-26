@@ -39,7 +39,7 @@ impl Prover<BatchContext> for BatchProver {
         let r1_stark = &ctx.recursive1_stark; // output
         log::info!("batch_context: {:?}", ctx);
         // given that the l2batch data has been stored in ctx.l2_data.
-        let serde_data = std::fs::read_to_string(ctx.l2_data.clone())?;
+        let serde_data = ctx.l2_batch_data.clone();
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
         let bootloader_input_path = format!(

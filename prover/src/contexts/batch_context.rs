@@ -7,7 +7,7 @@ use crate::stage::Stage;
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct BatchContext {
     pub basedir: String,
-    pub l2_data: String,
+    pub l2_batch_data: String,
     pub batch_circom: CircomCompileArgs,
     pub batch_stark: StarkProveArgs,
     pub batch_struct: String,
@@ -23,23 +23,34 @@ pub struct BatchContext {
 }
 
 impl BatchContext {
-    pub fn new(basedir: &str, task_id: &str, task_name: &str, chunk_id: &str) -> Self {
+    pub fn new(
+        basedir: &str,
+        task_id: &str,
+        task_name: &str,
+        chunk_id: &str,
+        l2_batch_data: String,
+    ) -> Self {
         let executor_dir = format!("{}/executor/{}", basedir, task_id);
-        let task_path = Stage::Batch(task_id.to_string(), chunk_id.to_string()).path();
+        //TODO : don't clone the l2 batch data
+        let task_path = Stage::Batch(
+            task_id.to_string(),
+            chunk_id.to_string(),
+            l2_batch_data.clone(),
+        )
+        .path();
         let batch_task_name = format!("{}.verifier", task_name);
         let c12_task_name = format!("{}.c12", task_name);
 
         let r1_task_name = format!("{}.recursive1", task_name);
-        let suite_json = std::env::var("JSON").unwrap_or(format!("{}/test.json", basedir));
 
         BatchContext {
             basedir: basedir.to_string(),
+            l2_batch_data,
             task_id: task_id.to_string(),
             task_name: task_name.to_string(),
             batch_struct: format!("{}/{}/batch.stark_struct.json", basedir, task_name),
             c12_struct: format!("{}/{}/c12.stark_struct.json", basedir, task_name),
             batch_circom: CircomCompileArgs::new(basedir, &task_path, &batch_task_name, "GL"),
-            l2_data: suite_json,
 
             batch_stark: StarkProveArgs {
                 commit_file: format!("{}/{}.cm", executor_dir, task_name),

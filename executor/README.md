@@ -20,5 +20,5 @@ NO=1 RUST_LOG=info cargo run --example exec_block -- --nocapture
 
 test example batch_process
 ```bash
-CHAINID=12345 URL=http://localhost:8546 NO=1 TASK=evm BASEDIR=/zkvm/eigen-prover/prover/data/proof RUST_LOG=debug cargo run --example batch_process -- --nocapture
+SUITE_JSON="/tmp/reth.block.json" CHAINID=12345 URL=http://localhost:8546 NO=1 TASK=evm BASEDIR=/zkvm/eigen-prover/prover/data/proof RUST_LOG=debug cargo run --example batch_process -- --nocapture
 ```

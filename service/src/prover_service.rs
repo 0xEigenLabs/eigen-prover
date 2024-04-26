@@ -293,7 +293,7 @@ impl ProverHandler for ProverRequestHandler {
             msg_id
         );
         // gen chunk
-        let (_res, cnt_chunks) = batch_process(
+        let (_res, l2_batch_data, cnt_chunks) = batch_process(
             client,
             block_number,
             chain_id.parse::<u64>().unwrap(),
@@ -313,11 +313,12 @@ impl ProverHandler for ProverRequestHandler {
         // put the task into the pipeline
         let mut pending_tasks = Vec::<String>::new();
         for chunk_id in 0..cnt_chunks {
-            match PIPELINE
-                .lock()
-                .unwrap()
-                .batch_prove(execute_task_id.to_string(), chunk_id.to_string())
-            {
+            // FIXME: don't clone the l2 batch data
+            match PIPELINE.lock().unwrap().batch_prove(
+                execute_task_id.to_string(),
+                chunk_id.to_string(),
+                l2_batch_data.clone(),
+            ) {
                 Ok(key) => pending_tasks.push(key),
                 Err(e) => {
                     bail!("Failed to generate batch proof: {:?}", e);
