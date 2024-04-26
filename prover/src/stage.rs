@@ -70,6 +70,6 @@ mod tests {
             "chunk_id".to_string(),
             "".to_string(),
         );
-        assert_eq!(stage.to_string().unwrap(), r#"["task_id","chunk_id"]"#);
+        assert_eq!(stage.to_string().unwrap(), r#"["task_id","chunk_id",""]"#);
     }
 }
