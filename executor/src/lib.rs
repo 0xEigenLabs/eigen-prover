@@ -43,7 +43,7 @@ fn new_storage(storage: &Storage) -> HashMap<U256, U256> {
     storage.iter().map(|(k, v)| (*k, v.present_value)).collect()
 }
 
-fn fill_test_unit_tx(
+fn fill_test_tx(
     transaction_parts: &mut models::TransactionParts,
     tx: &ethers_core::types::Transaction,
 ) {
@@ -95,7 +95,7 @@ fn fill_test_unit_tx(
     transaction_parts.access_lists.push(access_list_vec);
 }
 
-fn fill_test_unit_env(
+fn fill_test_env(
     block: &ethers_core::types::Block<ethers_core::types::Transaction>,
 ) -> models::Env {
     let mut test_env = models::Env {
@@ -190,7 +190,7 @@ fn generate_chunks(task: &str, task_id: &str, base_dir: &str, json_string: &Stri
     cnt_chunks
 }
 
-fn fill_test_unit_post(
+fn fill_test_post(
     all_result: &[(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)],
 ) -> BTreeMap<models::SpecName, Vec<models::Test>> {
     let mut test_post: BTreeMap<models::SpecName, Vec<models::Test>> = BTreeMap::new();
@@ -271,32 +271,11 @@ fn fill_test_unit_post(
     test_post
 }
 
-pub async fn batch_process(
-    client: Arc<Provider<Http>>,
-    block_number: u64,
-    chain_id: u64,
-    task: &str,
-    task_id: &str,
-    base_dir: &str,
-) -> (ExecResult, String, usize) {
-    //let client = Provider::<Http>::try_from(url).unwrap();
-    //let client = Arc::new(client);
-    let block: ethers_core::types::Block<ethers_core::types::Transaction> =
-        match client.get_block_with_txs(block_number).await {
-            Ok(Some(block)) => block,
-            Ok(None) => panic!("Block not found"),
-            Err(error) => panic!("Error: {:?}", error),
-        };
-
-    log::debug!("Fetched block number: {:?}", block.number.unwrap());
-    let previous_block_number = block_number - 1;
-
-    let prev_id: BlockId = previous_block_number.into();
-    // SAFETY: This cannot fail since this is in the top-level tokio runtime
-    let state_db = EthersDB::new(Arc::clone(&client), Some(prev_id)).expect("panic");
-    let cache_db: CacheDB<EthersDB<Provider<Http>>> = CacheDB::new(state_db);
-    let mut state = StateBuilder::new_with_database(cache_db).build();
-
+async fn fill_test_pre(
+    block: &ethers_core::types::Block<ethers_core::types::Transaction>,
+    state: &mut revm::db::State<CacheDB<EthersDB<Provider<Http>>>>,
+    client: &Arc<Provider<Http>>,
+) -> HashMap<Address, models::AccountInfo> {
     let mut test_pre: HashMap<Address, models::AccountInfo> = HashMap::new();
 
     for tx in &block.transactions {
@@ -352,6 +331,37 @@ pub async fn batch_process(
             GethTrace::Unknown(_) => {}
         }
     }
+    test_pre
+}
+
+pub async fn batch_process(
+    client: Arc<Provider<Http>>,
+    block_number: u64,
+    chain_id: u64,
+    task: &str,
+    task_id: &str,
+    base_dir: &str,
+) -> (ExecResult, String, usize) {
+    //let client = Provider::<Http>::try_from(url).unwrap();
+    //let client = Arc::new(client);
+    let block: ethers_core::types::Block<ethers_core::types::Transaction> =
+        match client.get_block_with_txs(block_number).await {
+            Ok(Some(block)) => block,
+            Ok(None) => panic!("Block not found"),
+            Err(error) => panic!("Error: {:?}", error),
+        };
+
+    log::debug!("Fetched block number: {:?}", block.number.unwrap());
+    let previous_block_number = block_number - 1;
+
+    let prev_id: BlockId = previous_block_number.into();
+    // SAFETY: This cannot fail since this is in the top-level tokio runtime
+    let state_db = EthersDB::new(Arc::clone(&client), Some(prev_id)).expect("panic");
+    let cache_db: CacheDB<EthersDB<Provider<Http>>> = CacheDB::new(state_db);
+    let mut state: revm::db::State<CacheDB<EthersDB<Provider<Http>>>> =
+        StateBuilder::new_with_database(cache_db).build();
+
+    let test_pre = fill_test_pre(&block, &mut state, &client).await;
 
     let mut evm = Evm::builder()
         .with_db(&mut state)
@@ -426,7 +436,7 @@ pub async fn batch_process(
             })
             .build();
 
-        fill_test_unit_tx(&mut transaction_parts, &tx);
+        fill_test_tx(&mut transaction_parts, &tx);
 
         let result = evm.transact().unwrap();
         log::debug!("evm transact result: {:?}", result.result);
@@ -435,8 +445,8 @@ pub async fn batch_process(
         let txbytes = serde_json::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
     }
-    let test_env = fill_test_unit_env(&block);
-    let test_post = fill_test_unit_post(&all_result);
+    let test_env = fill_test_env(&block);
+    let test_post = fill_test_post(&all_result);
 
     let test_unit = models::TestUnit {
         info: None,
