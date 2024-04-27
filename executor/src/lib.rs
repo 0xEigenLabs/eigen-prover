@@ -43,262 +43,157 @@ fn new_storage(storage: &Storage) -> HashMap<U256, U256> {
     storage.iter().map(|(k, v)| (*k, v.present_value)).collect()
 }
 
-pub async fn batch_process(
-    client: Arc<Provider<Http>>,
-    block_number: u64,
-    chain_id: u64,
-    task: &str,
-    task_id: &str,
-    base_dir: &str,
-) -> (ExecResult, String, usize) {
-    //let client = Provider::<Http>::try_from(url).unwrap();
-    //let client = Arc::new(client);
-    let block = match client.get_block_with_txs(block_number).await {
-        Ok(Some(block)) => block,
-        Ok(None) => panic!("Block not found"),
-        Err(error) => panic!("Error: {:?}", error),
+fn fill_test_tx(
+    transaction_parts: &mut models::TransactionParts,
+    tx: &ethers_core::types::Transaction,
+) {
+    let gas_limit_uint = Uint::from(tx.gas.as_u64());
+    transaction_parts.gas_limit.push(gas_limit_uint);
+
+    let tx_data = tx.input.0.clone();
+    transaction_parts.data.push(tx_data.into());
+
+    let mut tx_gas_price = Uint::ZERO;
+    local_fill!(tx_gas_price, tx.gas_price, U256::from_limbs);
+    transaction_parts.gas_price = Some(tx_gas_price);
+    transaction_parts.nonce = U256::from(tx.nonce.as_u64());
+    transaction_parts.secret_key = B256::default();
+    transaction_parts.sender = Some(Address::from(tx.from.as_fixed_bytes()));
+    transaction_parts.to = tx
+        .to
+        .map(|to_address| Address::from(to_address.as_fixed_bytes()));
+
+    let mut tx_value = Uint::ZERO;
+    local_fill!(tx_value, Some(tx.value), U256::from_limbs);
+    transaction_parts.value.push(tx_value);
+    transaction_parts.max_fee_per_gas = if tx.max_fee_per_gas.is_some() {
+        Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()))
+    } else {
+        None
+    };
+    transaction_parts.max_priority_fee_per_gas = if tx.max_priority_fee_per_gas.is_some() {
+        Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()))
+    } else {
+        None
     };
 
-    log::debug!("Fetched block number: {:?}", block.number.unwrap());
-    let previous_block_number = block_number - 1;
-
-    let prev_id: BlockId = previous_block_number.into();
-    // SAFETY: This cannot fail since this is in the top-level tokio runtime
-    let state_db = EthersDB::new(Arc::clone(&client), Some(prev_id)).expect("panic");
-    let cache_db: CacheDB<EthersDB<Provider<Http>>> = CacheDB::new(state_db);
-    let mut state = StateBuilder::new_with_database(cache_db).build();
-
-    let mut test_pre: HashMap<Address, models::AccountInfo> = HashMap::new();
-    for tx in &block.transactions {
-        let from_acc = Address::from(tx.from.as_fixed_bytes());
-        // query basic properties of an account incl bytecode
-        let acc_info: revm::primitives::AccountInfo = state.basic(from_acc).unwrap().unwrap();
-        log::debug!("acc_info: {} => {:?}", from_acc, acc_info);
-
-        let trace_options = GethDebugTracingOptions {
-            tracer: Some(GethDebugTracerType::BuiltInTracer(
-                GethDebugBuiltInTracerType::PreStateTracer,
-            )),
-            ..Default::default()
-        };
-
-        let geth_trace: ethers_core::types::GethTrace = client
-            .debug_trace_transaction(tx.hash, trace_options)
-            .await
-            .unwrap();
-
-        log::debug!("geth_trace: {:#?}", geth_trace);
-
-        match geth_trace.clone() {
-            GethTrace::Known(frame) => {
-                if let GethTraceFrame::PreStateTracer(PreStateFrame::Default(pre_state_mode)) =
-                    frame
-                {
-                    for (address, account_state) in pre_state_mode.0.iter() {
-                        let mut account_info = models::AccountInfo {
-                            balance: Uint::ZERO,
-                            code: Bytes::from(account_state.code.clone().unwrap_or_default()),
-                            nonce: account_state.nonce.unwrap_or_default().as_u64(),
-                            storage: HashMap::new(),
-                        };
-
-                        let balance: ethers_core::types::U256 =
-                            account_state.balance.unwrap_or_default();
-                        // The radix of account_state.balance is 10, while that of account_info.balance is 16.
-                        account_info.balance =
-                            Uint::from_str_radix(balance.to_string().as_str(), 10).unwrap();
-
-                        if let Some(storage) = account_state.storage.clone() {
-                            for (key, value) in storage.iter() {
-                                let new_key: Uint<256, 4> = U256::from_be_bytes(key.0);
-                                let new_value: Uint<256, 4> = U256::from_be_bytes(value.0);
-                                account_info.storage.insert(new_key, new_value);
-                            }
-                        }
-                        test_pre.insert(Address::from(address.as_fixed_bytes()), account_info);
-                    }
-                }
-            }
-            GethTrace::Unknown(_) => {}
-        }
-
-        if tx.to.is_some() {
-            let to_acc = Address::from(tx.to.unwrap().as_fixed_bytes());
-            let acc_info = state.basic(to_acc).unwrap().unwrap();
-            log::debug!("to_info: {} => {:?}", to_acc, acc_info);
-        }
-    }
-
-    let mut evm = Evm::builder()
-        .with_db(&mut state)
-        .with_external_context(TracerEip3155::new(Box::new(std::io::stdout()), true, true))
-        .modify_block_env(|b| {
-            if let Some(number) = block.number {
-                let nn = number.0[0];
-                b.number = U256::from(nn);
-            }
-            local_fill!(b.coinbase, block.author);
-            local_fill!(b.timestamp, Some(block.timestamp), U256::from_limbs);
-            local_fill!(b.difficulty, Some(block.difficulty), U256::from_limbs);
-            local_fill!(b.gas_limit, Some(block.gas_limit), U256::from_limbs);
-            if let Some(base_fee) = block.base_fee_per_gas {
-                local_fill!(b.basefee, Some(base_fee), U256::from_limbs);
-            }
-        })
-        .modify_cfg_env(|c| {
-            c.chain_id = chain_id;
-        })
-        .append_handler_register(inspector_handle_register)
-        .build();
-
-    let txs = block.transactions.len();
-    log::debug!("Found {txs} transactions.");
-
-    let _elapsed = std::time::Duration::ZERO;
-
-    // Create the traces directory if it doesn't exist
-    std::fs::create_dir_all("traces").unwrap_or_else(|_| panic!("Failed to create trace file"));
-
-    let mut transaction_parts = models::TransactionParts {
-        data: vec![],
-        gas_limit: vec![],
-        gas_price: None,
-        nonce: U256::default(),
-        secret_key: B256::default(),
-        sender: Some(Address::default()),
-        to: None,
-        value: vec![],
-        max_fee_per_gas: None,
-        max_priority_fee_per_gas: None,
-        access_lists: vec![],
-        blob_versioned_hashes: vec![],
-        max_fee_per_blob_gas: None,
-    };
-
-    // Fill in CfgEnv
-    let mut all_result = vec![];
-    for tx in block.transactions {
-        evm = evm
-            .modify()
-            .modify_tx_env(|etx| {
-                etx.caller = Address::from(tx.from.as_fixed_bytes());
-                etx.gas_limit = tx.gas.as_u64();
-                local_fill!(etx.gas_price, tx.gas_price, U256::from_limbs);
-                local_fill!(etx.value, Some(tx.value), U256::from_limbs);
-                etx.data = tx.input.0.clone().into();
-                let mut gas_priority_fee = U256::ZERO;
-                local_fill!(
-                    gas_priority_fee,
-                    tx.max_priority_fee_per_gas,
-                    U256::from_limbs
-                );
-                etx.gas_priority_fee = Some(gas_priority_fee);
-                etx.chain_id = Some(chain_id);
-                etx.nonce = Some(tx.nonce.as_u64());
-                if let Some(access_list) = tx.access_list.clone() {
-                    etx.access_list = access_list
-                        .0
-                        .into_iter()
-                        .map(|item| {
-                            let new_keys: Vec<U256> = item
-                                .storage_keys
-                                .into_iter()
-                                .map(|h256| U256::from_le_bytes(h256.0))
-                                .collect();
-                            (Address::from(item.address.as_fixed_bytes()), new_keys)
-                        })
-                        .collect();
-                } else {
-                    etx.access_list = Default::default();
-                }
-
-                etx.transact_to = match tx.to {
-                    Some(to_address) => {
-                        TransactTo::Call(Address::from(to_address.as_fixed_bytes()))
-                    }
-                    None => TransactTo::create(),
-                };
+    let access_list_vec = tx.access_list.as_ref().map(|access_list| {
+        access_list
+            .0
+            .iter()
+            .map(|item| models::AccessListItem {
+                address: Address::from(item.address.as_fixed_bytes()),
+                storage_keys: item
+                    .storage_keys
+                    .iter()
+                    .map(|h256| B256::from(h256.to_fixed_bytes()))
+                    .collect(),
             })
-            .build();
+            .collect()
+    });
 
-        let mut gas_limit_uint = Uint::ZERO;
-        local_fill!(gas_limit_uint, Some(block.gas_limit), U256::from_limbs);
-        let tx_data = tx.input.0.clone();
-        transaction_parts.data.push(tx_data.into());
-        transaction_parts.gas_limit.push(gas_limit_uint);
+    transaction_parts.access_lists.push(access_list_vec);
+}
 
-        let mut tx_gas_price = Uint::ZERO;
-        local_fill!(tx_gas_price, tx.gas_price, U256::from_limbs);
-        transaction_parts.gas_price = Some(tx_gas_price);
-        transaction_parts.nonce = U256::from(tx.nonce.as_u64());
-        transaction_parts.secret_key = B256::default();
-        transaction_parts.sender = Some(Address::from(tx.from.as_fixed_bytes()));
-        transaction_parts.to = tx
-            .to
-            .map(|to_address| Address::from(to_address.as_fixed_bytes()));
+fn fill_test_env(
+    block: &ethers_core::types::Block<ethers_core::types::Transaction>,
+) -> models::Env {
+    let mut test_env = models::Env {
+        current_coinbase: Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap()),
+        current_difficulty: U256::default(),
+        current_gas_limit: U256::default(),
+        current_number: U256::default(),
+        current_timestamp: U256::default(),
+        current_base_fee: Some(U256::default()),
+        previous_hash: B256::default(),
 
-        let mut tx_value = Uint::ZERO;
-        local_fill!(tx_value, Some(tx.value), U256::from_limbs);
-        transaction_parts.value.push(tx_value);
-        transaction_parts.max_fee_per_gas = if tx.max_fee_per_gas.is_some() {
-            Some(U256::from(tx.max_fee_per_gas.unwrap().as_u64()))
-        } else {
-            None
-        };
-        transaction_parts.max_priority_fee_per_gas = if tx.max_priority_fee_per_gas.is_some() {
-            Some(U256::from(tx.max_priority_fee_per_gas.unwrap().as_u64()))
-        } else {
-            None
-        };
+        current_random: Some(B256::default()),
+        current_beacon_root: Some(B256::default()),
+        current_withdrawals_root: Some(B256::default()),
 
-        let access_list_vec = tx.access_list.as_ref().map(|access_list| {
-            access_list
-                .0
-                .iter()
-                .map(|item| models::AccessListItem {
-                    address: Address::from(item.address.as_fixed_bytes()),
-                    storage_keys: item
-                        .storage_keys
-                        .iter()
-                        .map(|h256| B256::from(h256.to_fixed_bytes()))
-                        .collect(),
-                })
-                .collect()
+        parent_blob_gas_used: Some(U256::default()),
+        parent_excess_blob_gas: Some(U256::default()),
+    };
+    test_env.current_coinbase = Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap());
+    local_fill!(
+        test_env.current_difficulty,
+        Some(block.difficulty),
+        U256::from_limbs
+    );
+    local_fill!(
+        test_env.current_gas_limit,
+        Some(block.gas_limit),
+        U256::from_limbs
+    );
+    if let Some(number) = block.number {
+        let nn = number.0[0];
+        test_env.current_number = U256::from(nn);
+    }
+    local_fill!(
+        test_env.current_timestamp,
+        Some(block.timestamp),
+        U256::from_limbs
+    );
+    let mut base_fee = Uint::ZERO;
+    local_fill!(base_fee, block.base_fee_per_gas, U256::from_limbs);
+    test_env.current_base_fee = Some(base_fee);
+    test_env.previous_hash = FixedBytes(block.parent_hash.0);
+    // local_fill!(test_env.current_random, block.random);
+    // local_fill!(test_env.current_beacon_root, block.beacon_root);
+    test_env.current_withdrawals_root = if block.withdrawals_root.is_some() {
+        Some(FixedBytes(block.withdrawals_root.unwrap().0))
+    } else {
+        None
+    };
+
+    let mut gas_used = Uint::ZERO;
+    local_fill!(gas_used, Some(block.gas_used), U256::from_limbs);
+    test_env.parent_blob_gas_used = Some(gas_used);
+    test_env.parent_excess_blob_gas = Some(gas_used);
+
+    test_env
+}
+
+fn generate_chunks(task: &str, task_id: &str, base_dir: &str, json_string: &String) -> usize {
+    let output_path = format!("{}/{}/{}", base_dir, task_id, task);
+    log::debug!("output_path: {}", output_path);
+
+    let project_root_path = project_root::get_project_root()
+        .unwrap_or_else(|_| panic!("Failed to get project root path"));
+    let workspace = format!(
+        "{}/executor/program/{}",
+        project_root_path.to_str().unwrap(),
+        task
+    );
+    log::debug!("workspace: {}", workspace);
+    let bootloader_inputs =
+        zkvm_generate_chunks(workspace.as_str(), json_string, output_path.as_str()).unwrap();
+    let cnt_chunks: usize = bootloader_inputs.len();
+    log::debug!("Generated {} chunks", cnt_chunks);
+    // save the chunks
+    let bi_files: Vec<_> = (0..cnt_chunks)
+        .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
+        .collect();
+    log::debug!("bi_files: {:#?}", bi_files);
+    bootloader_inputs
+        .iter()
+        .zip(&bi_files)
+        .for_each(|(data, filename)| {
+            let mut f = fs::File::create(filename).unwrap();
+            // write the start_of_shutdown_routine
+            f.write_all(&data.1.to_le_bytes()).unwrap();
+            for d in &data.0 {
+                f.write_all(&d.to_bytes_le()[0..8]).unwrap();
+            }
         });
 
-        transaction_parts.access_lists.push(access_list_vec);
-        /*
-        // Construct the file writer to write the trace to
-        let tx_number = tx.transaction_index.unwrap().0[0];
-        let file_name = format!("traces/{}.json", tx_number);
-        let write = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(file_name);
-        let inner = Arc::new(Mutex::new(BufWriter::new(
-            write.expect("Failed to open file"),
-        )));
-        let writer = FlushWriter::new(Arc::clone(&inner));
+    cnt_chunks
+}
 
-        // Inspect and commit the transaction to the EVM
-        let inspector = TracerEip3155::new(Box::new(writer), true, true);
-        if let Err(error) = evm.inspect_commit(inspector) {
-            println!("Got error: {:?}", error);
-        }
-
-        // Flush the file writer
-        inner.lock().unwrap().flush().expect("Failed to flush file");
-        */
-        //evm.transact_commit().unwrap();
-        let result = evm.transact().unwrap();
-        log::debug!("evm transact result: {:?}", result.result);
-        evm.context.evm.db.commit(result.state.clone());
-        let env = evm.context.evm.env.clone();
-        let txbytes = serde_json::to_vec(&env.tx).unwrap();
-        all_result.push((txbytes, env.tx.data, env.tx.value, result));
-    }
-
-    let mut test_post = BTreeMap::new();
+fn fill_test_post(
+    all_result: &[(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)],
+) -> BTreeMap<models::SpecName, Vec<models::Test>> {
+    let mut test_post: BTreeMap<models::SpecName, Vec<models::Test>> = BTreeMap::new();
     for (idx, res) in all_result.iter().enumerate() {
         let (txbytes, data, value, ResultAndState { result, state }) = res;
         {
@@ -373,59 +268,185 @@ pub async fn batch_process(
             );
         }
     }
+    test_post
+}
 
-    let mut test_env = models::Env {
-        current_coinbase: Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap()),
-        current_difficulty: U256::default(),
-        current_gas_limit: U256::default(),
-        current_number: U256::default(),
-        current_timestamp: U256::default(),
-        current_base_fee: Some(U256::default()),
-        previous_hash: B256::default(),
+async fn fill_test_pre(
+    block: &ethers_core::types::Block<ethers_core::types::Transaction>,
+    state: &mut revm::db::State<CacheDB<EthersDB<Provider<Http>>>>,
+    client: &Arc<Provider<Http>>,
+) -> HashMap<Address, models::AccountInfo> {
+    let mut test_pre: HashMap<Address, models::AccountInfo> = HashMap::new();
 
-        current_random: Some(B256::default()),
-        current_beacon_root: Some(B256::default()),
-        current_withdrawals_root: Some(B256::default()),
+    for tx in &block.transactions {
+        let from_acc = Address::from(tx.from.as_fixed_bytes());
+        // query basic properties of an account incl bytecode
+        let acc_info: revm::primitives::AccountInfo = state.basic(from_acc).unwrap().unwrap();
+        log::debug!("acc_info: {} => {:?}", from_acc, acc_info);
 
-        parent_blob_gas_used: Some(U256::default()),
-        parent_excess_blob_gas: Some(U256::default()),
-    };
-    test_env.current_coinbase = Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap());
-    local_fill!(
-        test_env.current_difficulty,
-        Some(block.difficulty),
-        U256::from_limbs
-    );
-    local_fill!(
-        test_env.current_gas_limit,
-        Some(block.gas_limit),
-        U256::from_limbs
-    );
-    if let Some(number) = block.number {
-        let nn = number.0[0];
-        test_env.current_number = U256::from(nn);
+        let trace_options = GethDebugTracingOptions {
+            tracer: Some(GethDebugTracerType::BuiltInTracer(
+                GethDebugBuiltInTracerType::PreStateTracer,
+            )),
+            ..Default::default()
+        };
+
+        let geth_trace: ethers_core::types::GethTrace = client
+            .debug_trace_transaction(tx.hash, trace_options)
+            .await
+            .unwrap();
+
+        log::debug!("geth_trace: {:#?}", geth_trace);
+
+        match geth_trace.clone() {
+            GethTrace::Known(frame) => {
+                if let GethTraceFrame::PreStateTracer(PreStateFrame::Default(pre_state_mode)) =
+                    frame
+                {
+                    for (address, account_state) in pre_state_mode.0.iter() {
+                        let mut account_info = models::AccountInfo {
+                            balance: Uint::ZERO,
+                            code: Bytes::from(account_state.code.clone().unwrap_or_default()),
+                            nonce: account_state.nonce.unwrap_or_default().as_u64(),
+                            storage: HashMap::new(),
+                        };
+
+                        let balance: ethers_core::types::U256 =
+                            account_state.balance.unwrap_or_default();
+                        // The radix of account_state.balance is 10, while that of account_info.balance is 16.
+                        account_info.balance =
+                            Uint::from_str_radix(balance.to_string().as_str(), 10).unwrap();
+
+                        if let Some(storage) = account_state.storage.clone() {
+                            for (key, value) in storage.iter() {
+                                let new_key: Uint<256, 4> = U256::from_be_bytes(key.0);
+                                let new_value: Uint<256, 4> = U256::from_be_bytes(value.0);
+                                account_info.storage.insert(new_key, new_value);
+                            }
+                        }
+                        test_pre.insert(Address::from(address.as_fixed_bytes()), account_info);
+                    }
+                }
+            }
+            GethTrace::Unknown(_) => {}
+        }
     }
-    local_fill!(
-        test_env.current_timestamp,
-        Some(block.timestamp),
-        U256::from_limbs
-    );
-    let mut base_fee = Uint::ZERO;
-    local_fill!(base_fee, block.base_fee_per_gas, U256::from_limbs);
-    test_env.current_base_fee = Some(base_fee);
-    test_env.previous_hash = FixedBytes(block.parent_hash.0);
-    // local_fill!(test_env.current_random, block.random);
-    // local_fill!(test_env.current_beacon_root, block.beacon_root);
-    test_env.current_withdrawals_root = if block.withdrawals_root.is_some() {
-        Some(FixedBytes(block.withdrawals_root.unwrap().0))
-    } else {
-        None
-    };
+    test_pre
+}
 
-    let mut gas_used = Uint::ZERO;
-    local_fill!(gas_used, Some(block.gas_used), U256::from_limbs);
-    test_env.parent_blob_gas_used = Some(gas_used);
-    test_env.parent_excess_blob_gas = Some(gas_used);
+pub async fn batch_process(
+    client: Arc<Provider<Http>>,
+    block_number: u64,
+    chain_id: u64,
+    task: &str,
+    task_id: &str,
+    base_dir: &str,
+) -> (ExecResult, String, usize) {
+    //let client = Provider::<Http>::try_from(url).unwrap();
+    //let client = Arc::new(client);
+    let block: ethers_core::types::Block<ethers_core::types::Transaction> =
+        match client.get_block_with_txs(block_number).await {
+            Ok(Some(block)) => block,
+            Ok(None) => panic!("Block not found"),
+            Err(error) => panic!("Error: {:?}", error),
+        };
+
+    log::debug!("Fetched block number: {:?}", block.number.unwrap());
+    let previous_block_number = block_number - 1;
+
+    let prev_id: BlockId = previous_block_number.into();
+    // SAFETY: This cannot fail since this is in the top-level tokio runtime
+    let state_db = EthersDB::new(Arc::clone(&client), Some(prev_id)).expect("panic");
+    let cache_db: CacheDB<EthersDB<Provider<Http>>> = CacheDB::new(state_db);
+    let mut state: revm::db::State<CacheDB<EthersDB<Provider<Http>>>> =
+        StateBuilder::new_with_database(cache_db).build();
+
+    let test_pre = fill_test_pre(&block, &mut state, &client).await;
+
+    let mut evm = Evm::builder()
+        .with_db(&mut state)
+        .with_external_context(TracerEip3155::new(Box::new(std::io::stdout()), true, true))
+        .modify_block_env(|b| {
+            if let Some(number) = block.number {
+                let nn = number.0[0];
+                b.number = U256::from(nn);
+            }
+            local_fill!(b.coinbase, block.author);
+            local_fill!(b.timestamp, Some(block.timestamp), U256::from_limbs);
+            local_fill!(b.difficulty, Some(block.difficulty), U256::from_limbs);
+            local_fill!(b.gas_limit, Some(block.gas_limit), U256::from_limbs);
+            if let Some(base_fee) = block.base_fee_per_gas {
+                local_fill!(b.basefee, Some(base_fee), U256::from_limbs);
+            }
+        })
+        .modify_cfg_env(|c| {
+            c.chain_id = chain_id;
+        })
+        .append_handler_register(inspector_handle_register)
+        .build();
+
+    let txs = block.transactions.len();
+    log::debug!("Found {txs} transactions.");
+
+    let mut transaction_parts: models::TransactionParts = models::TransactionParts::default();
+
+    // Fill in CfgEnv
+    let mut all_result: Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)> = vec![];
+    for tx in block.transactions.clone() {
+        evm = evm
+            .modify()
+            .modify_tx_env(|etx| {
+                etx.caller = Address::from(tx.from.as_fixed_bytes());
+                etx.gas_limit = tx.gas.as_u64();
+                local_fill!(etx.gas_price, tx.gas_price, U256::from_limbs);
+                local_fill!(etx.value, Some(tx.value), U256::from_limbs);
+                etx.data = tx.input.0.clone().into();
+                let mut gas_priority_fee = U256::ZERO;
+                local_fill!(
+                    gas_priority_fee,
+                    tx.max_priority_fee_per_gas,
+                    U256::from_limbs
+                );
+                etx.gas_priority_fee = Some(gas_priority_fee);
+                etx.chain_id = Some(chain_id);
+                etx.nonce = Some(tx.nonce.as_u64());
+                if let Some(access_list) = tx.access_list.clone() {
+                    etx.access_list = access_list
+                        .0
+                        .into_iter()
+                        .map(|item| {
+                            let new_keys: Vec<U256> = item
+                                .storage_keys
+                                .into_iter()
+                                .map(|h256| U256::from_le_bytes(h256.0))
+                                .collect();
+                            (Address::from(item.address.as_fixed_bytes()), new_keys)
+                        })
+                        .collect();
+                } else {
+                    etx.access_list = Default::default();
+                }
+
+                etx.transact_to = match tx.to {
+                    Some(to_address) => {
+                        TransactTo::Call(Address::from(to_address.as_fixed_bytes()))
+                    }
+                    None => TransactTo::create(),
+                };
+            })
+            .build();
+
+        fill_test_tx(&mut transaction_parts, &tx);
+
+        let result = evm.transact().unwrap();
+        log::debug!("evm transact result: {:?}", result.result);
+        evm.context.evm.db.commit(result.state.clone());
+        let env = evm.context.evm.env.clone();
+        let txbytes = serde_json::to_vec(&env.tx).unwrap();
+        all_result.push((txbytes, env.tx.data, env.tx.value, result));
+    }
+    let test_env = fill_test_env(&block);
+    let test_post = fill_test_post(&all_result);
 
     let test_unit = models::TestUnit {
         info: None,
@@ -442,42 +463,7 @@ pub async fn batch_process(
     let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
     log::debug!("test_unit: {}", json_string);
 
-    let output_path = format!("{}/{}/{}", base_dir, task_id, task);
-    log::debug!("output_path: {}", output_path);
-    std::fs::create_dir_all(output_path.clone())
-        .unwrap_or_else(|_| panic!("Failed to write to file, output_path: {}", output_path));
-    std::fs::write(format!("{}/batch.json", output_path), json_string.clone())
-        .expect("Failed to write to file");
-
-    let project_root_path = project_root::get_project_root()
-        .unwrap_or_else(|_| panic!("Failed to get project root path"));
-    let workspace = format!(
-        "{}/executor/program/{}",
-        project_root_path.to_str().unwrap(),
-        task
-    );
-    log::debug!("workspace: {}", workspace);
-    let bootloader_inputs =
-        zkvm_generate_chunks(workspace.as_str(), &json_string, output_path.as_str()).unwrap();
-    let cnt_chunks: usize = bootloader_inputs.len();
-    log::debug!("Generated {} chunks", cnt_chunks);
-    // save the chunks
-    let bi_files: Vec<_> = (0..cnt_chunks)
-        .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
-        .collect();
-    log::debug!("bi_files: {:#?}", bi_files);
-    bootloader_inputs
-        .iter()
-        .zip(&bi_files)
-        .for_each(|(data, filename)| {
-            let mut f = fs::File::create(filename).unwrap();
-            // write the start_of_shutdown_routine
-            f.write_all(&data.1.to_le_bytes()).unwrap();
-            for d in &data.0 {
-                f.write_all(&d.to_bytes_le()[0..8]).unwrap();
-            }
-        });
-
+    let cnt_chunks = generate_chunks(task, task_id, base_dir, &json_string);
     (Ok(all_result), json_string, cnt_chunks)
 }
 
@@ -492,7 +478,8 @@ mod tests {
     fn test_zkvm_evm_generate_chunks() {
         env_logger::try_init().unwrap_or_default();
         //let test_file = "test-vectors/blockInfo.json";
-        let test_file = "test-vectors/solidityExample.json";
+        let test_file =
+            stdenv::var("SUITE_JSON").unwrap_or(String::from("test-vectors/solidityExample.json"));
         let suite_json = fs::read_to_string(test_file).unwrap();
         let task: String = stdenv::var("TASK").unwrap_or(String::from("evm"));
         let task_id = "0";
