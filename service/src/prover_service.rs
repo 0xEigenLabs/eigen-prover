@@ -294,7 +294,7 @@ impl ProverHandler for ProverRequestHandler {
             client,
             block_number,
             request.chain_id,
-            &request.chain_vm_type,
+            &request.program_name,
             execute_task_id.to_string().as_str(),
             self.executor_base_dir.as_str(),
         )
