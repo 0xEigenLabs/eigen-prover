@@ -41,6 +41,8 @@ message ProverResponse
 message GenBatchProofRequest {
   string id = 1;
   Batch batch = 2;
+  uint64 chain_id = 3;
+  string program_name = 4;
 }
 
 message Batch {

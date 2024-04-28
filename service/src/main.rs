@@ -29,6 +29,9 @@ use tokio::{
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let conf_path = std::env::var("CONF_DIR").unwrap_or("conf".to_string());
+    let base_dir = std::env::var("WORKSPACE").unwrap_or("/tmp/prover/data".to_string());
+    let executor_base_dir = format!("{}/proof", base_dir);
+
     let conf_path = std::path::Path::new(&conf_path).join("base_config.toml");
     let runtime_config = config::RuntimeConfig::from_toml(conf_path).expect("Config is missing");
     let addr = runtime_config.addr.as_str().parse()?;
@@ -85,7 +88,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("Prover service Listening on {}", addr);
 
     log::info!("BatchProverScheduler service Listening on {}", addr);
-    let prover_request_handler = Arc::new(prover_service::ProverRequestHandler::default());
+    let prover_request_handler =
+        Arc::new(prover_service::ProverRequestHandler::new(executor_base_dir));
     let prover_server = ProverServiceSVC::new(prover_request_handler);
 
     // SchedulerServiceSVC holds the event_tx
