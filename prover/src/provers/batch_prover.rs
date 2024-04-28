@@ -74,6 +74,7 @@ impl Prover<BatchContext> for BatchProver {
             ctx.chunk_id.parse()?,
             &ctx.evm_output,
         )?;
+        // FIXME: don't copy. follow the output of zkvm or change the output of zkvm.
         log::info!(
             "circom file path: {:?}",
             format!(
