@@ -31,6 +31,8 @@ impl BatchContext {
         l2_batch_data: String,
     ) -> Self {
         let executor_dir = format!("{}/executor/{}", basedir, task_id);
+        std::fs::create_dir_all(&executor_dir).unwrap();
+
         //TODO : don't clone the l2 batch data
         let task_path = Stage::Batch(
             task_id.to_string(),

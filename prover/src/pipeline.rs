@@ -99,15 +99,26 @@ impl Pipeline {
     }
 
     fn load_checkpoint(&self, key: &String) -> Result<bool> {
-        let p = Path::new(&self.basedir)
-            .join("proof")
-            .join(key)
-            .join("status.finished");
-        let status: bool = std::fs::read_to_string(p)?.parse().map_err(|e| {
-            log::error!("load_checkpoint");
-            anyhow!("load checkpoint failed, {:?}", e)
-        })?;
-        Ok(status)
+        let binding = self.task_map.lock().unwrap();
+        let task = binding.get(key);
+
+        if let Some(stage) = task {
+            // mkdir
+            let workdir = Path::new(&self.basedir)
+                .join(stage.path())
+                .join("status.finished");
+            log::info!("load_checkpoint, check file: {:?}", workdir);
+
+            let status = match std::fs::read_to_string(workdir)?.trim() {
+                "1" => true,
+                "0" => false,
+                _ => return Err(anyhow!("Invalid value. Expected '0' or '1'.")),
+            };
+
+            Ok(status)
+        } else {
+            Ok(false)
+        }
     }
 
     pub fn batch_prove(

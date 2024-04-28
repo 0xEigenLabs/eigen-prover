@@ -285,7 +285,8 @@ impl ProverHandler for ProverRequestHandler {
 
         let base_dir = var("BASEDIR").unwrap_or(String::from("/tmp/prover/data/proof"));
         let execute_task_id = uuid::Uuid::new_v4();
-        let chain_id = var("CHAINID").unwrap_or(String::from("1"));
+        // TODO: from request
+        let chain_id = var("CHAINID").unwrap_or(String::from("12345"));
 
         log::info!(
             "generate chunks for Block: {:?}, request id {:?}",
