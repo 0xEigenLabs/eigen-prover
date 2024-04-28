@@ -211,11 +211,13 @@ pub trait ProverHandler {
 }
 
 #[derive(Default, Clone)]
-pub struct ProverRequestHandler {}
+pub struct ProverRequestHandler {
+    executor_base_dir: String,
+}
 
 impl ProverRequestHandler {
-    pub fn new() -> Self {
-        ProverRequestHandler {}
+    pub fn new(executor_base_dir: String) -> Self {
+        ProverRequestHandler { executor_base_dir }
     }
 }
 
@@ -280,13 +282,7 @@ impl ProverHandler for ProverRequestHandler {
             }
         };
 
-        // TODO: get from request?
-        let task = var("TASK").unwrap_or(String::from("evm"));
-
-        let base_dir = var("BASEDIR").unwrap_or(String::from("/tmp/prover/data/proof"));
         let execute_task_id = uuid::Uuid::new_v4();
-        // TODO: from request
-        let chain_id = var("CHAINID").unwrap_or(String::from("12345"));
 
         log::info!(
             "generate chunks for Block: {:?}, request id {:?}",
@@ -297,10 +293,10 @@ impl ProverHandler for ProverRequestHandler {
         let (_res, l2_batch_data, cnt_chunks) = batch_process(
             client,
             block_number,
-            chain_id.parse::<u64>().unwrap(),
-            &task,
+            request.chain_id,
+            &request.chain_vm_type,
             execute_task_id.to_string().as_str(),
-            base_dir.as_str(),
+            self.executor_base_dir.as_str(),
         )
         .await;
 
