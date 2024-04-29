@@ -10,6 +10,7 @@ use std::time::Duration;
 use crate::prover_service::prover_service::get_status_response::Status::Idle;
 use crate::prover_service::prover_service::prover_request::RequestType;
 use crate::prover_service::prover_service::prover_response::ResponseType;
+use crate::prover_service::prover_service::FinalProof;
 use crate::prover_service::prover_service::{
     get_status_response, BatchProofResult, ChunkProof, GenAggregatedProofRequest,
     GenAggregatedProofResponse, GenBatchProofRequest, GenBatchProofResponse, GenFinalProofRequest,
@@ -358,8 +359,11 @@ impl ProverHandler for ProverRequestHandler {
 
                     // remove finished tasks from pending tasks
                     for &index in finished_tasks.iter() {
-                        pending_tasks.remove(index);
+                        if index < pending_tasks.len() {
+                            pending_tasks.remove(index);
+                        }
                     }
+                    finished_tasks.clear();
                     if pending_tasks.is_empty() {
                         // finished
                         finish_tx.send(()).unwrap();
@@ -391,7 +395,7 @@ impl ProverHandler for ProverRequestHandler {
                 proof_key: results[chunk_id].clone(),
                 // we don't need to return the proof data
                 // just return the proof key, key: {task_id}_chunk_{chunk_id}
-                proof: "".to_string(),
+                proof: format!("{}_chunk_{}", execute_task_id, chunk_id),
             };
 
             batch_proof_result.chunk_proofs.push(chunk_proof);
@@ -440,14 +444,15 @@ impl ProverHandler for ProverRequestHandler {
             msg_id
         );
 
-        let result_key: String;
+        let checkpoint_key = format!("{}_agg", task_id.clone());
+        // let result_key: String;
         loop {
             tokio::select! {
                 _ = polling_ticker.tick() => {
-                    let proof_result = PIPELINE.lock().unwrap().get_proof(task_id.clone(), 0);
+                    let proof_result = PIPELINE.lock().unwrap().get_proof(checkpoint_key.clone(), 0);
                     match proof_result {
-                        Ok(task_key) => {
-                            result_key = task_key;
+                        Ok(_) => {
+                            // result_key = task_key;
                             break;
                         }
                         Err(_) => {
@@ -468,9 +473,9 @@ impl ProverHandler for ProverRequestHandler {
             id: msg_id,
             response_type: Some(ResponseType::GenAggregatedProof(
                 GenAggregatedProofResponse {
-                    id: task_id,
+                    id: task_id.clone(),
                     result_code: ProofResultCode::CompletedOk as i32,
-                    result_string: result_key,
+                    result_string: task_id,
                     error_message: "".to_string(),
                 },
             )),
@@ -509,13 +514,16 @@ impl ProverHandler for ProverRequestHandler {
             msg_id
         );
 
+        let checkpoint_key = format!("{}_final", task_id.clone());
+
         loop {
             tokio::select! {
                 _ = polling_ticker.tick() => {
                     // TODO: Read the proof and public_input from disk
-                    let proof_result = PIPELINE.lock().unwrap().get_proof(task_id.clone(), 0);
+                    let proof_result = PIPELINE.lock().unwrap().get_proof(checkpoint_key.clone(), 0);
                     match proof_result {
                         Ok(_task_key) => {
+                            log::info!("finished the final stage!");
                             break;
                         }
                         Err(_) => {
@@ -539,7 +547,11 @@ impl ProverHandler for ProverRequestHandler {
                 id: task_id,
                 result_code: ProofResultCode::CompletedOk as i32,
                 result_string: "".to_string(),
-                final_proof: None,
+                // TODO: read the proof and public input
+                final_proof: Some(FinalProof {
+                    proof: "1".to_string(),
+                    public: None,
+                }),
                 error_message: "".to_string(),
             })),
         })
