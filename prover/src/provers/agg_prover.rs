@@ -81,16 +81,24 @@ impl Prover<AggContext> for AggProver {
             "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
             ctx.basedir, task_id_slice[0], start, ctx.task_name,
         );
-        let zkin2 = format!(
-            "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
-            ctx.basedir,
-            task_id_slice[0],
-            start + 1,
-            ctx.task_name,
-        );
+
+        // FIXME: if there is only one chunk for current block, just aggregate the chunk with itself.
+        let zkin2 = if end > start {
+            format!(
+                "{}/proof/{}/batch_proof_{}/{}.recursive1.zkin.json",
+                ctx.basedir,
+                task_id_slice[0],
+                start + 1,
+                ctx.task_name,
+            )
+        } else {
+            zkin.clone()
+        };
+        log::info!("aggregate chunks {start} -> {end}");
 
         log::info!("join {} {} -> {}", zkin, zkin2, ctx.agg_zkin);
         join_zkin(&zkin, &zkin2, &ctx.agg_zkin)?;
+        // TODO: change it to be a member of the AggContext
         let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
         let force_bits = force_bits
             .parse::<usize>()

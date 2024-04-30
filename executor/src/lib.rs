@@ -59,9 +59,10 @@ fn fill_test_tx(
     transaction_parts.nonce = U256::from(tx.nonce.as_u64());
     transaction_parts.secret_key = B256::default();
     transaction_parts.sender = Some(Address::from(tx.from.as_fixed_bytes()));
-    transaction_parts.to = tx
-        .to
-        .map(|to_address| Address::from(to_address.as_fixed_bytes()));
+    transaction_parts.to = tx.to.map_or_else(
+        || Some(Address::default()),
+        |to_address| Some(Address::from(to_address.as_fixed_bytes())),
+    );
 
     let mut tx_value = Uint::ZERO;
     local_fill!(tx_value, Some(tx.value), U256::from_limbs);
