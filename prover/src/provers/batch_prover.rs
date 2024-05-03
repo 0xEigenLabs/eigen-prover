@@ -85,8 +85,8 @@ impl Prover<BatchContext> for BatchProver {
         log::info!(
             "zkin file path: {:?}",
             format!(
-                "{}/{}_chunk_{}_proof.bin",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id
+                "{}/{}_chunk_{}/{}_proof.bin",
+                ctx.evm_output, ctx.task_name, &ctx.chunk_id, ctx.task_name
             )
         );
         std::fs::copy(
@@ -98,8 +98,8 @@ impl Prover<BatchContext> for BatchProver {
         )?;
         std::fs::copy(
             format!(
-                "{}/{}_chunk_{}_proof.bin",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id
+                "{}/{}_chunk_{}/{}_proof.bin",
+                ctx.evm_output, ctx.task_name, &ctx.chunk_id, ctx.task_name
             ),
             batch_stark.zkin.clone(),
         )?;
