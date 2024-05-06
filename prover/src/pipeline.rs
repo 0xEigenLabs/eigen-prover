@@ -121,6 +121,39 @@ impl Pipeline {
         }
     }
 
+    pub fn load_final_proof_and_input(&self, key: &str) -> Result<(String, String)> {
+        let binding = self.task_map.lock().unwrap();
+        let task = binding.get(key);
+
+        if let Some(stage) = task {
+            // mkdir
+            let workdir = Path::new(&self.basedir).join(stage.path());
+            log::info!("load_final_proof_and_input, workdir: {:?}", workdir);
+
+            let proof_path = workdir.clone().join("proof.json");
+            let proof = std::fs::read_to_string(proof_path.clone()).map_err(|e| {
+                anyhow!(
+                    "Failed to load the proof.json: {:?}, err: {}",
+                    proof_path,
+                    e
+                )
+            })?;
+
+            let input_path = workdir.join("public_input.json");
+            let input = std::fs::read_to_string(input_path.clone()).map_err(|e| {
+                anyhow!(
+                    "Failed to load the public_input.json: {:?}, err: {}",
+                    input_path,
+                    e
+                )
+            })?;
+
+            Ok((proof, input))
+        } else {
+            Err(anyhow!("can not find task: {}", key))
+        }
+    }
+
     pub fn batch_prove(
         &mut self,
         task_id: String,
