@@ -99,13 +99,9 @@ message GenFinalProofResponse {
 
 message FinalProof {
   string proof = 1;
-  PublicInputs public = 2;
-}
-
-message PublicInputs {
-  bytes pre_state_root = 1;
-  bytes post_state_root = 2;
-  bytes batch_data = 3;
+  string public_input = 2;
+  bytes pre_state_root = 3;
+  bytes post_state_root = 4;
 }
 
 // proof result

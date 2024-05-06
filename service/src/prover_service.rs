@@ -2,6 +2,7 @@
 #![allow(clippy::all)]
 #![allow(unknown_lints)]
 
+use std::collections::HashMap;
 use std::env::var;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -17,8 +18,8 @@ use crate::prover_service::prover_service::{
     GenFinalProofResponse, GetStatusRequest, GetStatusResponse, GetStatusResultCode,
     ProofResultCode, ProverRequest, ProverResponse, ProverStatus,
 };
-use anyhow::{bail, Result};
-use ethers_providers::{Http, Provider};
+use anyhow::{anyhow, bail, Result};
+use ethers_providers::{Http, Middleware, Provider};
 use executor::batch_process;
 use prover::contexts::BatchContext;
 use prover::pipeline::Pipeline;
@@ -214,11 +215,20 @@ pub trait ProverHandler {
 #[derive(Default, Clone)]
 pub struct ProverRequestHandler {
     executor_base_dir: String,
+    batch_state_root: Arc<Mutex<HashMap<String, BatchStateRoot>>>,
+}
+
+pub struct BatchStateRoot {
+    pub prev_state_root: [u8; 32],
+    pub post_state_root: [u8; 32],
 }
 
 impl ProverRequestHandler {
     pub fn new(executor_base_dir: String) -> Self {
-        ProverRequestHandler { executor_base_dir }
+        ProverRequestHandler {
+            executor_base_dir,
+            batch_state_root: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 }
 
@@ -292,7 +302,7 @@ impl ProverHandler for ProverRequestHandler {
         );
         // gen chunk
         let (_res, l2_batch_data, cnt_chunks) = batch_process(
-            client,
+            client.clone(),
             block_number,
             request.chain_id,
             &request.program_name,
@@ -300,6 +310,45 @@ impl ProverHandler for ProverRequestHandler {
             self.executor_base_dir.as_str(),
         )
         .await;
+
+        // TODO: refactor to batch
+        let previous_block_number = block_number - 1;
+        let previous_block = match client.get_block_with_txs(previous_block_number).await {
+            Ok(Some(block)) => block,
+            Ok(None) => bail!("Previous block:{} not found", previous_block_number),
+            Err(error) => bail!(
+                "Failed to get previous block:{} err: {:?}",
+                previous_block_number,
+                error
+            ),
+        };
+        let pre_state_root = previous_block.state_root;
+
+        let block_test_unit: models::TestUnit = serde_json::from_str(&l2_batch_data)
+            .map_err(|e| anyhow!("Failed to parse test unit: {:?}", e))?;
+
+        let block_test = block_test_unit
+            .post
+            .get(&models::SpecName::Shanghai)
+            .ok_or_else(|| anyhow!("Failed to get block test"))?;
+
+        let post_state_hash = block_test
+            .last()
+            .ok_or_else(|| anyhow!("Failed to get last block test"))?
+            .hash;
+
+        let block_state_root = BatchStateRoot {
+            prev_state_root: <[u8; 32]>::from(pre_state_root),
+            post_state_root: *post_state_hash,
+        };
+
+        // Reduce the lifecycle of the mutex and release it as soon as possible
+        {
+            self.batch_state_root
+                .lock()
+                .map_err(|e| anyhow!("get state root's lock failed: {:?}", e))?
+                .insert(msg_id.clone(), block_state_root);
+        }
 
         log::info!(
             "put the task to pipline, Block: {:?} request id {:?}",
@@ -519,7 +568,6 @@ impl ProverHandler for ProverRequestHandler {
         loop {
             tokio::select! {
                 _ = polling_ticker.tick() => {
-                    // TODO: Read the proof and public_input from disk
                     let proof_result = PIPELINE.lock().unwrap().get_proof(checkpoint_key.clone(), 0);
                     match proof_result {
                         Ok(_task_key) => {
@@ -539,18 +587,29 @@ impl ProverHandler for ProverRequestHandler {
             }
         }
 
-        // TODO: Get the proof data from disk
-        // TODO: Get the public_input from disk
+        let (proof, public_input) = PIPELINE
+            .lock()
+            .unwrap()
+            .load_final_proof_and_input(&checkpoint_key)?;
+
+        let block_state_root = self
+            .batch_state_root
+            .lock()
+            .map_err(|e| anyhow!("get state root's lock failed: {:?}", e))?
+            .remove(&msg_id)
+            .ok_or_else(|| anyhow!("Failed to get the block state root, key: {}", msg_id))?;
+
         Ok(ProverResponse {
             id: msg_id,
             response_type: Some(ResponseType::GenFinalProof(GenFinalProofResponse {
                 id: task_id,
                 result_code: ProofResultCode::CompletedOk as i32,
                 result_string: "".to_string(),
-                // TODO: read the proof and public input
                 final_proof: Some(FinalProof {
-                    proof: "1".to_string(),
-                    public: None,
+                    proof,
+                    public_input,
+                    pre_state_root: Vec::from(block_state_root.prev_state_root),
+                    post_state_root: Vec::from(block_state_root.post_state_root),
                 }),
                 error_message: "".to_string(),
             })),
