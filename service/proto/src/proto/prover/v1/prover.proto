@@ -39,7 +39,7 @@ message ProverResponse
 // batch proof
 
 message GenBatchProofRequest {
-  string id = 1;
+  string batch_id = 1;
   Batch batch = 2;
   uint64 chain_id = 3;
   string program_name = 4;
@@ -50,7 +50,7 @@ message Batch {
 }
 
 message GenBatchProofResponse {
-  string id = 1;
+  string batch_id = 1;
   ProofResultCode result_code = 2;
   BatchProofResult batch_proof_result = 3;
   string error_message = 4;
@@ -70,12 +70,13 @@ message ChunkProof {
 // aggregated proof
 
 message GenAggregatedProofRequest {
-  string recursive_proof_1 = 1;
-  string recursive_proof_2 = 2;
+  string batch_id = 1;
+  string recursive_proof_1 = 2;
+  string recursive_proof_2 = 3;
 }
 
 message GenAggregatedProofResponse {
-  string id = 1;
+  string batch_id = 1;
   ProofResultCode result_code = 2;
   string result_string = 3;
   string error_message = 4;
@@ -84,13 +85,14 @@ message GenAggregatedProofResponse {
 // final proof
 
 message GenFinalProofRequest {
-  string recursive_proof = 1;
-  string curve_name = 2;
-  string aggregator_addr = 3;
+  string batch_id = 1;
+  string recursive_proof = 2;
+  string curve_name = 3;
+  string aggregator_addr = 4;
 }
 
 message GenFinalProofResponse {
-  string id = 1;
+  string batch_id = 1;
   ProofResultCode result_code = 2;
   string result_string = 3;
   FinalProof final_proof = 4;
