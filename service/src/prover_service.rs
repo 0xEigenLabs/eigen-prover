@@ -132,7 +132,7 @@ impl ProverService for ProverServiceSVC {
                                 id: request_id.clone(),
                                 response_type: Some(ResponseType::GenBatchProof(
                                     GenBatchProofResponse {
-                                        id: "".to_string(),
+                                        batch_id: "".to_string(),
                                         result_code: ProofResultCode::CompletedError as i32,
                                         batch_proof_result: None,
                                         error_message: e.to_string(),
@@ -146,7 +146,7 @@ impl ProverService for ProverServiceSVC {
                                 id: request_id.clone(),
                                 response_type: Some(ResponseType::GenAggregatedProof(
                                     GenAggregatedProofResponse {
-                                        id: "".to_string(),
+                                        batch_id: "".to_string(),
                                         result_code: ProofResultCode::CompletedError as i32,
                                         result_string: "".to_string(),
                                         error_message: e.to_string(),
@@ -160,7 +160,7 @@ impl ProverService for ProverServiceSVC {
                                 id: request_id.clone(),
                                 response_type: Some(ResponseType::GenFinalProof(
                                     GenFinalProofResponse {
-                                        id: "".to_string(),
+                                        batch_id: "".to_string(),
                                         result_code: ProofResultCode::CompletedError as i32,
                                         result_string: "".to_string(),
                                         final_proof: None,
@@ -347,7 +347,7 @@ impl ProverHandler for ProverRequestHandler {
             self.batch_state_root
                 .lock()
                 .map_err(|e| anyhow!("get state root's lock failed: {:?}", e))?
-                .insert(msg_id.clone(), block_state_root);
+                .insert(request.batch_id.clone(), block_state_root);
         }
 
         log::info!(
@@ -453,7 +453,7 @@ impl ProverHandler for ProverRequestHandler {
         Ok(ProverResponse {
             id: msg_id,
             response_type: Some(ResponseType::GenBatchProof(GenBatchProofResponse {
-                id: "".to_string(),
+                batch_id: request.batch_id,
                 result_code: ProofResultCode::CompletedOk as i32,
                 batch_proof_result: Some(batch_proof_result),
                 error_message: "".to_string(),
@@ -522,7 +522,7 @@ impl ProverHandler for ProverRequestHandler {
             id: msg_id,
             response_type: Some(ResponseType::GenAggregatedProof(
                 GenAggregatedProofResponse {
-                    id: task_id.clone(),
+                    batch_id: request.batch_id,
                     result_code: ProofResultCode::CompletedOk as i32,
                     result_string: task_id,
                     error_message: "".to_string(),
@@ -596,13 +596,13 @@ impl ProverHandler for ProverRequestHandler {
             .batch_state_root
             .lock()
             .map_err(|e| anyhow!("get state root's lock failed: {:?}", e))?
-            .remove(&msg_id)
+            .remove(&request.batch_id)
             .ok_or_else(|| anyhow!("Failed to get the block state root, key: {}", msg_id))?;
 
         Ok(ProverResponse {
             id: msg_id,
             response_type: Some(ResponseType::GenFinalProof(GenFinalProofResponse {
-                id: task_id,
+                batch_id: request.batch_id,
                 result_code: ProofResultCode::CompletedOk as i32,
                 result_string: "".to_string(),
                 final_proof: Some(FinalProof {
