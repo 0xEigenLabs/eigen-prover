@@ -59,6 +59,7 @@ fn fill_test_tx(
     transaction_parts.nonce = U256::from(tx.nonce.as_u64());
     transaction_parts.secret_key = B256::default();
     transaction_parts.sender = Some(Address::from(tx.from.as_fixed_bytes()));
+
     transaction_parts.to = tx.to.map_or_else(
         || Some(Address::default()),
         |to_address| Some(Address::from(to_address.as_fixed_bytes())),
@@ -389,7 +390,11 @@ pub async fn batch_process(
     let txs = block.transactions.len();
     log::debug!("Found {txs} transactions.");
 
-    let mut transaction_parts: models::TransactionParts = models::TransactionParts::default();
+    // Ensure the sender is 0x000..000 by default
+    let mut transaction_parts = models::TransactionParts {
+        sender: Some(Address::default()),
+        ..Default::default()
+    };
 
     // Fill in CfgEnv
     let mut all_result: Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)> = vec![];
