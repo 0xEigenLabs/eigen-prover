@@ -380,7 +380,7 @@ impl ProverHandler for ProverRequestHandler {
             time::interval_at(timeout_start, DEFAULT_BATCH_PROOF_POLLING_TIMEOUT);
         let (finish_tx, mut finish_rx) = watch::channel::<()>(());
         let mut finished_tasks = vec![];
-        let mut results = vec![];
+        let mut results = vec![String::new(); cnt_chunks];
         log::info!(
             "polling the batch proof of Block: {:?}, request id {:?}",
             block_number,
