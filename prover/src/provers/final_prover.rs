@@ -27,10 +27,6 @@ impl Prover<FinalContext> for FinalProver {
         let r2 = ctx.recursive2_stark.clone();
         let sp = &ctx.final_stark;
         let cc = &ctx.final_circom;
-        log::info!("rc2: {:?}", rc2);
-        log::info!("r2: {:?}", r2);
-        log::info!("sp: {:?}", sp);
-        log::info!("cc: {:?}", cc);
 
         if !prove_data_cache.final_cache.already_cached {
             circom_compiler(
@@ -48,11 +44,7 @@ impl Prover<FinalContext> for FinalProver {
             );
             prove_data_cache.add(r2.r1cs_file.clone(), CacheStage::Final(StarkFileType::R1cs))?;
             prove_data_cache.add(wasm_file, CacheStage::Final(StarkFileType::Wasm))?;
-        }
 
-        log::info!("setup");
-
-        if !prove_data_cache.final_cache.already_cached {
             setup(
                 &r2.r1cs_file,
                 &r2.pil_file,
@@ -121,9 +113,6 @@ impl Prover<FinalContext> for FinalProver {
                 false,
                 false,
             )?;
-        }
-
-        if !snark_already_cached {
             groth16_setup(
                 &args.curve_type,
                 &sp.r1cs_file,
