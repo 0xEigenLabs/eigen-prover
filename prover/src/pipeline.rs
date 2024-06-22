@@ -18,7 +18,6 @@ pub struct Pipeline {
     /// Cache the reusable data of rec2 during the final stage.
     /// include: R1CS, pil, exec, wasm, const
     prove_data_cache: Arc<Mutex<ProveDataCache>>,
-    cache_dir: String,
     task_sender: Option<Sender<BatchContext>>,
     prover_model: ProverModel,
 
@@ -65,7 +64,6 @@ impl Pipeline {
             queue: VecDeque::new(),
             task_map: Mutex::new(HashMap::new()),
             task_name: task_name.clone(),
-            cache_dir: default_cache_dir.clone(),
             prove_data_cache: Arc::new(Mutex::new(ProveDataCache::new(
                 task_name,
                 basedir,

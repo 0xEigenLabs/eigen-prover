@@ -53,6 +53,7 @@ impl Prover<AggContext> for AggProver {
         log::info!("agg_stark: {:?}", sp);
         log::info!("agg_circom: {:?}", cc);
 
+        let mut cached_files = vec![];
         if !prove_data_cache.agg_cache.already_cached {
             circom_compiler(
                 r1_circom.circom_file.clone(),
@@ -70,11 +71,13 @@ impl Prover<AggContext> for AggProver {
                 r1_circom.output, ctx.task_name, ctx.task_name
             );
 
-            prove_data_cache.add(
-                r1_stark.r1cs_file.clone(),
-                CacheStage::Agg(StarkFileType::R1cs),
-            )?;
-            prove_data_cache.add(wasm_file, CacheStage::Agg(StarkFileType::Wasm))?;
+            cached_files.extend_from_slice(&[
+                (
+                    r1_stark.r1cs_file.clone(),
+                    CacheStage::Agg(StarkFileType::R1cs),
+                ),
+                (wasm_file, CacheStage::Agg(StarkFileType::Wasm)),
+            ])
         }
 
         // 2. compress inputs
@@ -110,25 +113,29 @@ impl Prover<AggContext> for AggProver {
             )?;
 
             // add r1cs pil, const, exec to cache and update flag
-
-            prove_data_cache.add(
-                r1_stark.pil_file.clone(),
-                CacheStage::Agg(StarkFileType::Pil),
-            )?;
-            prove_data_cache.add(
-                r1_stark.const_file.clone(),
-                CacheStage::Agg(StarkFileType::Const),
-            )?;
-            prove_data_cache.add(
-                r1_stark.exec_file.clone(),
-                CacheStage::Agg(StarkFileType::Exec),
-            )?;
-            prove_data_cache.update_cache_flag(CacheStage::Agg(StarkFileType::default()));
+            cached_files.extend_from_slice(&[
+                (
+                    r1_stark.pil_file.clone(),
+                    CacheStage::Agg(StarkFileType::Pil),
+                ),
+                (
+                    r1_stark.const_file.clone(),
+                    CacheStage::Agg(StarkFileType::Const),
+                ),
+                (
+                    r1_stark.exec_file.clone(),
+                    CacheStage::Agg(StarkFileType::Exec),
+                ),
+                (
+                    format!("{}.json", r1_stark.pil_file.clone()),
+                    CacheStage::Agg(StarkFileType::PilJson),
+                ),
+            ]);
+            prove_data_cache.batch_add(cached_files)?;
         }
 
         // 4. compress exec
         log::info!("wasm_file: {}", prove_data_cache.agg_cache.wasm_file);
-
         exec(
             &ctx.agg_zkin,
             &prove_data_cache.agg_cache.wasm_file,
@@ -137,9 +144,11 @@ impl Prover<AggContext> for AggProver {
             &r1_stark.commit_file,
         )?;
 
+        /*
         // exec gen pil.json to the pil path
         // update pil.json to the cache
         prove_data_cache.agg_cache.update_pil_json();
+        */
 
         // 5. stark prove
         log::info!("recursive2: {:?} -> {:?}", r1_stark, cc);
