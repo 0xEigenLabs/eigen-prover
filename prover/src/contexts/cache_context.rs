@@ -110,6 +110,24 @@ impl ProveDataCache {
             },
         }
     }
+
+    pub fn is_snark_already_cached(&self, curve: Curve) -> bool {
+        let dir = CacheStage::Snark(curve).construct_stage_dir(
+            self.task_name.clone(),
+            self.base_dir.clone(),
+            self.cache_dir.clone(),
+        );
+        let dir_path = Path::new(&dir);
+        log::info!("snark cached dir: {:?}", dir_path);
+        if dir_path.exists() && dir_path.is_dir() {
+            match fs::read_dir(dir_path) {
+                Ok(mut entries) => entries.next().is_some(),
+                Err(_) => false,
+            }
+        } else {
+            false
+        }
+    }
 }
 
 type AggData = StarkFile;

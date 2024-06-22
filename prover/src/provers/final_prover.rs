@@ -124,13 +124,36 @@ impl Prover<FinalContext> for FinalProver {
         }
 
         if !snark_already_cached {
-            groth16_setup(
-                &args.curve_type,
-                &sp.r1cs_file,
-                &args.pk_file,
-                &args.vk_file,
-                false,
-            )?;
+            let mut need_setup = true;
+            match args.curve_type.as_str() {
+                "BN128" => {
+                    let already_cached = prove_data_cache
+                        .is_snark_already_cached(Curve::BN128((SnarkFileType::default())));
+                    if already_cached {
+                        need_setup = false;
+                    }
+                }
+                "BLS12381" => {
+                    let already_cached = prove_data_cache
+                        .is_snark_already_cached(Curve::BLS12381((SnarkFileType::default())));
+                    if already_cached {
+                        need_setup = false;
+                    }
+                }
+                _ => {
+                    log::warn!("unsupport cache: {}", args.curve_type);
+                }
+            }
+
+            if need_setup {
+                groth16_setup(
+                    &args.curve_type,
+                    &sp.r1cs_file,
+                    &args.pk_file,
+                    &args.vk_file,
+                    false,
+                )?;
+            }
 
             let wasm_file = format!(
                 "{}/{}.final_js/{}.final.wasm",
