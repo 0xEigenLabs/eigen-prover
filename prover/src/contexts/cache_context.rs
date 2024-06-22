@@ -44,17 +44,25 @@ pub struct ProveDataCache {
     pub base_dir: String,
     pub cache_dir: String,
     pub agg_cache: AggData,
-    pub final_cache: FinaData,
+    pub final_cache: FinalData,
     pub snark_cache: SnarkData,
 }
 // task_name: String, base_dir: String, cach_dir: String, stage: CacheStage
 impl ProveDataCache {
     pub fn new(task_name: String, base_dir: String, cache_dir: String) -> Self {
+        let already_cached = std::env::var("CACHE").unwrap_or("no".to_string());
+        let already_cached = already_cached.contains("yes");
+        log::debug!("Cache used: {already_cached}");
         ProveDataCache {
             task_name,
             base_dir,
             cache_dir,
-            ..Default::default()
+            agg_cache: AggData {already_cached, ..Default::default()},
+            final_cache: FinalData {already_cached, ..Default::default()},
+            snark_cache: SnarkData {
+               bn128_data: SnarkFile{already_cached, ..Default::default()}, 
+               bls12381_data: SnarkFile{already_cached, ..Default::default()}, 
+            },
         }
     }
 
@@ -113,7 +121,7 @@ impl ProveDataCache {
 }
 
 type AggData = StarkFile;
-type FinaData = StarkFile;
+type FinalData = StarkFile;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct StarkFile {
