@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
+/// Each task handled by one pipeline
 pub struct Pipeline {
     basedir: String,
     queue: VecDeque<String>, // task_id
@@ -18,9 +19,10 @@ pub struct Pipeline {
     /// Cache the reusable data of rec2 during the final stage.
     /// include: R1CS, pil, exec, wasm, const
     prove_data_cache: Arc<Mutex<ProveDataCache>>,
-    _cache_dir: String,
     task_sender: Option<Sender<BatchContext>>,
     prover_model: ProverModel,
+
+    force_bits: usize,
 }
 
 #[derive(Debug)]
@@ -45,12 +47,18 @@ impl From<String> for ProverModel {
 
 impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
-        // TODO: set env
-        let default_cache_dir = String::from("cache");
+        // TODO move those codes out of Pipeline::new.
+        let default_cache_dir = env::var("CACHE_DIR").unwrap_or(String::from(""));
         let prover_model: ProverModel = env::var("PROVER_MODEL")
             .unwrap_or("local".to_string())
             .into();
         log::info!("start pipeline with prover model: {:?}", prover_model);
+
+        let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
+        let force_bits = force_bits
+            .parse::<usize>()
+            .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
+        log::info!("proof: compress setup, force_bits {force_bits}");
 
         // TODO: recover tasks from basedir
         Pipeline {
@@ -58,7 +66,6 @@ impl Pipeline {
             queue: VecDeque::new(),
             task_map: Mutex::new(HashMap::new()),
             task_name: task_name.clone(),
-            _cache_dir: default_cache_dir.clone(),
             prove_data_cache: Arc::new(Mutex::new(ProveDataCache::new(
                 task_name,
                 basedir,
@@ -66,6 +73,7 @@ impl Pipeline {
             ))),
             task_sender: None,
             prover_model,
+            force_bits,
         }
     }
 
@@ -243,6 +251,7 @@ impl Pipeline {
                             &self.task_name.clone(),
                             chunk_id,
                             l2_batch_data.clone(),
+                            self.force_bits,
                         );
 
                         match self.prover_model {
@@ -270,6 +279,7 @@ impl Pipeline {
                             &self.task_name,
                             input.clone(),
                             input2.clone(),
+                            self.force_bits,
                             self.prove_data_cache.clone(),
                         );
                         AggProver::new().prove(&ctx)?;

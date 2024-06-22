@@ -18,6 +18,8 @@ pub struct AggContext {
     pub input2: String,
     pub task_name: String,
     pub prove_data_cache: Arc<Mutex<ProveDataCache>>,
+
+    pub force_bits: usize,
 }
 
 impl AggContext {
@@ -27,6 +29,7 @@ impl AggContext {
         task_name: &str,
         input: String,
         input2: String,
+        force_bits: usize,
         prove_data_cache: Arc<Mutex<ProveDataCache>>,
     ) -> Self {
         let task_path = Stage::Aggregate(task_id.to_string(), input.clone(), input2.clone()).path();
@@ -42,6 +45,7 @@ impl AggContext {
             agg_stark: StarkProveArgs::new(basedir, &task_path, &r2_task_name, "GL"),
             agg_circom: CircomCompileArgs::new(basedir, &task_path, &r2_task_name, "GL"),
             prove_data_cache,
+            force_bits,
         }
     }
 }

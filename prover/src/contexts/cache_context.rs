@@ -9,7 +9,7 @@ use std::{
 pub enum CacheStage {
     Agg(StarkFileType),
     Final(StarkFileType),
-    Snark(Curve),
+    Snark(SnarkFileType),
 }
 
 #[derive(Clone, Copy, Default)]
@@ -44,18 +44,136 @@ pub struct ProveDataCache {
     pub base_dir: String,
     pub cache_dir: String,
     pub agg_cache: AggData,
-    pub final_cache: FinaData,
+    pub final_cache: FinalData,
     pub snark_cache: SnarkData,
 }
 // task_name: String, base_dir: String, cach_dir: String, stage: CacheStage
 impl ProveDataCache {
     pub fn new(task_name: String, base_dir: String, cache_dir: String) -> Self {
+        let already_cached = !cache_dir.is_empty();
+        log::debug!("Cache used: {already_cached}");
         ProveDataCache {
             task_name,
             base_dir,
             cache_dir,
-            ..Default::default()
+            agg_cache: AggData {
+                already_cached,
+                ..Default::default()
+            },
+            final_cache: FinalData {
+                already_cached,
+                ..Default::default()
+            },
+            snark_cache: SnarkData {
+                already_cached,
+                ..Default::default()
+            },
         }
+        .load()
+    }
+
+    /// Load all the cached file to memory, TODO
+    pub fn load(mut self) -> Self {
+        if self.agg_cache.already_cached {
+            self.agg_cache.add(
+                format!("{}/agg/{}.recursive1.const", self.cache_dir, self.task_name),
+                StarkFileType::Const,
+            );
+            self.agg_cache.add(
+                format!("{}/agg/{}.recursive1.exec", self.cache_dir, self.task_name),
+                StarkFileType::Exec,
+            );
+            self.agg_cache.add(
+                format!("{}/agg/{}.recursive1.pil", self.cache_dir, self.task_name),
+                StarkFileType::Pil,
+            );
+            self.agg_cache.add(
+                format!(
+                    "{}/agg/{}.recursive1.pil.json",
+                    self.cache_dir, self.task_name
+                ),
+                StarkFileType::PilJson,
+            );
+            self.agg_cache.add(
+                format!("{}/agg/{}.recursive1.r1cs", self.cache_dir, self.task_name),
+                StarkFileType::R1cs,
+            );
+            self.agg_cache.add(
+                format!("{}/agg/{}.recursive1.wasm", self.cache_dir, self.task_name),
+                StarkFileType::Wasm,
+            );
+        }
+
+        if self.final_cache.already_cached {
+            self.final_cache.add(
+                format!(
+                    "{}/final/{}.recursive2.const",
+                    self.cache_dir, self.task_name
+                ),
+                StarkFileType::Const,
+            );
+            self.final_cache.add(
+                format!(
+                    "{}/final/{}.recursive2.exec",
+                    self.cache_dir, self.task_name
+                ),
+                StarkFileType::Exec,
+            );
+            self.final_cache.add(
+                format!("{}/final/{}.recursive2.pil", self.cache_dir, self.task_name),
+                StarkFileType::Pil,
+            );
+            self.final_cache.add(
+                format!(
+                    "{}/final/{}.recursive2.pil.json",
+                    self.cache_dir, self.task_name
+                ),
+                StarkFileType::PilJson,
+            );
+            self.final_cache.add(
+                format!(
+                    "{}/final/{}.recursive2.r1cs",
+                    self.cache_dir, self.task_name
+                ),
+                StarkFileType::R1cs,
+            );
+            self.final_cache.add(
+                format!(
+                    "{}/final/{}.recursive2.wasm",
+                    self.cache_dir, self.task_name
+                ),
+                StarkFileType::Wasm,
+            );
+        }
+
+        if self.snark_cache.already_cached {
+            self.snark_cache.add(
+                format!("{}/snark/{}.final.wasm", self.cache_dir, self.task_name),
+                SnarkFileType::Wasm,
+            );
+            self.snark_cache.add(
+                format!("{}/snark/{}.final.r1cs", self.cache_dir, self.task_name),
+                SnarkFileType::R1cs,
+            );
+            self.snark_cache.add(
+                format!("{}/snark/g16.key", self.cache_dir),
+                SnarkFileType::PK,
+            );
+            self.snark_cache.add(
+                format!("{}/snark/verification_key.json", self.cache_dir),
+                SnarkFileType::VK,
+            );
+        }
+
+        log::debug!("Load cache done, {:?}", self);
+        self
+    }
+
+    pub fn batch_add(&mut self, caches: Vec<(String, CacheStage)>) -> Result<()> {
+        caches
+            .iter()
+            .for_each(|f| self.add(f.0.clone(), f.1).unwrap());
+        Ok(())
     }
 
     pub fn add(&mut self, src_full_path: String, stage: CacheStage) -> Result<()> {
@@ -86,34 +204,15 @@ impl ProveDataCache {
         match stage {
             CacheStage::Agg(file_type) => self.agg_cache.add(cache_path.clone(), file_type),
             CacheStage::Final(file_type) => self.final_cache.add(cache_path.clone(), file_type),
-            CacheStage::Snark(curve) => match curve {
-                Curve::BN128(file_type) => self
-                    .snark_cache
-                    .bn128_data
-                    .add(cache_path.clone(), file_type),
-                Curve::BLS12381(file_type) => self
-                    .snark_cache
-                    .bls12381_data
-                    .add(cache_path.clone(), file_type),
-            },
+            CacheStage::Snark(file_type) => self.snark_cache.add(cache_path.clone(), file_type),
         }
         Ok(())
-    }
-
-    pub fn update_cache_flag(&mut self, stage: CacheStage) {
-        match stage {
-            CacheStage::Agg(_) => self.agg_cache.already_cached = true,
-            CacheStage::Final(_) => self.final_cache.already_cached = true,
-            CacheStage::Snark(curve) => match curve {
-                Curve::BN128(_) => self.snark_cache.bn128_data.already_cached = true,
-                Curve::BLS12381(_) => self.snark_cache.bls12381_data.already_cached = true,
-            },
-        }
     }
 }
 
 type AggData = StarkFile;
-type FinaData = StarkFile;
+type FinalData = StarkFile;
+type SnarkData = SnarkFile;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct StarkFile {
@@ -137,19 +236,6 @@ impl StarkFile {
             StarkFileType::Wasm => self.wasm_file = cache_path,
         }
     }
-
-    pub fn update_pil_json(&mut self) {
-        self.add(
-            format!("{}.json", self.pil_file.clone()),
-            StarkFileType::PilJson,
-        )
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct SnarkData {
-    pub bn128_data: SnarkFile,
-    pub bls12381_data: SnarkFile,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -178,10 +264,7 @@ impl From<CacheStage> for String {
         match cache_stage {
             CacheStage::Agg(_) => String::from("agg"),
             CacheStage::Final(_) => String::from("final"),
-            CacheStage::Snark(curve) => match curve {
-                Curve::BN128(_) => String::from("snark/bn128"),
-                Curve::BLS12381(_) => String::from("snark/bls12381"),
-            },
+            CacheStage::Snark(_) => String::from("snark"),
         }
     }
 }

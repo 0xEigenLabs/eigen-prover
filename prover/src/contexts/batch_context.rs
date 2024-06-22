@@ -20,6 +20,7 @@ pub struct BatchContext {
     pub recursive1_stark: StarkProveArgs,
     pub task_id: String,
     pub task_name: String,
+    pub force_bits: usize,
 }
 
 impl BatchContext {
@@ -29,6 +30,7 @@ impl BatchContext {
         task_name: &str,
         chunk_id: &str,
         l2_batch_data: String,
+        force_bits: usize,
     ) -> Self {
         let executor_dir = format!("{}/executor/{}", basedir, task_id);
         std::fs::create_dir_all(&executor_dir).unwrap();
@@ -72,6 +74,7 @@ impl BatchContext {
 
             recursive1_stark: StarkProveArgs::new(basedir, &task_path, &r1_task_name, "GL"),
             recursive1_circom: CircomCompileArgs::new(basedir, &task_path, &r1_task_name, "GL"),
+            force_bits,
         }
     }
 }
