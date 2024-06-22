@@ -29,6 +29,7 @@ impl Prover<FinalContext> for FinalProver {
         let cc = &ctx.final_circom;
 
         let mut cached_files = vec![];
+
         if !prove_data_cache.final_cache.already_cached {
             circom_compiler(
                 rc2.circom_file.clone(),
@@ -56,7 +57,7 @@ impl Prover<FinalContext> for FinalProver {
                 &r2.exec_file,
                 0,
             )?;
-
+            let _ = std::fs::copy(r2.pil_file.clone(), r2.piljson.clone());
             cached_files.extend_from_slice(&[
                 (r2.pil_file.clone(), CacheStage::Final(StarkFileType::Pil)),
                 (
@@ -69,6 +70,7 @@ impl Prover<FinalContext> for FinalProver {
                     CacheStage::Final(StarkFileType::PilJson),
                 ),
             ]);
+            prove_data_cache.batch_add(cached_files.clone())?;
         }
 
         log::info!("2. compress exec");

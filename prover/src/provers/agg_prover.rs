@@ -112,6 +112,7 @@ impl Prover<AggContext> for AggProver {
                 ctx.force_bits,
             )?;
 
+            let _ = std::fs::copy(r1_stark.pil_file.clone(), r1_stark.piljson.clone());
             // add r1cs pil, const, exec to cache and update flag
             cached_files.extend_from_slice(&[
                 (
