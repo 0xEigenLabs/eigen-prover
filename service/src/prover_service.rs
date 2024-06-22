@@ -43,6 +43,7 @@ const DEFAULT_AGGREGATED_PROOF_POLLING_TIMEOUT: Duration = Duration::from_secs(6
 const DEFAULT_FINAL_PROOF_POLLING_INTERVAL: Duration = Duration::from_secs(10);
 const DEFAULT_FINAL_PROOF_POLLING_TIMEOUT: Duration = Duration::from_secs(60 * 30);
 
+// FIXME: Since each pipeline handles one task, we should create a pipeline set to handle different tasks
 lazy_static! {
     static ref PIPELINE: Mutex<Pipeline> = Mutex::new(Pipeline::new(
         var("WORKSPACE").unwrap_or("/tmp/prover/data".to_string()),

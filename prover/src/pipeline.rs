@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
+/// Each task handled by one pipeline
 pub struct Pipeline {
     basedir: String,
     queue: VecDeque<String>, // task_id
@@ -46,7 +47,8 @@ impl From<String> for ProverModel {
 
 impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
-        let default_cache_dir = env::var("CACHE_DIR").unwrap_or(String::from("cache"));
+        // TODO move those codes out of Pipeline::new.
+        let default_cache_dir = env::var("CACHE_DIR").unwrap_or(String::from(""));
         let prover_model: ProverModel = env::var("PROVER_MODEL")
             .unwrap_or("local".to_string())
             .into();
