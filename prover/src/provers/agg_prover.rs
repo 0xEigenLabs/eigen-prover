@@ -39,6 +39,7 @@ impl Prover<AggContext> for AggProver {
                 &ctx.task_name,
                 &format!("{}", i),
                 "".to_string(), // don't have to init the l2_batch_data when aggregate proof
+                ctx.force_bits,
             ));
             log::info!("batch_ctx[{}]: {:?}", i, batch_ctx[i]);
         }
@@ -98,11 +99,6 @@ impl Prover<AggContext> for AggProver {
 
         log::info!("join {} {} -> {}", zkin, zkin2, ctx.agg_zkin);
         join_zkin(&zkin, &zkin2, &ctx.agg_zkin)?;
-        // TODO: change it to be a member of the AggContext
-        let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
-        let force_bits = force_bits
-            .parse::<usize>()
-            .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
         // 3. compress setup
         if !prove_data_cache.agg_cache.already_cached {
             setup(
@@ -110,7 +106,7 @@ impl Prover<AggContext> for AggProver {
                 &r1_stark.pil_file,
                 &r1_stark.const_file,
                 &r1_stark.exec_file,
-                force_bits,
+                ctx.force_bits,
             )?;
 
             // add r1cs pil, const, exec to cache and update flag

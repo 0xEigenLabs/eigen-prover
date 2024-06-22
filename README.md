@@ -67,4 +67,6 @@ TASK_NAME=evm SUITE_JSON="/tmp/reth.block.json" FORCE_BIT=18 RUST_MIN_STACK=2073
     STARK_VERIFIER_GL=$STARKJS/node_modules/pil-stark/circuits.gl \
     STARK_VERIFIER_BN128=$STARKJS/node_modules/pil-stark/circuits.bn128 \
     cargo test --release integration_test -- --nocapture
+
+eigen-zkit generate_verifier -v $vk -p groth16 -s /tmp/verifier.sol
 ```

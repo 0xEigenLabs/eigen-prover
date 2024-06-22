@@ -50,18 +50,29 @@ pub struct ProveDataCache {
 // task_name: String, base_dir: String, cach_dir: String, stage: CacheStage
 impl ProveDataCache {
     pub fn new(task_name: String, base_dir: String, cache_dir: String) -> Self {
-        let already_cached = std::env::var("CACHE").unwrap_or("no".to_string());
-        let already_cached = already_cached.contains("yes");
+        let already_cached = if cache_dir.len() > 0 { true } else { false };
         log::debug!("Cache used: {already_cached}");
         ProveDataCache {
             task_name,
             base_dir,
             cache_dir,
-            agg_cache: AggData {already_cached, ..Default::default()},
-            final_cache: FinalData {already_cached, ..Default::default()},
+            agg_cache: AggData {
+                already_cached,
+                ..Default::default()
+            },
+            final_cache: FinalData {
+                already_cached,
+                ..Default::default()
+            },
             snark_cache: SnarkData {
-               bn128_data: SnarkFile{already_cached, ..Default::default()}, 
-               bls12381_data: SnarkFile{already_cached, ..Default::default()}, 
+                bn128_data: SnarkFile {
+                    already_cached,
+                    ..Default::default()
+                },
+                bls12381_data: SnarkFile {
+                    already_cached,
+                    ..Default::default()
+                },
             },
         }
     }
