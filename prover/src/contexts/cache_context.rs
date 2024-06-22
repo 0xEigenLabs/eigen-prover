@@ -76,65 +76,65 @@ impl ProveDataCache {
     pub fn load(mut self) -> Self {
         if self.agg_cache.already_cached {
             self.agg_cache.add(
-                format!("{}/{}.const", self.cache_dir, self.task_name),
+                format!("{}/agg/{}.recursive1.const", self.cache_dir, self.task_name),
                 StarkFileType::Const,
             );
             self.agg_cache.add(
-                format!("{}/{}.exec", self.cache_dir, self.task_name),
+                format!("{}/agg/{}.recursive1.exec", self.cache_dir, self.task_name),
                 StarkFileType::Exec,
             );
             self.agg_cache.add(
-                format!("{}/{}.pil", self.cache_dir, self.task_name),
+                format!("{}/agg/{}.recursive1.pil", self.cache_dir, self.task_name),
                 StarkFileType::Pil,
             );
             self.agg_cache.add(
-                format!("{}/{}.pil.json", self.cache_dir, self.task_name),
+                format!("{}/agg/{}.recursive1.pil.json", self.cache_dir, self.task_name),
                 StarkFileType::PilJson,
             );
             self.agg_cache.add(
-                format!("{}/{}.r1cs", self.cache_dir, self.task_name),
+                format!("{}/agg/{}.recursive1.r1cs", self.cache_dir, self.task_name),
                 StarkFileType::R1cs,
             );
             self.agg_cache.add(
-                format!("{}/{}.wasm", self.cache_dir, self.task_name),
+                format!("{}/agg/{}.recursive1.wasm", self.cache_dir, self.task_name),
                 StarkFileType::Wasm,
             );
         }
 
         if self.final_cache.already_cached {
             self.final_cache.add(
-                format!("{}/{}.const", self.cache_dir, self.task_name),
+                format!("{}/final/{}.recursive2.const", self.cache_dir, self.task_name),
                 StarkFileType::Const,
             );
             self.final_cache.add(
-                format!("{}/{}.exec", self.cache_dir, self.task_name),
+                format!("{}/final/{}.recursive2.exec", self.cache_dir, self.task_name),
                 StarkFileType::Exec,
             );
             self.final_cache.add(
-                format!("{}/{}.pil", self.cache_dir, self.task_name),
+                format!("{}/final/{}.recursive2.pil", self.cache_dir, self.task_name),
                 StarkFileType::Pil,
             );
             self.final_cache.add(
-                format!("{}/{}.pil.json", self.cache_dir, self.task_name),
+                format!("{}/final/{}.recursive2.pil.json", self.cache_dir, self.task_name),
                 StarkFileType::PilJson,
             );
             self.final_cache.add(
-                format!("{}/{}.r1cs", self.cache_dir, self.task_name),
+                format!("{}/final/{}.recursive2.r1cs", self.cache_dir, self.task_name),
                 StarkFileType::R1cs,
             );
             self.final_cache.add(
-                format!("{}/{}.wasm", self.cache_dir, self.task_name),
+                format!("{}/final/{}.recursive2.wasm", self.cache_dir, self.task_name),
                 StarkFileType::Wasm,
             );
         }
 
         if self.snark_cache.already_cached {
             self.snark_cache.add(
-                format!("{}/{}.final.wasm", self.cache_dir, self.task_name),
+                format!("{}/snark/{}.final.wasm", self.cache_dir, self.task_name),
                 SnarkFileType::Wasm,
             );
             self.snark_cache.add(
-                format!("{}/{}.final.r1cs", self.cache_dir, self.task_name),
+                format!("{}/snark/{}.final.r1cs", self.cache_dir, self.task_name),
                 SnarkFileType::R1cs,
             );
             self.snark_cache
