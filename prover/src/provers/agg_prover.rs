@@ -144,12 +144,6 @@ impl Prover<AggContext> for AggProver {
             &r1_stark.commit_file,
         )?;
 
-        /*
-        // exec gen pil.json to the pil path
-        // update pil.json to the cache
-        prove_data_cache.agg_cache.update_pil_json();
-        */
-
         // 5. stark prove
         log::info!("recursive2: {:?} -> {:?}", r1_stark, cc);
         let prev_zkin_out = format!(

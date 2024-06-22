@@ -59,7 +59,7 @@ Take zkEVM for instance, run the commands below.
 
 ```bash
 cd executor
-SUITE_JSON="/tmp/reth.block.json" CHAINID=12345 URL=http://localhost:8546 NO=1 TASK=evm BASEDIR=prover/data/proof RUST_LOG=debug cargo run --example batch_process -- --nocapture
+SUITE_JSON="/tmp/reth.block.json" CHAINID=12345 URL=http://localhost:8546 NO=1 TASK=evm BASEDIR="../prover/data/proof" RUST_LOG=debug cargo run --example batch_process -- --nocapture
 
 export STARKJS=/zkp/eigen-zkvm/starkjs
 TASK_NAME=evm SUITE_JSON="/tmp/reth.block.json" FORCE_BIT=18 RUST_MIN_STACK=2073741821 RUST_LOG=debug \
