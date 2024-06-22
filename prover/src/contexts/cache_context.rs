@@ -88,7 +88,10 @@ impl ProveDataCache {
                 StarkFileType::Pil,
             );
             self.agg_cache.add(
-                format!("{}/agg/{}.recursive1.pil.json", self.cache_dir, self.task_name),
+                format!(
+                    "{}/agg/{}.recursive1.pil.json",
+                    self.cache_dir, self.task_name
+                ),
                 StarkFileType::PilJson,
             );
             self.agg_cache.add(
@@ -103,11 +106,17 @@ impl ProveDataCache {
 
         if self.final_cache.already_cached {
             self.final_cache.add(
-                format!("{}/final/{}.recursive2.const", self.cache_dir, self.task_name),
+                format!(
+                    "{}/final/{}.recursive2.const",
+                    self.cache_dir, self.task_name
+                ),
                 StarkFileType::Const,
             );
             self.final_cache.add(
-                format!("{}/final/{}.recursive2.exec", self.cache_dir, self.task_name),
+                format!(
+                    "{}/final/{}.recursive2.exec",
+                    self.cache_dir, self.task_name
+                ),
                 StarkFileType::Exec,
             );
             self.final_cache.add(
@@ -115,15 +124,24 @@ impl ProveDataCache {
                 StarkFileType::Pil,
             );
             self.final_cache.add(
-                format!("{}/final/{}.recursive2.pil.json", self.cache_dir, self.task_name),
+                format!(
+                    "{}/final/{}.recursive2.pil.json",
+                    self.cache_dir, self.task_name
+                ),
                 StarkFileType::PilJson,
             );
             self.final_cache.add(
-                format!("{}/final/{}.recursive2.r1cs", self.cache_dir, self.task_name),
+                format!(
+                    "{}/final/{}.recursive2.r1cs",
+                    self.cache_dir, self.task_name
+                ),
                 StarkFileType::R1cs,
             );
             self.final_cache.add(
-                format!("{}/final/{}.recursive2.wasm", self.cache_dir, self.task_name),
+                format!(
+                    "{}/final/{}.recursive2.wasm",
+                    self.cache_dir, self.task_name
+                ),
                 StarkFileType::Wasm,
             );
         }
@@ -137,10 +155,14 @@ impl ProveDataCache {
                 format!("{}/snark/{}.final.r1cs", self.cache_dir, self.task_name),
                 SnarkFileType::R1cs,
             );
-            self.snark_cache
-                .add("g16.key".to_string(), SnarkFileType::PK);
-            self.snark_cache
-                .add("verification_key.json".to_string(), SnarkFileType::VK);
+            self.snark_cache.add(
+                format!("{}/snark/g16.key", self.cache_dir),
+                SnarkFileType::PK,
+            );
+            self.snark_cache.add(
+                format!("{}/snark/verification_key.json", self.cache_dir),
+                SnarkFileType::VK,
+            );
         }
 
         log::debug!("Load cache done, {:?}", self);
