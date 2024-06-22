@@ -75,28 +75,72 @@ impl ProveDataCache {
     /// Load all the cached file to memory, TODO
     pub fn load(mut self) -> Self {
         if self.agg_cache.already_cached {
-            self.agg_cache.add(format!("{}/{}.const", self.cache_dir, self.task_name), StarkFileType::Const);
-            self.agg_cache.add(format!("{}/{}.exec", self.cache_dir, self.task_name), StarkFileType::Exec);
-            self.agg_cache.add(format!("{}/{}.pil", self.cache_dir, self.task_name), StarkFileType::Pil);
-            self.agg_cache.add(format!("{}/{}.pil.json", self.cache_dir, self.task_name), StarkFileType::PilJson);
-            self.agg_cache.add(format!("{}/{}.r1cs", self.cache_dir, self.task_name), StarkFileType::R1cs);
-            self.agg_cache.add(format!("{}/{}.wasm", self.cache_dir, self.task_name), StarkFileType::Wasm);
+            self.agg_cache.add(
+                format!("{}/{}.const", self.cache_dir, self.task_name),
+                StarkFileType::Const,
+            );
+            self.agg_cache.add(
+                format!("{}/{}.exec", self.cache_dir, self.task_name),
+                StarkFileType::Exec,
+            );
+            self.agg_cache.add(
+                format!("{}/{}.pil", self.cache_dir, self.task_name),
+                StarkFileType::Pil,
+            );
+            self.agg_cache.add(
+                format!("{}/{}.pil.json", self.cache_dir, self.task_name),
+                StarkFileType::PilJson,
+            );
+            self.agg_cache.add(
+                format!("{}/{}.r1cs", self.cache_dir, self.task_name),
+                StarkFileType::R1cs,
+            );
+            self.agg_cache.add(
+                format!("{}/{}.wasm", self.cache_dir, self.task_name),
+                StarkFileType::Wasm,
+            );
         }
 
         if self.final_cache.already_cached {
-            self.final_cache.add(format!("{}/{}.const", self.cache_dir, self.task_name), StarkFileType::Const);
-            self.final_cache.add(format!("{}/{}.exec", self.cache_dir, self.task_name), StarkFileType::Exec);
-            self.final_cache.add(format!("{}/{}.pil", self.cache_dir, self.task_name), StarkFileType::Pil);
-            self.final_cache.add(format!("{}/{}.pil.json", self.cache_dir, self.task_name), StarkFileType::PilJson);
-            self.final_cache.add(format!("{}/{}.r1cs", self.cache_dir, self.task_name), StarkFileType::R1cs);
-            self.final_cache.add(format!("{}/{}.wasm", self.cache_dir, self.task_name), StarkFileType::Wasm);
+            self.final_cache.add(
+                format!("{}/{}.const", self.cache_dir, self.task_name),
+                StarkFileType::Const,
+            );
+            self.final_cache.add(
+                format!("{}/{}.exec", self.cache_dir, self.task_name),
+                StarkFileType::Exec,
+            );
+            self.final_cache.add(
+                format!("{}/{}.pil", self.cache_dir, self.task_name),
+                StarkFileType::Pil,
+            );
+            self.final_cache.add(
+                format!("{}/{}.pil.json", self.cache_dir, self.task_name),
+                StarkFileType::PilJson,
+            );
+            self.final_cache.add(
+                format!("{}/{}.r1cs", self.cache_dir, self.task_name),
+                StarkFileType::R1cs,
+            );
+            self.final_cache.add(
+                format!("{}/{}.wasm", self.cache_dir, self.task_name),
+                StarkFileType::Wasm,
+            );
         }
 
         if self.snark_cache.already_cached {
-            self.snark_cache.add(format!("{}/{}.final.wasm", self.cache_dir, self.task_name), SnarkFileType::Wasm);
-            self.snark_cache.add(format!("{}/{}.final.r1cs", self.cache_dir, self.task_name), SnarkFileType::R1cs);
-            self.snark_cache.add("g16.key".to_string(), SnarkFileType::PK);
-            self.snark_cache.add("verification_key.json".to_string(), SnarkFileType::VK);
+            self.snark_cache.add(
+                format!("{}/{}.final.wasm", self.cache_dir, self.task_name),
+                SnarkFileType::Wasm,
+            );
+            self.snark_cache.add(
+                format!("{}/{}.final.r1cs", self.cache_dir, self.task_name),
+                SnarkFileType::R1cs,
+            );
+            self.snark_cache
+                .add("g16.key".to_string(), SnarkFileType::PK);
+            self.snark_cache
+                .add("verification_key.json".to_string(), SnarkFileType::VK);
         }
 
         log::debug!("Load cache done, {:?}", self);
@@ -104,7 +148,9 @@ impl ProveDataCache {
     }
 
     pub fn batch_add(&mut self, caches: Vec<(String, CacheStage)>) -> Result<()> {
-        caches.iter().for_each(|f| self.add(f.0.clone(), f.1).unwrap());
+        caches
+            .iter()
+            .for_each(|f| self.add(f.0.clone(), f.1).unwrap());
         Ok(())
     }
 

@@ -43,7 +43,7 @@ impl Prover<FinalContext> for FinalProver {
                 "{}/{}.recursive2_js/{}.recursive2.wasm",
                 cc.output, ctx.task_name, ctx.task_name
             );
-            
+
             cached_files.extend_from_slice(&[
                 (r2.r1cs_file.clone(), CacheStage::Final(StarkFileType::R1cs)),
                 (wasm_file, CacheStage::Final(StarkFileType::Wasm)),
@@ -59,9 +59,15 @@ impl Prover<FinalContext> for FinalProver {
 
             cached_files.extend_from_slice(&[
                 (r2.pil_file.clone(), CacheStage::Final(StarkFileType::Pil)),
-                (r2.const_file.clone(), CacheStage::Final(StarkFileType::Const)),
+                (
+                    r2.const_file.clone(),
+                    CacheStage::Final(StarkFileType::Const),
+                ),
                 (r2.exec_file.clone(), CacheStage::Final(StarkFileType::Exec)),
-                (format!("{}.json", r2.pil_file), CacheStage::Final(StarkFileType::PilJson)),
+                (
+                    format!("{}.json", r2.pil_file),
+                    CacheStage::Final(StarkFileType::PilJson),
+                ),
             ]);
         }
 
@@ -122,8 +128,7 @@ impl Prover<FinalContext> for FinalProver {
                 (sp.r1cs_file.clone(), CacheStage::Snark(SnarkFileType::R1cs)),
                 (args.pk_file.clone(), CacheStage::Snark(SnarkFileType::PK)),
                 (args.vk_file.clone(), CacheStage::Snark(SnarkFileType::VK)),
-            ]
-            );
+            ]);
             prove_data_cache.batch_add(cached_files)?;
         }
 
