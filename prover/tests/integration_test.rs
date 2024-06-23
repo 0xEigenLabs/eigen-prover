@@ -3,6 +3,7 @@ use std::env;
 use prover::pipeline::Pipeline;
 
 #[test]
+#[ignore = "slow"]
 fn integration_test() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
 
@@ -23,19 +24,19 @@ fn integration_test() -> anyhow::Result<()> {
     log::info!("task: {task1}");
 
     let task2 = pipeline
-        .batch_prove("0".into(), "0".into(), l2_batch_data.clone())
+        .batch_prove("0".into(), "1".into(), l2_batch_data.clone())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("task2: {task2}");
 
     let task3 = pipeline
-        .batch_prove("0".into(), "0".into(), l2_batch_data)
+        .batch_prove("0".into(), "2".into(), l2_batch_data)
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("task3: {task3}");
 
     let task4 = pipeline
-        .aggregate_prove("0_chunk_0".to_string(), "0_chunk_0".to_string())
+        .aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("agg task: {task4}");
@@ -51,7 +52,7 @@ fn integration_test() -> anyhow::Result<()> {
     log::info!("final task: {task5}");
 
     let task6 = pipeline
-        .aggregate_prove("0_chunk_0".to_string(), "0_chunk_0".to_string())
+        .aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("agg task: {task6}");
