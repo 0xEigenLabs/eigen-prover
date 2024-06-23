@@ -70,7 +70,10 @@ impl Prover<AggContext> for AggProver {
                     r1_stark.r1cs_file.clone(),
                     CacheStage::Agg(StarkFileType::R1cs),
                 ),
-                (r1_stark.wasm_file.clone(), CacheStage::Agg(StarkFileType::Wasm)),
+                (
+                    r1_stark.wasm_file.clone(),
+                    CacheStage::Agg(StarkFileType::Wasm),
+                ),
             ])
         }
 

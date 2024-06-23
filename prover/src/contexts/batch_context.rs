@@ -55,7 +55,7 @@ impl BatchContext {
                 &evm_output,
                 basedir,
                 &task_path,
-                &task_name,
+                task_name,
                 chunk_id,
                 "GL",
             ),
