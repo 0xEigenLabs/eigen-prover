@@ -32,9 +32,6 @@ impl BatchContext {
         l2_batch_data: String,
         force_bits: usize,
     ) -> Self {
-        let executor_dir = format!("{}/executor/{}", basedir, task_id);
-        std::fs::create_dir_all(&executor_dir).unwrap();
-
         //TODO : don't clone the l2 batch data
         let task_path = Stage::Batch(
             task_id.to_string(),
@@ -42,10 +39,10 @@ impl BatchContext {
             l2_batch_data.clone(),
         )
         .path();
-        let batch_task_name = format!("{}.verifier", task_name);
         let c12_task_name = format!("{}.c12", task_name);
 
         let r1_task_name = format!("{}.recursive1", task_name);
+        let evm_output = format!("{basedir}/{task_path}/../{task_name}",);
 
         BatchContext {
             basedir: basedir.to_string(),
@@ -54,20 +51,28 @@ impl BatchContext {
             task_name: task_name.to_string(),
             batch_struct: format!("{}/{}/batch.stark_struct.json", basedir, task_name),
             c12_struct: format!("{}/{}/c12.stark_struct.json", basedir, task_name),
-            batch_circom: CircomCompileArgs::new(basedir, &task_path, &batch_task_name, "GL"),
+            batch_circom: CircomCompileArgs::new_batch(
+                &evm_output,
+                basedir,
+                &task_path,
+                task_name,
+                chunk_id,
+                "GL",
+            ),
 
             batch_stark: StarkProveArgs {
-                commit_file: format!("{}/{}.cm", executor_dir, task_name),
-                const_file: format!("{}/{}.const", executor_dir, task_name),
+                commit_file: format!("{evm_output}/{task_name}_chunk_{chunk_id}/commits.bin",),
+                const_file: format!("{evm_output}/constants.bin",),
                 curve_type: "GL".to_string(),
-                exec_file: format!("{}/{}.exec", executor_dir, batch_task_name),
-                pil_file: format!("{}/{}.pil", executor_dir, batch_task_name),
-                piljson: format!("{}/{}.pil.json", executor_dir, batch_task_name),
-                r1cs_file: format!("{basedir}/{task_path}/{batch_task_name}.r1cs",),
-                zkin: format!("{basedir}/{task_path}/{batch_task_name}.zkin",),
+                exec_file: format!("{basedir}/{task_path}/{task_name}_chunk_{chunk_id}.exec",),
+                pil_file: format!("{basedir}/{task_path}/{task_name}_chunk_{chunk_id}.pil", ),
+                piljson: format!("{basedir}/{task_path}/{task_name}_chunk_{chunk_id}.pil.json", ),
+                r1cs_file: format!("{basedir}/{task_path}/{task_name}_chunk_{chunk_id}.r1cs",),
+                wasm_file: format!("{basedir}/{task_path}/{task_name}_chunk_{chunk_id}_js/{task_name}_chunk_{chunk_id}.wasm",),
+                zkin: format!("{evm_output}/{task_name}_chunk_{chunk_id}/{task_name}_proof.bin",),
             },
 
-            evm_output: format!("{basedir}/{task_path}/../{task_name}",),
+            evm_output,
             chunk_id: chunk_id.to_string(),
             c12_stark: StarkProveArgs::new(basedir, &task_path, &c12_task_name, "GL"),
             c12_circom: CircomCompileArgs::new(basedir, &task_path, &c12_task_name, "GL"),

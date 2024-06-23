@@ -74,36 +74,7 @@ impl Prover<BatchContext> for BatchProver {
             ctx.chunk_id.parse()?,
             &ctx.evm_output,
         )?;
-        // FIXME: don't copy. follow the output of zkvm or change the output of zkvm.
-        log::info!(
-            "circom file path: {:?}",
-            format!(
-                "{}/{}_chunk_{}.circom",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id
-            )
-        );
-        log::info!(
-            "zkin file path: {:?}",
-            format!(
-                "{}/{}_chunk_{}/{}_proof.bin",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id, ctx.task_name
-            )
-        );
-        std::fs::copy(
-            format!(
-                "{}/{}_chunk_{}.circom",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id
-            ),
-            batch_circom.circom_file.clone(),
-        )?;
-        std::fs::copy(
-            format!(
-                "{}/{}_chunk_{}/{}_proof.bin",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id, ctx.task_name
-            ),
-            batch_stark.zkin.clone(),
-        )?;
-
+        log::debug!("zkvm_prove_only done");
         /*
         stark_prove(
             &ctx.batch_struct,
@@ -118,6 +89,7 @@ impl Prover<BatchContext> for BatchProver {
         )?;
         */
 
+        log::debug!("circom_compiler: {:?}", batch_circom);
         // 2. Compile circom circuit to r1cs, and generate witness
         circom_compiler(
             batch_circom.circom_file.clone(),
@@ -138,14 +110,10 @@ impl Prover<BatchContext> for BatchProver {
             0,
         )?;
 
-        let wasm_file = format!(
-            "{}/{}.verifier_js/{}.verifier.wasm",
-            batch_circom.output, ctx.task_name, ctx.task_name
-        );
-        log::info!("batch proof. compress exec: {wasm_file}");
+        log::info!("batch proof. compress exec");
         exec(
             &batch_stark.zkin,
-            &wasm_file,
+            &batch_stark.wasm_file,
             &batch_stark.pil_file,
             &batch_stark.exec_file,
             &batch_stark.commit_file,
@@ -187,14 +155,10 @@ impl Prover<BatchContext> for BatchProver {
             ctx.force_bits,
         )?;
 
-        let wasm_file = format!(
-            "{}/{}.c12_js/{}.c12.wasm",
-            c12_circom.output, ctx.task_name, ctx.task_name
-        );
-        log::info!("c12 proof: compress exec {wasm_file}");
+        log::info!("c12 proof: compress exec");
         exec(
             &c12_stark.zkin,
-            &wasm_file,
+            &c12_stark.wasm_file,
             &c12_stark.pil_file,
             &c12_stark.exec_file,
             &c12_stark.commit_file,

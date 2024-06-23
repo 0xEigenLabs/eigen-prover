@@ -19,6 +19,21 @@ impl CircomCompileArgs {
             output: format!("{basedir}/{task_path}"),
         }
     }
+
+    pub fn new_batch(
+        evm_output: &str,
+        basedir: &str,
+        task_path: &str,
+        task_name: &str,
+        chunk_id: &str,
+        curve: &str,
+    ) -> Self {
+        CircomCompileArgs {
+            circom_file: format!("{evm_output}/{task_name}_chunk_{chunk_id}.circom",),
+            link_directories: load_link(curve),
+            output: format!("{basedir}/{task_path}"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -30,6 +45,7 @@ pub struct StarkProveArgs {
     pub pil_file: String,
     pub piljson: String,
     pub r1cs_file: String,
+    pub wasm_file: String,
     pub zkin: String,
 }
 
@@ -43,6 +59,7 @@ impl StarkProveArgs {
             pil_file: format!("{basedir}/{task_path}/{task_name}.pil",),
             piljson: format!("{basedir}/{task_path}/{task_name}.pil.json",),
             r1cs_file: format!("{basedir}/{task_path}/{task_name}.r1cs",),
+            wasm_file: format!("{basedir}/{task_path}/{task_name}_js/{task_name}.wasm",),
             zkin: format!("{basedir}/{task_path}/{task_name}.zkin.json",),
         }
     }
