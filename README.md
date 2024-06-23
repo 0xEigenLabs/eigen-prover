@@ -58,11 +58,10 @@ You can also use `CONF_PATH` environment variable to setup config path, and make
 Take zkEVM for instance, run the commands below. 
 
 ```bash
-cd executor
-SUITE_JSON="/tmp/reth.block.json" CHAINID=12345 URL=http://localhost:8546 NO=1 TASK=evm BASEDIR="../prover/data/proof" RUST_LOG=debug cargo run --example batch_process -- --nocapture
+SUITE_JSON="/tmp/reth2.block.json" CHAINID=12345 URL=http://localhost:8546 NO=1 TASK=evm BASEDIR="prover/data/proof" RUST_LOG=debug cargo run --example batch_process -- --nocapture
 
 export STARKJS=/zkp/eigen-zkvm/starkjs
-TASK_NAME=evm SUITE_JSON="/tmp/reth.block.json" FORCE_BIT=18 RUST_MIN_STACK=2073741821 RUST_LOG=debug \
+TASK_NAME=evm SUITE_JSON="/tmp/reth2.block.json" FORCE_BIT=18 RUST_MIN_STACK=2073741821 RUST_LOG=debug \
     CIRCOMLIB=$STARKJS/node_modules/circomlib/circuits \
     STARK_VERIFIER_GL=$STARKJS/node_modules/pil-stark/circuits.gl \
     STARK_VERIFIER_BN128=$STARKJS/node_modules/pil-stark/circuits.bn128 \

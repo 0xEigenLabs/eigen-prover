@@ -40,14 +40,10 @@ impl Prover<FinalContext> for FinalProver {
                 false,
                 false,
             )?;
-            let wasm_file = format!(
-                "{}/{}.recursive2_js/{}.recursive2.wasm",
-                cc.output, ctx.task_name, ctx.task_name
-            );
 
             cached_files.extend_from_slice(&[
                 (r2.r1cs_file.clone(), CacheStage::Final(StarkFileType::R1cs)),
-                (wasm_file, CacheStage::Final(StarkFileType::Wasm)),
+                (r2.wasm_file.clone(), CacheStage::Final(StarkFileType::Wasm)),
             ]);
 
             setup(
@@ -121,12 +117,8 @@ impl Prover<FinalContext> for FinalProver {
                 false,
             )?;
 
-            let wasm_file = format!(
-                "{}/{}.final_js/{}.final.wasm",
-                cc.output, ctx.task_name, ctx.task_name
-            );
             cached_files.extend_from_slice(&[
-                (wasm_file, CacheStage::Snark(SnarkFileType::Wasm)),
+                (sp.wasm_file.clone(), CacheStage::Snark(SnarkFileType::Wasm)),
                 (sp.r1cs_file.clone(), CacheStage::Snark(SnarkFileType::R1cs)),
                 (args.pk_file.clone(), CacheStage::Snark(SnarkFileType::PK)),
                 (args.vk_file.clone(), CacheStage::Snark(SnarkFileType::VK)),

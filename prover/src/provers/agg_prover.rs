@@ -65,18 +65,12 @@ impl Prover<AggContext> for AggProver {
                 false,
             )?;
 
-            // TODO: place it in StarkProveArgs?
-            let wasm_file = format!(
-                "{}/{}.recursive1_js/{}.recursive1.wasm",
-                r1_circom.output, ctx.task_name, ctx.task_name
-            );
-
             cached_files.extend_from_slice(&[
                 (
                     r1_stark.r1cs_file.clone(),
                     CacheStage::Agg(StarkFileType::R1cs),
                 ),
-                (wasm_file, CacheStage::Agg(StarkFileType::Wasm)),
+                (r1_stark.wasm_file.clone(), CacheStage::Agg(StarkFileType::Wasm)),
             ])
         }
 
