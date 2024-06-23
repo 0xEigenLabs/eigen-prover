@@ -74,36 +74,6 @@ impl Prover<BatchContext> for BatchProver {
             ctx.chunk_id.parse()?,
             &ctx.evm_output,
         )?;
-        // FIXME: don't copy. follow the output of zkvm or change the output of zkvm.
-        log::info!(
-            "circom file path: {:?}",
-            format!(
-                "{}/{}_chunk_{}.circom",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id
-            )
-        );
-        log::info!(
-            "zkin file path: {:?}",
-            format!(
-                "{}/{}_chunk_{}/{}_proof.bin",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id, ctx.task_name
-            )
-        );
-        std::fs::copy(
-            format!(
-                "{}/{}_chunk_{}.circom",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id
-            ),
-            batch_circom.circom_file.clone(),
-        )?;
-        std::fs::copy(
-            format!(
-                "{}/{}_chunk_{}/{}_proof.bin",
-                ctx.evm_output, ctx.task_name, &ctx.chunk_id, ctx.task_name
-            ),
-            batch_stark.zkin.clone(),
-        )?;
-
         /*
         stark_prove(
             &ctx.batch_struct,

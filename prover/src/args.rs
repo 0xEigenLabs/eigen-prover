@@ -19,6 +19,21 @@ impl CircomCompileArgs {
             output: format!("{basedir}/{task_path}"),
         }
     }
+
+    pub fn new_batch(
+        evm_output: &str,
+        basedir: &str,
+        task_path: &str,
+        task_name: &str,
+        chunk_id: &str,
+        curve: &str,
+    ) -> Self {
+        CircomCompileArgs {
+            circom_file: format!("{evm_output}/{task_name}_chunk_{chunk_id}.circom",),
+            link_directories: load_link(curve),
+            output: format!("{basedir}/{task_path}"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
