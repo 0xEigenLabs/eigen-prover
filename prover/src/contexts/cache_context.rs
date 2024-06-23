@@ -52,6 +52,11 @@ impl ProveDataCache {
     pub fn new(task_name: String, base_dir: String, cache_dir: String) -> Self {
         let already_cached = !cache_dir.is_empty();
         log::debug!("Cache used: {already_cached}");
+        let cache_dir = if cache_dir.is_empty() {
+            "cache".to_string()
+        } else {
+            cache_dir
+        };
         ProveDataCache {
             task_name,
             base_dir,

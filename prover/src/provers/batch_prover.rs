@@ -22,14 +22,7 @@ impl BatchProver {
 impl Prover<BatchContext> for BatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
     fn prove(&self, ctx: &BatchContext) -> Result<()> {
-        log::info!("start batch prove");
-        log::info!(
-            "taskname:{}, taskid:{}, chunkid:{}",
-            ctx.task_name,
-            ctx.task_id,
-            ctx.chunk_id
-        );
-        log::info!("basedir:{}", ctx.basedir);
+        log::info!("start batch prove, ctx: {:?}", ctx);
         // 1. stark prove: generate `.circom` file.
         let batch_stark = &ctx.batch_stark;
         let batch_circom = &ctx.batch_circom;
@@ -37,8 +30,7 @@ impl Prover<BatchContext> for BatchProver {
         let c12_stark = &ctx.c12_stark;
         let r1_circom = &ctx.recursive1_circom; // output
         let r1_stark = &ctx.recursive1_stark; // output
-        log::info!("batch_context: {:?}", ctx);
-        // given that the l2batch data has been stored in ctx.l2_data.
+                                              // given that the l2batch data has been stored in ctx.l2_data.
         let serde_data = ctx.l2_batch_data.clone();
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
