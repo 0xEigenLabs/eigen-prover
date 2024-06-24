@@ -21,7 +21,7 @@ impl AggProver {
 
 impl Prover<AggContext> for AggProver {
     fn prove(&self, ctx: &AggContext) -> Result<()> {
-        log::info!("start aggregate prove");
+        log::info!("start aggregate prove, ctx: {:?}", ctx);
         let mut prove_data_cache = ctx.prove_data_cache.lock().unwrap();
 
         // 1. Compile circom circuit to r1cs, and generate witness

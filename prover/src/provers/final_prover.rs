@@ -19,7 +19,7 @@ impl FinalProver {
 
 impl Prover<FinalContext> for FinalProver {
     fn prove(&self, ctx: &FinalContext) -> Result<()> {
-        log::info!("start final_stark prove");
+        log::info!("start final_stark prove, ctx: {:?}", ctx);
         let mut prove_data_cache = ctx.prove_data_cache.lock().unwrap();
 
         // 1. compress setup
