@@ -29,7 +29,7 @@ use tokio::{
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let conf_path = std::env::var("CONF_DIR").unwrap_or("conf".to_string());
-    let base_dir = std::env::var("WORKSPACE").unwrap_or("/tmp/prover/data".to_string());
+    let base_dir = std::env::var("BASEDIR").unwrap_or("/tmp/prover/data".to_string());
     let executor_base_dir = format!("{}/proof", base_dir);
 
     let conf_path = std::path::Path::new(&conf_path).join("base_config.toml");
@@ -96,7 +96,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // all client will connect to this instance
     // they will send events to the scheduler by the event_tx, such as AddService, TakeTask etc.
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
-    let scheduler_server = SchedulerServiceSVC::new(event_tx, result_tx, scheduler_handler);
+    let scheduler_server =
+        SchedulerServiceSVC::new(event_tx.into(), result_tx.into(), scheduler_handler);
     Server::builder()
         .add_service(ExecutorServiceServer::new(executor))
         .add_service(SchedulerServiceServer::new(scheduler_server))

@@ -101,6 +101,11 @@ impl BatchProverHandler for BatchProverServiceHandler {
         .unwrap();
         // TODO: async service execution and return immediately
         // or block until service finish?
+        log::debug!(
+            "[batch-prover] handles task: {}-{}",
+            ctx.task_id,
+            ctx.chunk_id
+        );
         match provers::BatchProver::new().prove(&ctx) {
             Ok(_) => {
                 // Return Result and Trigger next task

@@ -34,8 +34,11 @@ async fn scheduler_e2e_test() {
     let (result_sender, _rx) = tokio::sync::mpsc::channel(100);
     // MOCK ServerHandler to test
     let scheduler_handler = Arc::new(MockSchedulerServerHandler::default());
-    let scheduler_service_svc =
-        SchedulerServiceSVC::new(scheduler_sender, result_sender, scheduler_handler.clone());
+    let scheduler_service_svc = SchedulerServiceSVC::new(
+        scheduler_sender.into(),
+        result_sender.into(),
+        scheduler_handler.clone(),
+    );
 
     // [::1]:50051
     let addr = "[::1]:50051".to_string();
@@ -96,7 +99,7 @@ impl SchedulerHandler for MockSchedulerServerHandler {
     async fn handle_batch_prover_registry(
         &self,
         r: ServerRegistry,
-        _scheduler_sender: Sender<Event>,
+        _scheduler_sender: Arc<Sender<Event>>,
     ) -> anyhow::Result<ServerSchedulerMessage> {
         // here we don't need to send message to scheduler_sender,
         let basedir = "/tmp";
@@ -143,7 +146,7 @@ impl SchedulerHandler for MockSchedulerServerHandler {
     async fn handle_gen_batch_proof_response(
         &self,
         _provider_id: String,
-        _scheduler_sender: Sender<Event>,
+        _scheduler_sender: Arc<Sender<Event>>,
     ) -> anyhow::Result<ServerSchedulerMessage> {
         // here we don't need to send message to scheduler_sender,
         todo!()
@@ -152,8 +155,8 @@ impl SchedulerHandler for MockSchedulerServerHandler {
     async fn handle_get_proof_response(
         &self,
         r: ServerBatchProofResult,
-        _scheduler_sender: Sender<Event>,
-        _result_sender: Sender<TaskResult>,
+        _scheduler_sender: Arc<Sender<Event>>,
+        _result_sender: Arc<Sender<TaskResult>>,
     ) -> anyhow::Result<ServerSchedulerMessage> {
         log::info!(
             "[Scheduler Server] receive the proof result msg {:?}, from [Prover Service: {}]",

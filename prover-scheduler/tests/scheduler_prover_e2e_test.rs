@@ -31,7 +31,7 @@ async fn prover_scheduler_e2e_mock_test() {
 
     // init pipeline.
     let mut pipeline = Pipeline::new(
-        env::var("WORKSPACE").unwrap_or("data".to_string()),
+        env::var("BASEDIR").unwrap_or("data".to_string()),
         env::var("TASK_NAME").unwrap_or("evm".to_string()),
     );
     pipeline.set_task_sender(task_tx);
@@ -40,8 +40,11 @@ async fn prover_scheduler_e2e_mock_test() {
     log::info!("====================1. Start the server====================");
     // MOCK ServerHandler to test
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
-    let scheduler_service_svc =
-        SchedulerServiceSVC::new(event_tx, result_sender, scheduler_handler.clone());
+    let scheduler_service_svc = SchedulerServiceSVC::new(
+        event_tx.into(),
+        result_sender.into(),
+        scheduler_handler.clone(),
+    );
 
     // [::1]:50051
     let addr = "[::1]:50051".to_string();

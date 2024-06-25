@@ -30,14 +30,14 @@ First, start the Server:
 > ⚠️ Remember to note the IP and Port of your server, as they will be needed later.
 ```shell
 cd service
-PROVER_MODEL=grpc RUST_LOG=info cargo run --bin service -- --nocapture --release
+PROVER_MODEL=grpc RUST_LOG=debug cargo run --bin service --release
 ```
 
 Next, initiate any number of batch-proof computing nodes:
 > 🚀 The speed of the Eigen-Prover depends on the number of computing nodes you initiate.
 ```shell
 cd service
-SCHEDULER_ADDR="http://server_ip:server_port" cargo run --bin batch-prover -- --nocapture --release
+RUST_LOG=debug SCHEDULER_ADDR="server_ip:server_port" cargo run --bin batch-prover --release
 ```
 
 ### Executor Test
