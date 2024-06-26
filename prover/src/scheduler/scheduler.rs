@@ -49,7 +49,7 @@ impl EventHandler {
         match event {
             Event::TakeTask { .. } => {
                 // wait for the task
-                log::info!("take a task");
+                log::info!("[scheduler] wait for task");
                 let task = self.task_receiver.lock().await.recv().await.unwrap();
                 (event, task)
             }
