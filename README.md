@@ -18,7 +18,7 @@ In this mode, all services run within a single process.
 It's convenient for testing or quickly getting started with the Eigen-Prover.
 ```
 cd service
-RUST_LOG=info cargo run --bin service -- --nocapture --release
+RUST_LOG=info cargo run --release --bin service
 ```
 
 #### 2. Distributed Node Mode
@@ -30,14 +30,14 @@ First, start the Server:
 > ⚠️ Remember to note the IP and Port of your server, as they will be needed later.
 ```shell
 cd service
-PROVER_MODEL=grpc RUST_LOG=debug cargo run --bin service --release
+PROVER_BASE=<your_prover_base_directory_path> PROVER_MODEL=grpc CACHE_DIR=${PROVER_BASE}/eigen-prover/prover/cache WORK_BASE=${PROVER_BASE}/eigen-zkvm/starkjs FORCE_BIT=18 RUSTFLAGS="-C target-cpu=native" RUST_MIN_STACK=2073741821 RUST_LOG=info CIRCOMLIB=${WORK_BASE}/node_modules/circomlib/circuits STARK_VERIFIER_GL=${WORK_BASE}/node_modules/pil-stark/circuits.gl STARK_VERIFIER_BN128=${WORK_BASE}/node_modules/pil-stark/circuits.bn128 URL=<http://zeth_ip:zeth_port> TASK_NAME=evm BASEDIR=${PROVER_BASE}/eigen-prover/prover/data/proof TASK=evm RUST_BACKTRACE=full nohup cargo run --release --bin service >> nohup.out 2>&1 &
 ```
 
 Next, initiate any number of batch-proof computing nodes:
 > 🚀 The speed of the Eigen-Prover depends on the number of computing nodes you initiate.
 ```shell
 cd service
-RUST_LOG=debug SCHEDULER_ADDR="server_ip:server_port" cargo run --bin batch-prover --release
+BATCH_BASE=<your_batch_prover_base_directory_path> SCHEDULER_ADDR=<http://server_ip:server_port> RUST_LOG=debug CACHE_DIR=${BATCH_BASE}/eigen-prover/prover/cache BASEDIR=${BATCH_BASE}/eigen-prover/prover/data/proof WORK_BASE="${BATCH_BASE}/eigen-zkvm/starkjs" FORCE_BIT=18 RUSTFLAGS="-C target-cpu=native" RUST_MIN_STACK=2073741821 CIRCOMLIB=${WORK_BASE}/node_modules/circomlib/circuits STARK_VERIFIER_GL=${WORK_BASE}/node_modules/pil-stark/circuits.gl STARK_VERIFIER_BN128=${WORK_BASE}/node_modules/pil-stark/circuits.bn128 nohup cargo run --bin batch-prover --release >> nohup-batch-prover.out 2>&1 &
 ```
 
 ### Executor Test
