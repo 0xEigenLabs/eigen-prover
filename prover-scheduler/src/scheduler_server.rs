@@ -84,6 +84,7 @@ impl SchedulerService for SchedulerServiceSVC {
                                     let resp = match msg {
                                         // update pb, we don't need too much information
                                         batch_prover_message::MessageType::Registry(r) => {
+                                            log::debug!("[scheduler] register batch prover: {:?}", r);
                                             if let Ok(schdeduler_msg) = handle_clone.handle_batch_prover_registry(r, scheduler_sender.clone()).await {
                                                 schdeduler_msg
                                             } else {
@@ -95,6 +96,7 @@ impl SchedulerService for SchedulerServiceSVC {
                                         // just wait for the result, don't need to get again
                                         batch_prover_message::MessageType::TakeBatchProofTask(r) => {
                                             // TODO: id
+                                            log::debug!("[scheduler] take batch proof: {:?}", r);
                                             if let Ok(scheduler_msg) = handle_clone.handle_gen_batch_proof_response(r.prover_id.clone(), scheduler_sender.clone()).await {
                                                 scheduler_msg
                                             } else {
@@ -104,6 +106,7 @@ impl SchedulerService for SchedulerServiceSVC {
                                         }
                                         // receive proof, trigger next batch_proof task
                                         batch_prover_message::MessageType::BatchProofResult(r) => {
+                                            log::debug!("[scheduler] return proof: {:?}", r);
                                             if let Ok(scheduler_msg) = handle_clone.handle_get_proof_response(r, scheduler_sender.clone(), result_sender.clone()).await {
                                                 scheduler_msg
                                             } else {
