@@ -9,7 +9,7 @@ fn integration_test() -> anyhow::Result<()> {
 
     // init pipeline.
     let mut pipeline = Pipeline::new(
-        env::var("WORKSPACE").unwrap_or("data".to_string()),
+        env::var("BASEDIR").unwrap_or("data".to_string()),
         env::var("TASK_NAME").unwrap_or("evm".to_string()),
     );
     let l2_batch_data = std::fs::read_to_string(
@@ -77,7 +77,7 @@ fn integration_test_lr() -> anyhow::Result<()> {
 
     // init pipeline.
     let mut pipeline = Pipeline::new(
-        env::var("WORKSPACE").unwrap_or("data".to_string()),
+        env::var("BASEDIR").unwrap_or("data".to_string()),
         env::var("TASK_NAME").unwrap_or("lr".to_string()),
     );
     let l2_batch_data =

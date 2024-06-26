@@ -49,7 +49,7 @@ impl EventHandler {
         match event {
             Event::TakeTask { .. } => {
                 // wait for the task
-                log::info!("take a task");
+                log::info!("[scheduler] wait for task");
                 let task = self.task_receiver.lock().await.recv().await.unwrap();
                 (event, task)
             }
@@ -140,18 +140,18 @@ impl Scheduler {
                 service_id,
                 relay_to,
             } => {
-                log::info!("add service: {}", service_id);
+                log::info!("[scheduler] add service: {}", service_id);
                 self.handle_add_service(service_id, relay_to).await
             }
             Event::RemoveService { service_id } => {
-                log::info!("remove service: {}", service_id);
+                log::info!("[scheduler] remove service: {}", service_id);
                 self.handle_remove_service(service_id).await
             }
             Event::TakeTask {
                 service_id,
                 relay_to,
             } => {
-                // log::info!("[service:{}] take a task", service_id);
+                log::info!("[scheduler] [service:{}] take a task", service_id);
                 self.handle_take_task(service_id, relay_to, ctx).await
             }
         }

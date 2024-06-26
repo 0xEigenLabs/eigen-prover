@@ -46,7 +46,7 @@ const DEFAULT_FINAL_PROOF_POLLING_TIMEOUT: Duration = Duration::from_secs(60 * 3
 // FIXME: Since each pipeline handles one task, we should create a pipeline set to handle different tasks
 lazy_static! {
     static ref PIPELINE: Mutex<Pipeline> = Mutex::new(Pipeline::new(
-        var("WORKSPACE").unwrap_or("/tmp/prover/data".to_string()),
+        var("BASEDIR").unwrap_or("/tmp/prover/data".to_string()),
         var("TASK_NAME").unwrap_or("fibonacci".to_string())
     ));
     static ref PROVER_FORK_ID: u64 = {

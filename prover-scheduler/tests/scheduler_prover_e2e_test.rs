@@ -31,7 +31,7 @@ async fn prover_scheduler_e2e_mock_test() {
 
     // init pipeline.
     let mut pipeline = Pipeline::new(
-        env::var("WORKSPACE").unwrap_or("data".to_string()),
+        env::var("BASEDIR").unwrap_or("data".to_string()),
         env::var("TASK_NAME").unwrap_or("evm".to_string()),
     );
     pipeline.set_task_sender(task_tx);

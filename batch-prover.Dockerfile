@@ -42,7 +42,7 @@ ENV STARK_VERIFIER_GL=/app/pil-stark/circuits.gl
 ENV STARK_VERIFIER_BN128=/app/pil-stark/circuits.bn128
 ENV STARK_VERIFIER_BLS12381=/app/bls12381-circuits
 ENV TASK_NAME=evm
-ENV WORKSPACE=/app/prover/data
+ENV BASEDIR=/app/prover/data
 
 RUN adduser --disabled-password --gecos '' --uid 1000 appuser && chown -R appuser:appuser /usr/local/bin/batch-prover
 USER appuser
