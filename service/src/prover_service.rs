@@ -129,8 +129,6 @@ impl ProverService for ProverServiceSVC {
                             if let Some(batch_req) = req.step {
                                 match batch_req {
                                     Step::GenBatchChunks(gen_chunk_req) => {
-                                        // TODO: gen chunk
-                                        // NOTE: gen chunk的时候直接重新执行
                                         handler_clone
                                             .handle_gen_batch_chunks_request(
                                                 request_id.clone(), gen_chunk_req, eth_client_clone.clone()
@@ -153,9 +151,6 @@ impl ProverService for ProverServiceSVC {
                                             })
                                     }
                                     Step::GenChunkProof(gen_proof_req) => {
-                                        // TODO: gen chunk proof
-                                        // NOTE: gen chunk proof的时候根据 task_id 和 chunk_count 先load_checkpoint一遍
-                                        // load到的跳过，没有load到的重新执行(这里可能是顺序的也可能不是顺序的)
                                         handler_clone.
                                             handle_gen_chunks_proof_request(
                                                 request_id.clone(), gen_proof_req
@@ -178,7 +173,7 @@ impl ProverService for ProverServiceSVC {
                             } else {
                                 ProverResponse {
                                     id: request_id.clone(),
-                                    // TODO: 暂时先返回None, 待优化pb,将错误消息和状态码提取到最外层
+                                    // TODO: update pb, return error
                                     response_type: None,
                                 }
                             }
@@ -340,8 +335,6 @@ impl ProverHandler for ProverRequestHandler {
             }
         };
 
-        // TODO: execute_task_id由zeth生成，还是这里生成再返回给zeth
-        // 当前在prover生成
         let execute_task_id = format!("{:010}", block_number);
 
         log::info!(
@@ -361,7 +354,6 @@ impl ProverHandler for ProverRequestHandler {
         )
         .await;
 
-        // TODO: 当前逻辑仅支持一个block一个batch
         // get previous block state root
         let previous_block_number = block_number - 1;
         let previous_block = match client.get_block_with_txs(previous_block_number).await {
@@ -423,7 +415,7 @@ impl ProverHandler for ProverRequestHandler {
         // gen chunks proof
         // distribute tasks according to the number of chunks
 
-        // key:        format!("{}_{}", task_id, chunk_id)
+        // key:  format!("{}_{}", task_id, chunk_id)
         // pending task
         let mut pending_tasks = Vec::<String>::new();
         for chunk_id in 0..cnt_chunk {
@@ -685,8 +677,6 @@ impl ProverHandler for ProverRequestHandler {
                 final_proof: Some(FinalProof {
                     proof,
                     public_input,
-                    // pre_state_root: Vec::from(block_state_root.prev_state_root),
-                    // post_state_root: Vec::from(block_state_root.post_state_root),
                 }),
                 error_message: "".to_string(),
             })),
