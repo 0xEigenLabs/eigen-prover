@@ -17,7 +17,7 @@ async fn prover_scheduler_e2e_full_test() {
     let (task_tx, task_rx) = tokio::sync::mpsc::channel(128);
     let (event_tx, event_rx) = tokio::sync::mpsc::channel(128);
     let (result_sender, result_receiver) = tokio::sync::mpsc::channel(128);
-    let task_tx_clone = task_tx.clone();
+    let task_tx_clone: tokio::sync::mpsc::Sender<prover::contexts::BatchContext> = task_tx.clone();
     let mut scheduler = Scheduler::new(result_receiver, event_rx, task_rx, task_tx_clone);
 
     // init pipeline.
@@ -31,11 +31,8 @@ async fn prover_scheduler_e2e_full_test() {
     log::info!("====================1. Start the server====================");
     // MOCK ServerHandler to test
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
-    let scheduler_service_svc = SchedulerServiceSVC::new(
-        event_tx.into(),
-        result_sender.into(),
-        scheduler_handler.clone(),
-    );
+    let scheduler_service_svc =
+        SchedulerServiceSVC::new(event_tx, result_sender, scheduler_handler.clone());
 
     // [::1]:50051
     let addr = "0.0.0.0:50051".to_string();

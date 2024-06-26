@@ -25,15 +25,15 @@ pub mod scheduler_service {
 
 #[allow(dead_code)]
 pub struct SchedulerServiceSVC {
-    scheduler_sender: Arc<mpsc::Sender<Event>>,
-    result_sender: Arc<mpsc::Sender<TaskResult>>,
+    scheduler_sender: mpsc::Sender<Event>,
+    result_sender: mpsc::Sender<TaskResult>,
     handler: Arc<dyn SchedulerHandler + Send + Sync>,
 }
 
 impl SchedulerServiceSVC {
     pub fn new(
-        scheduler_sender: Arc<mpsc::Sender<Event>>,
-        result_sender: Arc<mpsc::Sender<TaskResult>>,
+        scheduler_sender: mpsc::Sender<Event>,
+        result_sender: mpsc::Sender<TaskResult>,
         handler: Arc<dyn SchedulerHandler + Send + Sync>,
     ) -> Self {
         SchedulerServiceSVC {
@@ -159,19 +159,19 @@ pub trait SchedulerHandler {
     async fn handle_batch_prover_registry(
         &self,
         r: Registry,
-        scheduler_sender: Arc<mpsc::Sender<Event>>,
+        scheduler_sender: mpsc::Sender<Event>,
     ) -> Result<SchedulerMessage>;
     async fn handle_gen_batch_proof_response(
         &self,
         provider_id: String,
-        scheduler_sender: Arc<mpsc::Sender<Event>>,
+        scheduler_sender: mpsc::Sender<Event>,
     ) -> Result<SchedulerMessage>;
 
     async fn handle_get_proof_response(
         &self,
         r: BatchProofResult,
-        scheduler_sender: Arc<mpsc::Sender<Event>>,
-        result_sender: Arc<mpsc::Sender<TaskResult>>,
+        scheduler_sender: mpsc::Sender<Event>,
+        result_sender: mpsc::Sender<TaskResult>,
     ) -> Result<SchedulerMessage>;
 
     async fn remove_service(&self, service_id: String, scheduler_sender: mpsc::Sender<Event>);
@@ -185,7 +185,7 @@ impl SchedulerHandler for SchedulerServerHandler {
     async fn handle_batch_prover_registry(
         &self,
         r: Registry,
-        scheduler_sender: Arc<mpsc::Sender<Event>>,
+        scheduler_sender: mpsc::Sender<Event>,
     ) -> Result<SchedulerMessage> {
         // send Event::AddService to the scheduler, registry the service to the scheduler
         // wait for the event result from the relay channel
@@ -227,7 +227,7 @@ impl SchedulerHandler for SchedulerServerHandler {
     async fn handle_gen_batch_proof_response(
         &self,
         provider_id: String,
-        scheduler_sender: Arc<mpsc::Sender<Event>>,
+        scheduler_sender: mpsc::Sender<Event>,
     ) -> Result<SchedulerMessage> {
         let (relay_to, mut relay) = mpsc::channel::<TakeTaskResult>(1);
         // then, send Event::TriggerTask to the scheduler
@@ -275,8 +275,8 @@ impl SchedulerHandler for SchedulerServerHandler {
     async fn handle_get_proof_response(
         &self,
         r: BatchProofResult,
-        scheduler_sender: Arc<mpsc::Sender<Event>>,
-        result_sender: Arc<mpsc::Sender<TaskResult>>,
+        scheduler_sender: mpsc::Sender<Event>,
+        result_sender: mpsc::Sender<TaskResult>,
     ) -> Result<SchedulerMessage> {
         let task_result = if r.result == scheduler_service::Result::Ok as i32 {
             TaskResult {

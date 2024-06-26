@@ -96,8 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // all client will connect to this instance
     // they will send events to the scheduler by the event_tx, such as AddService, TakeTask etc.
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
-    let scheduler_server =
-        SchedulerServiceSVC::new(event_tx.into(), result_tx.into(), scheduler_handler);
+    let scheduler_server = SchedulerServiceSVC::new(event_tx, result_tx, scheduler_handler);
     Server::builder()
         .add_service(ExecutorServiceServer::new(executor))
         .add_service(SchedulerServiceServer::new(scheduler_server))

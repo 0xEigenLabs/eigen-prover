@@ -40,11 +40,8 @@ async fn prover_scheduler_e2e_mock_test() {
     log::info!("====================1. Start the server====================");
     // MOCK ServerHandler to test
     let scheduler_handler = Arc::new(SchedulerServerHandler::default());
-    let scheduler_service_svc = SchedulerServiceSVC::new(
-        event_tx.into(),
-        result_sender.into(),
-        scheduler_handler.clone(),
-    );
+    let scheduler_service_svc =
+        SchedulerServiceSVC::new(event_tx, result_sender, scheduler_handler.clone());
 
     // [::1]:50051
     let addr = "[::1]:50051".to_string();
