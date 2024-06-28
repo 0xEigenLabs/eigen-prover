@@ -1,22 +1,23 @@
-// TODO: Fixme
-#![allow(clippy::all)]
-#![allow(unknown_lints)]
-
-use std::collections::HashMap;
+use prover::stage::Stage;
 use std::env::var;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::prover_service::prover_service::gen_batch_proof_request::Step;
 use crate::prover_service::prover_service::get_status_response::Status::Idle;
 use crate::prover_service::prover_service::prover_request::RequestType;
 use crate::prover_service::prover_service::prover_response::ResponseType;
-use crate::prover_service::prover_service::FinalProof;
+use crate::prover_service::prover_service::{
+    gen_batch_proof_response, FinalProof, GenBatchChunks, GenBatchChunksResult, GenChunkProof,
+    GenChunkProofResult,
+};
 use crate::prover_service::prover_service::{
     get_status_response, BatchProofResult, ChunkProof, GenAggregatedProofRequest,
-    GenAggregatedProofResponse, GenBatchProofRequest, GenBatchProofResponse, GenFinalProofRequest,
-    GenFinalProofResponse, GetStatusRequest, GetStatusResponse, GetStatusResultCode,
-    ProofResultCode, ProverRequest, ProverResponse, ProverStatus,
+    GenAggregatedProofResponse, GenBatchProofResponse, GenFinalProofRequest, GenFinalProofResponse,
+    GetStatusRequest, GetStatusResponse, GetStatusResultCode, ProofResultCode, ProverRequest,
+    ProverResponse, ProverStatus,
 };
 use anyhow::{anyhow, bail, Result};
 use ethers_providers::{Http, Middleware, Provider};
@@ -30,6 +31,7 @@ use tokio::time;
 use tokio_stream::{Stream, StreamExt};
 use tonic::{async_trait, Request, Response, Status, Streaming};
 
+#[allow(clippy::module_inception)]
 pub mod prover_service {
     tonic::include_proto!("prover.v1"); // The string specified here must match the proto package name
 }
@@ -42,6 +44,10 @@ const DEFAULT_AGGREGATED_PROOF_POLLING_TIMEOUT: Duration = Duration::from_secs(6
 
 const DEFAULT_FINAL_PROOF_POLLING_INTERVAL: Duration = Duration::from_secs(10);
 const DEFAULT_FINAL_PROOF_POLLING_TIMEOUT: Duration = Duration::from_secs(60 * 30);
+
+lazy_static! {
+    static ref BASE_DIR: String = var("BASEDIR").unwrap_or_else(|_| "/tmp/prover/data".to_string());
+}
 
 // FIXME: Since each pipeline handles one task, we should create a pipeline set to handle different tasks
 lazy_static! {
@@ -122,24 +128,52 @@ impl ProverService for ProverServiceSVC {
                                     error_message: e.to_string(),
                                 })),
                             }),
-                        RequestType::GenBatchProof(req) => handler_clone
-                            .handle_gen_batch_proof_request(
-                                request_id.clone(),
-                                req,
-                                eth_client_clone.clone(),
-                            )
-                            .await
-                            .unwrap_or_else(|e| ProverResponse {
-                                id: request_id.clone(),
-                                response_type: Some(ResponseType::GenBatchProof(
-                                    GenBatchProofResponse {
-                                        batch_id: "".to_string(),
-                                        result_code: ProofResultCode::CompletedError as i32,
-                                        batch_proof_result: None,
-                                        error_message: e.to_string(),
-                                    },
-                                )),
-                            }),
+                        RequestType::GenBatchProof(req) => {
+                            if let Some(batch_req) = req.step {
+                                match batch_req {
+                                    Step::GenBatchChunks(gen_chunk_req) => {
+                                        handler_clone
+                                            .handle_gen_batch_chunks_request(
+                                                request_id.clone(), gen_chunk_req, eth_client_clone.clone()
+                                            ).await.unwrap_or_else(|e| ProverResponse {
+                                            id: request_id.clone(),
+                                            response_type: Some(ResponseType::GenBatchProof(
+                                                GenBatchProofResponse {
+                                                    step: Some(gen_batch_proof_response::Step::GenBatchChunks(GenBatchChunksResult{
+                                                        result_code: ProofResultCode::CompletedError as i32,
+                                                        error_message: e.to_string(),
+                                                        ..Default::default()
+                                                    })),
+                                                }
+                                            )),
+                                        })
+                                    }
+                                    Step::GenChunkProof(gen_proof_req) => {
+                                        handler_clone.
+                                            handle_gen_chunks_proof_request(
+                                                request_id.clone(), gen_proof_req
+                                            ).await.unwrap_or_else(|e| ProverResponse {
+                                            id: request_id.clone(),
+                                            response_type: Some(ResponseType::GenBatchProof(
+                                                GenBatchProofResponse {
+                                                    step: Some(gen_batch_proof_response::Step::GenChunkProof(GenChunkProofResult{
+                                                        result_code: ProofResultCode::CompletedError as i32,
+                                                        error_message: e.to_string(),
+                                                        ..Default::default()
+                                                    })),
+                                                }
+                                            )),
+                                        })
+                                    }
+                                }
+                            } else {
+                                ProverResponse {
+                                    id: request_id.clone(),
+                                    // TODO: update pb, return error
+                                    response_type: None,
+                                }
+                            }
+                        }
                         RequestType::GenAggregatedProof(r) => handler_clone
                             .handle_gen_aggregated_proof_request(request_id.clone(), r)
                             .await
@@ -147,10 +181,9 @@ impl ProverService for ProverServiceSVC {
                                 id: request_id.clone(),
                                 response_type: Some(ResponseType::GenAggregatedProof(
                                     GenAggregatedProofResponse {
-                                        batch_id: "".to_string(),
                                         result_code: ProofResultCode::CompletedError as i32,
-                                        result_string: "".to_string(),
                                         error_message: e.to_string(),
+                                        ..Default::default()
                                     },
                                 )),
                             }),
@@ -161,11 +194,10 @@ impl ProverService for ProverServiceSVC {
                                 id: request_id.clone(),
                                 response_type: Some(ResponseType::GenFinalProof(
                                     GenFinalProofResponse {
-                                        batch_id: "".to_string(),
                                         result_code: ProofResultCode::CompletedError as i32,
-                                        result_string: "".to_string(),
                                         final_proof: None,
                                         error_message: e.to_string(),
+                                        ..Default::default()
                                     },
                                 )),
                             }),
@@ -193,11 +225,18 @@ pub trait ProverHandler {
         msg_id: String,
         _request: GetStatusRequest,
     ) -> Result<ProverResponse>;
-    async fn handle_gen_batch_proof_request(
+
+    async fn handle_gen_batch_chunks_request(
         &self,
         msg_id: String,
-        request: GenBatchProofRequest,
+        request: GenBatchChunks,
         client: Arc<Provider<Http>>,
+    ) -> Result<ProverResponse>;
+
+    async fn handle_gen_chunks_proof_request(
+        &self,
+        msg_id: String,
+        request: GenChunkProof,
     ) -> Result<ProverResponse>;
 
     async fn handle_gen_aggregated_proof_request(
@@ -216,7 +255,6 @@ pub trait ProverHandler {
 #[derive(Default, Clone)]
 pub struct ProverRequestHandler {
     executor_base_dir: String,
-    batch_state_root: Arc<Mutex<HashMap<String, BatchStateRoot>>>,
 }
 
 pub struct BatchStateRoot {
@@ -226,10 +264,7 @@ pub struct BatchStateRoot {
 
 impl ProverRequestHandler {
     pub fn new(executor_base_dir: String) -> Self {
-        ProverRequestHandler {
-            executor_base_dir,
-            batch_state_root: Arc::new(Mutex::new(HashMap::new())),
-        }
+        ProverRequestHandler { executor_base_dir }
     }
 }
 
@@ -271,10 +306,10 @@ impl ProverHandler for ProverRequestHandler {
         })
     }
 
-    async fn handle_gen_batch_proof_request(
+    async fn handle_gen_batch_chunks_request(
         &self,
         msg_id: String,
-        request: GenBatchProofRequest,
+        request: GenBatchChunks,
         client: Arc<Provider<Http>>,
     ) -> Result<ProverResponse> {
         // parse the block number from the request
@@ -294,13 +329,14 @@ impl ProverHandler for ProverRequestHandler {
             }
         };
 
-        let execute_task_id = uuid::Uuid::new_v4();
+        let execute_task_id = format!("{:010}", block_number);
 
         log::info!(
             "generate chunks for Block: {:?}, request id {:?}",
             block_number,
             msg_id
         );
+
         // gen chunk
         let (_res, l2_batch_data, cnt_chunks) = batch_process(
             client.clone(),
@@ -312,7 +348,7 @@ impl ProverHandler for ProverRequestHandler {
         )
         .await;
 
-        // TODO: refactor to batch
+        // get previous block state root
         let previous_block_number = block_number - 1;
         let previous_block = match client.get_block_with_txs(previous_block_number).await {
             Ok(Some(block)) => block,
@@ -323,6 +359,7 @@ impl ProverHandler for ProverRequestHandler {
                 error
             ),
         };
+
         let pre_state_root = previous_block.state_root;
 
         let block_test_unit: models::TestUnit = serde_json::from_str(&l2_batch_data)
@@ -338,41 +375,111 @@ impl ProverHandler for ProverRequestHandler {
             .ok_or_else(|| anyhow!("Failed to get last block test"))?
             .hash;
 
-        let block_state_root = BatchStateRoot {
-            prev_state_root: <[u8; 32]>::from(pre_state_root),
-            post_state_root: *post_state_hash,
-        };
+        let pre_state_root = <[u8; 32]>::from(pre_state_root);
+        let post_state_root = *post_state_hash;
 
-        // Reduce the lifecycle of the mutex and release it as soon as possible
-        {
-            self.batch_state_root
-                .lock()
-                .map_err(|e| anyhow!("get state root's lock failed: {:?}", e))?
-                .insert(request.batch_id.clone(), block_state_root);
+        Ok(ProverResponse {
+            id: msg_id,
+            response_type: Some(ResponseType::GenBatchProof(GenBatchProofResponse {
+                step: Some(gen_batch_proof_response::Step::GenBatchChunks(
+                    GenBatchChunksResult {
+                        batch_id: request.batch_id,
+                        task_id: execute_task_id,
+                        result_code: 0,
+                        chunk_count: cnt_chunks as u64,
+                        batch_data: l2_batch_data,
+                        pre_state_root: Vec::from(pre_state_root),
+                        post_state_root: Vec::from(post_state_root),
+                        error_message: "".to_string(),
+                    },
+                )),
+            })),
+        })
+    }
+
+    async fn handle_gen_chunks_proof_request(
+        &self,
+        msg_id: String,
+        request: GenChunkProof,
+    ) -> Result<ProverResponse> {
+        let execute_task_id = request.task_id.clone();
+        let cnt_chunk = request.chunk_count as usize;
+        let l2_batch_data = request.batch_data;
+
+        // gen chunks proof
+        // distribute tasks according to the number of chunks
+
+        // key:  format!("{}_{}", task_id, chunk_id)
+        // pending task
+        let mut pending_tasks = Vec::<String>::new();
+        for chunk_id in 0..cnt_chunk {
+            pending_tasks.push(format!("{}_{}", execute_task_id, chunk_id))
         }
 
-        log::info!(
-            "put the task to pipline, Block: {:?} request id {:?}",
-            block_number,
-            msg_id
-        );
-        // gen proof
-        // distribute tasks according to the number of chunks
-        // put the task into the pipeline
-        let mut pending_tasks = Vec::<String>::new();
-        for chunk_id in 0..cnt_chunks {
-            // FIXME: don't clone the l2 batch data
-            match PIPELINE.lock().unwrap().batch_prove(
-                execute_task_id.to_string(),
-                chunk_id.to_string(),
+        let mut finished_tasks = vec![];
+        let mut results = vec![String::new(); cnt_chunk];
+
+        // put the task into the pipeline, skip the finished tasks
+        for (index, key) in pending_tasks.iter().enumerate() {
+            // let proof_result = PIPELINE.lock().unwrap().get_proof(key.clone(), 0);
+            let tmp_stage = Stage::Batch(
+                execute_task_id.clone(),
+                index.to_string(),
                 l2_batch_data.clone(),
-            ) {
-                Ok(key) => pending_tasks.push(key),
+            );
+            let task_result_dir = Path::new(&*BASE_DIR)
+                .join(tmp_stage.path())
+                .join("status.finished");
+            log::info!("check the task status: {}", task_result_dir.display());
+            let status = match std::fs::read_to_string(task_result_dir) {
+                Ok(flag) => {
+                    log::info!("task({}) status: {}", key, flag);
+                    match flag.trim() {
+                        "1" => true,
+                        "0" => false,
+                        _ => false,
+                    }
+                }
                 Err(e) => {
-                    bail!("Failed to generate batch proof: {:?}", e);
+                    log::error!(
+                        "Failed to read task status, gen proof again, err: {:?}, ",
+                        e
+                    );
+                    false
                 }
             };
+
+            match status {
+                true => {
+                    // already finished, skip the task
+                    log::info!("task: {:?}, index: {}, already finished, skip", key, index);
+                    finished_tasks.push(index);
+                    results.insert(index, key.clone());
+                }
+                false => {
+                    // not finished, put the task to the pipeline
+                    log::info!("task: {:?} not finished, put the task to pipeline", key);
+                    match PIPELINE.lock().unwrap().batch_prove(
+                        execute_task_id.to_string(),
+                        index.to_string(),
+                        l2_batch_data.clone(),
+                    ) {
+                        Ok(_) => continue,
+                        Err(err) => {
+                            bail!("Failed to generate batch proof: {:?}", err);
+                        }
+                    };
+                }
+            }
         }
+
+        // remove finished tasks from pending tasks
+        for &index in finished_tasks.iter().rev() {
+            pending_tasks.remove(index);
+        }
+        finished_tasks.clear();
+        log::info!("pending tasks: {:?}", pending_tasks);
+        log::info!("load results of the task list: {:?}", results);
 
         // waiting for the proof result
         let mut polling_ticker = time::interval(DEFAULT_BATCH_PROOF_POLLING_INTERVAL);
@@ -380,11 +487,10 @@ impl ProverHandler for ProverRequestHandler {
         let mut timeout_ticker =
             time::interval_at(timeout_start, DEFAULT_BATCH_PROOF_POLLING_TIMEOUT);
         let (finish_tx, mut finish_rx) = watch::channel::<()>(());
-        let mut finished_tasks = vec![];
-        let mut results = vec![String::new(); cnt_chunks];
+
         log::info!(
-            "polling the batch proof of Block: {:?}, request id {:?}",
-            block_number,
+            "polling the batch proof of task id: {:?}, request id {:?}",
+            execute_task_id,
             msg_id
         );
         loop {
@@ -398,8 +504,11 @@ impl ProverHandler for ProverRequestHandler {
                                 // do nothing
                                 finished_tasks.push(index);
                                 results.insert(index, task_key);
+                                log::info!("task: {:?} is finished", key);
                             }
-                            Err(_e) => {
+                            Err(e) => {
+                                log::info!("task: {:?} is not finished, check again later, check result: {:#?}", key, e);
+
                                 // false, continue
                                 continue;
                                 // TODO: other error, stop and return error
@@ -408,7 +517,7 @@ impl ProverHandler for ProverRequestHandler {
                     }
 
                     // remove finished tasks from pending tasks
-                    for &index in finished_tasks.iter() {
+                    for &index in finished_tasks.iter().rev() {
                         if index < pending_tasks.len() {
                             pending_tasks.remove(index);
                         }
@@ -416,35 +525,37 @@ impl ProverHandler for ProverRequestHandler {
                     finished_tasks.clear();
                     if pending_tasks.is_empty() {
                         // finished
+                        log::info!("all tasks are finished");
                         finish_tx.send(()).unwrap();
                         continue;
                     }
+                    log::info!("end of polling, try again later, pending tasks: {:?}", pending_tasks);
                 }
                 _ = finish_rx.changed() => {
                     break;
                 }
                 _ = timeout_ticker.tick() => {
-                    log::info!("generate the proof timeout: {:?}, request id {:?}", block_number, msg_id);
+                    log::info!("generate the proof timeout, task id: {:?}, request id {:?}", execute_task_id, msg_id);
                     bail!("generate batch proof timeout");
                 }
             }
         }
 
         log::info!(
-            "Finished the task of generate batch proof, Block: {:?}, request id {:?}",
-            block_number,
+            "Finished the task of generate batch proof, task id: {:?}, request id {:?}",
+            execute_task_id,
             msg_id
         );
 
-        let mut batch_proof_result = BatchProofResult::default();
-        batch_proof_result.task_id = execute_task_id.to_string();
+        let mut batch_proof_result = BatchProofResult {
+            task_id: execute_task_id.to_string(),
+            ..Default::default()
+        };
 
-        for chunk_id in 0..cnt_chunks {
+        for (chunk_id, chunk_proof_key) in results.iter().enumerate().take(cnt_chunk) {
             let chunk_proof = ChunkProof {
                 chunk_id: chunk_id as u64,
-                proof_key: results[chunk_id].clone(),
-                // we don't need to return the proof data
-                // just return the proof key, key: {task_id}_chunk_{chunk_id}
+                proof_key: chunk_proof_key.clone(),
                 proof: format!("{}_chunk_{}", execute_task_id, chunk_id),
             };
 
@@ -454,10 +565,15 @@ impl ProverHandler for ProverRequestHandler {
         Ok(ProverResponse {
             id: msg_id,
             response_type: Some(ResponseType::GenBatchProof(GenBatchProofResponse {
-                batch_id: request.batch_id,
-                result_code: ProofResultCode::CompletedOk as i32,
-                batch_proof_result: Some(batch_proof_result),
-                error_message: "".to_string(),
+                step: Some(gen_batch_proof_response::Step::GenChunkProof(
+                    GenChunkProofResult {
+                        batch_id: request.batch_id.clone(),
+                        task_id: execute_task_id,
+                        result_code: 0,
+                        batch_proof_result: Some(batch_proof_result),
+                        error_message: "".to_string(),
+                    },
+                )),
             })),
         })
     }
@@ -593,13 +709,6 @@ impl ProverHandler for ProverRequestHandler {
             .unwrap()
             .load_final_proof_and_input(&checkpoint_key)?;
 
-        let block_state_root = self
-            .batch_state_root
-            .lock()
-            .map_err(|e| anyhow!("get state root's lock failed: {:?}", e))?
-            .remove(&request.batch_id)
-            .ok_or_else(|| anyhow!("Failed to get the block state root, key: {}", msg_id))?;
-
         Ok(ProverResponse {
             id: msg_id,
             response_type: Some(ResponseType::GenFinalProof(GenFinalProofResponse {
@@ -609,8 +718,6 @@ impl ProverHandler for ProverRequestHandler {
                 final_proof: Some(FinalProof {
                     proof,
                     public_input,
-                    pre_state_root: Vec::from(block_state_root.prev_state_root),
-                    post_state_root: Vec::from(block_state_root.post_state_root),
                 }),
                 error_message: "".to_string(),
             })),

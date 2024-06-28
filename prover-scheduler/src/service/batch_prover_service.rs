@@ -108,6 +108,7 @@ impl BatchProverHandler for BatchProverServiceHandler {
         );
         match provers::BatchProver::new().prove(&ctx) {
             Ok(_) => {
+                log::info!("batch prove success, task id: {}", ctx.task_id.clone());
                 // Return Result and Trigger next task
                 BatchProverMessage {
                     id: "".to_string(),
@@ -121,7 +122,8 @@ impl BatchProverHandler for BatchProverServiceHandler {
                     )),
                 }
             }
-            Err(_) => {
+            Err(e) => {
+                log::error!("batch prove({}) error: {:?}", ctx.task_id, e);
                 // Return a failure message
                 BatchProverMessage {
                     id: "".to_string(),
