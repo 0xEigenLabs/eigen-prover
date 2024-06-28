@@ -425,6 +425,9 @@ impl ProverHandler for ProverRequestHandler {
             pending_tasks.push(format!("{}_{}", execute_task_id, chunk_id))
         }
 
+        let mut finished_tasks = vec![];
+        let mut results = vec![String::new(); cnt_chunk];
+
         // put the task into the pipeline, skip the finished tasks
         for (index, key) in pending_tasks.iter().enumerate() {
             // let proof_result = PIPELINE.lock().unwrap().get_proof(key.clone(), 0);
@@ -458,7 +461,9 @@ impl ProverHandler for ProverRequestHandler {
             match status {
                 true => {
                     // already finished, skip the task
-                    log::info!("task: {:?} already finished, skip", key);
+                    log::info!("task: {:?}, index: {}, already finished, skip", key, index);
+                    finished_tasks.push(index);
+                    results.insert(index, key.clone());
                 }
                 false => {
                     // not finished, put the task to the pipeline
@@ -477,14 +482,21 @@ impl ProverHandler for ProverRequestHandler {
             }
         }
 
+        // remove finished tasks from pending tasks
+        for &index in finished_tasks.iter().rev() {
+            pending_tasks.remove(index);
+        }
+        finished_tasks.clear();
+        log::info!("pending tasks: {:?}", pending_tasks);
+        log::info!("load results of the task list: {:?}", results);
+
         // waiting for the proof result
         let mut polling_ticker = time::interval(DEFAULT_BATCH_PROOF_POLLING_INTERVAL);
         let timeout_start = time::Instant::now() + DEFAULT_BATCH_PROOF_POLLING_TIMEOUT;
         let mut timeout_ticker =
             time::interval_at(timeout_start, DEFAULT_BATCH_PROOF_POLLING_TIMEOUT);
         let (finish_tx, mut finish_rx) = watch::channel::<()>(());
-        let mut finished_tasks = vec![];
-        let mut results = vec![String::new(); cnt_chunk];
+
         log::info!(
             "polling the batch proof of task id: {:?}, request id {:?}",
             execute_task_id,
@@ -501,8 +513,11 @@ impl ProverHandler for ProverRequestHandler {
                                 // do nothing
                                 finished_tasks.push(index);
                                 results.insert(index, task_key);
+                                log::info!("task: {:?} is finished", key);
                             }
-                            Err(_e) => {
+                            Err(e) => {
+                                log::info!("task: {:?} is not finished, check again later, check result: {:#?}", key, e);
+
                                 // false, continue
                                 continue;
                                 // TODO: other error, stop and return error
@@ -511,7 +526,7 @@ impl ProverHandler for ProverRequestHandler {
                     }
 
                     // remove finished tasks from pending tasks
-                    for &index in finished_tasks.iter() {
+                    for &index in finished_tasks.iter().rev() {
                         if index < pending_tasks.len() {
                             pending_tasks.remove(index);
                         }
@@ -519,9 +534,11 @@ impl ProverHandler for ProverRequestHandler {
                     finished_tasks.clear();
                     if pending_tasks.is_empty() {
                         // finished
+                        log::info!("all tasks are finished");
                         finish_tx.send(()).unwrap();
                         continue;
                     }
+                    log::info!("end of polling, try again later, pending tasks: {:?}", pending_tasks);
                 }
                 _ = finish_rx.changed() => {
                     break;

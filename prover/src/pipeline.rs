@@ -235,8 +235,8 @@ impl Pipeline {
     pub fn get_proof(&mut self, key: String, _timeout: u64) -> Result<String> {
         match self.load_checkpoint(&key) {
             Ok(true) => Ok(key),
-            Ok(false) => bail!(format!("can not find task: {}", key)),
-            Err(e) => bail!(format!("load checkpoint failed, {:?}", e)),
+            Ok(false) => bail!("can not find task: {}", key),
+            Err(e) => bail!("load checkpoint failed, {:#?}", e),
         }
     }
 
