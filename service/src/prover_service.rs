@@ -140,14 +140,9 @@ impl ProverService for ProverServiceSVC {
                                             response_type: Some(ResponseType::GenBatchProof(
                                                 GenBatchProofResponse {
                                                     step: Some(gen_batch_proof_response::Step::GenBatchChunks(GenBatchChunksResult{
-                                                        batch_id: "".to_string(),
-                                                        task_id: "".to_string(),
                                                         result_code: ProofResultCode::CompletedError as i32,
-                                                        chunk_count: 0,
-                                                        batch_data: "".to_string(),
-                                                        pre_state_root: vec![],
-                                                        post_state_root: vec![],
                                                         error_message: e.to_string(),
+                                                        ..Default::default()
                                                     })),
                                                 }
                                             )),
@@ -162,11 +157,9 @@ impl ProverService for ProverServiceSVC {
                                             response_type: Some(ResponseType::GenBatchProof(
                                                 GenBatchProofResponse {
                                                     step: Some(gen_batch_proof_response::Step::GenChunkProof(GenChunkProofResult{
-                                                        batch_id: "".to_string(),
-                                                        task_id: "".to_string(),
                                                         result_code: ProofResultCode::CompletedError as i32,
-                                                        batch_proof_result: None,
                                                         error_message: e.to_string(),
+                                                        ..Default::default()
                                                     })),
                                                 }
                                             )),
@@ -188,10 +181,9 @@ impl ProverService for ProverServiceSVC {
                                 id: request_id.clone(),
                                 response_type: Some(ResponseType::GenAggregatedProof(
                                     GenAggregatedProofResponse {
-                                        batch_id: "".to_string(),
                                         result_code: ProofResultCode::CompletedError as i32,
-                                        result_string: "".to_string(),
                                         error_message: e.to_string(),
+                                        ..Default::default()
                                     },
                                 )),
                             }),
@@ -202,11 +194,10 @@ impl ProverService for ProverServiceSVC {
                                 id: request_id.clone(),
                                 response_type: Some(ResponseType::GenFinalProof(
                                     GenFinalProofResponse {
-                                        batch_id: "".to_string(),
                                         result_code: ProofResultCode::CompletedError as i32,
-                                        result_string: "".to_string(),
                                         final_proof: None,
                                         error_message: e.to_string(),
+                                        ..Default::default()
                                     },
                                 )),
                             }),
