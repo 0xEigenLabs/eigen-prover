@@ -19,7 +19,7 @@ pub struct Scheduler {
 
     pub retry_to: Sender<BatchContext>,
 
-    pub event_handler: EventHandler,
+    pub event_handler: Option<EventHandler>,
     pub result_handler: ResultHandler,
 }
 
@@ -112,21 +112,51 @@ impl Scheduler {
                 Arc::new(TokioMutex::new(result_receiver)),
                 retry_to.clone(),
             ),
-            event_handler: EventHandler::new(
+            event_handler: Some(EventHandler::new(
                 Arc::new(TokioMutex::new(event_receiver)),
                 Arc::new(TokioMutex::new(task_receiver)),
                 retry_to.clone(),
-            ),
+            )),
         }
     }
 
+    // pub async fn run(&mut self) {
+    //     loop {
+    //         tokio::select! {
+    //             // listen the event from the scheduler serve and task from the pipeline
+    //             (event, ctx) = self.event_handler.recv_both()  => {
+    //                      self.handle_event(event, ctx).await;
+    //                  },
+    //             // listen the result from the scheduler server
+    //             result = self.result_handler.take_result() => {
+    //                 self.handle_result(result).await;
+    //             },
+    //         }
+    //     }
+    // }
     pub async fn run(&mut self) {
+        let (interval_event_tx, mut interval_event_rx) =
+            mpsc::channel::<(Event, BatchContext)>(128);
+        // take the event_handler, and spawn a new coroutine to listen the event from the event_receiver and task_receiver
+        // the self.event_handler will be None after this
+        let event_handler = self.event_handler.take().unwrap();
+
+        tokio::spawn(async move {
+            loop {
+                let (event, ctx) = event_handler.recv_both().await;
+                if let Err(e) = interval_event_tx.send((event, ctx)).await {
+                    log::error!("Failed to send event to interval_event_tx, err: {}", e);
+                }
+            }
+        });
+
         loop {
             tokio::select! {
                 // listen the event from the scheduler serve and task from the pipeline
-                (event, ctx) = self.event_handler.recv_both()  => {
-                         self.handle_event(event, ctx).await;
-                     },
+                interval_event = interval_event_rx.recv() => {
+                    let (event, ctx) = interval_event.unwrap();
+                    self.handle_event(event, ctx).await;
+                },
                 // listen the result from the scheduler server
                 result = self.result_handler.take_result() => {
                     self.handle_result(result).await;
