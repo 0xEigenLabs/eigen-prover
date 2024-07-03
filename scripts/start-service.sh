@@ -1,0 +1,3 @@
+cd ../service
+echo "Starting prover service, log file: prover-service.log"
+PROVER_MODEL=grpc CACHE_DIR=/mnt/zkevmproverstorage/zkevmfileshare/eigen-prover/prover/cache WORK_BASE="/mnt/zkevmproverstorage/zkevmfileshare/eigen-zkvm/starkjs" FORCE_BIT=18 RUSTFLAGS="-C target-cpu=native" RUST_MIN_STACK=2073741821 RUST_LOG=info CIRCOMLIB=${WORK_BASE}/node_modules/circomlib/circuits STARK_VERIFIER_GL=$WORK_BASE/node_modules/pil-stark/circuits.gl STARK_VERIFIER_BN128=$WORK_BASE/node_modules/pil-stark/circuits.bn128 URL=http://localhost:8546 TASK_NAME=evm BASEDIR=/mnt/zkevmproverstorage/zkevmfileshare/eigen-prover/prover/data TASK=evm RUST_BACKTRACE=full nohup cargo run --release --bin service -- --nocapture >> prover-service.log 2>&1 &
