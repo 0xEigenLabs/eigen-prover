@@ -3,7 +3,8 @@ members = [
   "prover",
   "service",
   "executor",
-  "prover-scheduler"
+  "prover-scheduler",
+  "metrics"
 ]
 
 resolver = "2"

@@ -12,6 +12,7 @@ groth16 = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", 
 algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
 dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
 zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+metrics = { path = "../metrics" }
 
 powdr = { git = "https://github.com/0xEigenLabs/powdr", branch = "binary-mux2", default-features = false }
 

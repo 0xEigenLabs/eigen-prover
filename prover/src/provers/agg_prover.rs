@@ -7,6 +7,7 @@ use anyhow::Result;
 use dsl_compile::circom_compiler;
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 
+use metrics::{Function, Step};
 use starky::prove::stark_prove;
 use starky::zkin_join::join_zkin;
 
@@ -22,6 +23,7 @@ impl AggProver {
 impl Prover<AggContext> for AggProver {
     fn prove(&self, ctx: &AggContext) -> Result<()> {
         log::info!("start aggregate prove, ctx: {:?}", ctx);
+        let prove_start = std::time::Instant::now();
         let mut prove_data_cache = ctx.prove_data_cache.lock().unwrap();
 
         // 1. Compile circom circuit to r1cs, and generate witness
@@ -100,6 +102,7 @@ impl Prover<AggContext> for AggProver {
         log::info!("join {} {} -> {}", zkin, zkin2, ctx.agg_zkin);
         join_zkin(&zkin, &zkin2, &ctx.agg_zkin)?;
         // 3. compress setup
+        let setup_start = std::time::Instant::now();
         if !prove_data_cache.agg_cache.already_cached {
             setup(
                 &r1_stark.r1cs_file,
@@ -131,9 +134,21 @@ impl Prover<AggContext> for AggProver {
             ]);
             prove_data_cache.batch_add(cached_files)?;
         }
+        let setup_elapsed = setup_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_histogram(
+                "0".to_string(),
+                "0".to_string(),
+                Step::Agg,
+                Function::Setup,
+                setup_elapsed.as_secs_f64(),
+            );
 
         // 4. compress exec
         log::info!("wasm_file: {}", prove_data_cache.agg_cache.wasm_file);
+        let exec_start = std::time::Instant::now();
         exec(
             &ctx.agg_zkin,
             &prove_data_cache.agg_cache.wasm_file,
@@ -142,6 +157,18 @@ impl Prover<AggContext> for AggProver {
             &r1_stark.commit_file,
         )?;
 
+        let exec_elapsed = exec_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_histogram(
+                "0".to_string(),
+                "0".to_string(),
+                Step::Agg,
+                Function::Exec,
+                exec_elapsed.as_secs_f64(),
+            );
+
         // 5. stark prove
         log::info!("recursive2: {:?} -> {:?}", r1_stark, cc);
         let prev_zkin_out = format!(
@@ -149,6 +176,7 @@ impl Prover<AggContext> for AggProver {
             ctx.basedir, task_id_slice[0], 0, ctx.task_name,
         );
 
+        let stark_prove_start = std::time::Instant::now();
         stark_prove(
             &ctx.agg_struct,
             &prove_data_cache.agg_cache.piljson_file,
@@ -161,6 +189,18 @@ impl Prover<AggContext> for AggProver {
             &prev_zkin_out,
             "",
         )?;
+
+        let stark_prove_elapsed = stark_prove_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_histogram(
+                "0".to_string(),
+                "0".to_string(),
+                Step::Agg,
+                Function::StarkProve,
+                stark_prove_elapsed.as_secs_f64(),
+            );
 
         #[allow(clippy::needless_range_loop)]
         for i in 2..=end {
@@ -177,6 +217,7 @@ impl Prover<AggContext> for AggProver {
             log::info!("join {} {} -> {}", prev_zkin_out, zkin, zkin_out);
             join_zkin(&prev_zkin_out, &zkin, &zkin_out)?;
 
+            let exec_start = std::time::Instant::now();
             exec(
                 &zkin_out,
                 &prove_data_cache.agg_cache.wasm_file,
@@ -184,7 +225,19 @@ impl Prover<AggContext> for AggProver {
                 &prove_data_cache.agg_cache.exec_file,
                 &r_stark.commit_file,
             )?;
+            let exec_elapsed = exec_start.elapsed();
+            metrics::PROMETHEUS_METRICS
+                .lock()
+                .unwrap()
+                .observe_prover_processing_time_histogram(
+                    "0".to_string(),
+                    "0".to_string(),
+                    Step::Agg,
+                    Function::Exec,
+                    exec_elapsed.as_secs_f64(),
+                );
 
+            let stark_prove_start = std::time::Instant::now();
             stark_prove(
                 &ctx.agg_struct,
                 &prove_data_cache.agg_cache.piljson_file,
@@ -197,10 +250,32 @@ impl Prover<AggContext> for AggProver {
                 &prev_zkin_out,
                 "",
             )?;
+            let stark_prove_elapsed = stark_prove_start.elapsed();
+            metrics::PROMETHEUS_METRICS
+                .lock()
+                .unwrap()
+                .observe_prover_processing_time_histogram(
+                    "0".to_string(),
+                    "0".to_string(),
+                    Step::Agg,
+                    Function::StarkProve,
+                    stark_prove_elapsed.as_secs_f64(),
+                );
         }
         std::fs::copy(prev_zkin_out, sp.zkin.clone())?;
 
         log::info!("end aggregate prove");
+        let prove_elapsed = prove_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_histogram(
+                "0".to_string(),
+                "0".to_string(),
+                Step::Agg,
+                Function::Total,
+                prove_elapsed.as_secs_f64(),
+            );
         Ok(())
     }
 }
