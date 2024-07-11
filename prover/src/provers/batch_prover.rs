@@ -5,6 +5,8 @@ use anyhow::Result;
 use powdr::number::{FieldElement, GoldilocksField};
 
 use dsl_compile::circom_compiler;
+use metrics::Batch::BatchStark;
+use metrics::{Batch, Function, Step};
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
 use std::{fs, io::Read};
@@ -23,6 +25,7 @@ impl Prover<BatchContext> for BatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
     fn prove(&self, ctx: &BatchContext) -> Result<()> {
         log::info!("start batch prove, ctx: {:?}", ctx);
+        let prove_start = std::time::Instant::now();
         // 1. stark prove: generate `.circom` file.
         let batch_stark = &ctx.batch_stark;
         let batch_circom = &ctx.batch_circom;
@@ -94,6 +97,7 @@ impl Prover<BatchContext> for BatchProver {
         )?;
 
         log::info!("batch proof: compress setup");
+        let setup_start = std::time::Instant::now();
         setup(
             &batch_stark.r1cs_file,
             &batch_stark.pil_file,
@@ -101,8 +105,18 @@ impl Prover<BatchContext> for BatchProver {
             &batch_stark.exec_file,
             0,
         )?;
+        let setup_elapsed = setup_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Batch(Batch::BatchStark),
+                Function::Setup,
+                setup_elapsed.as_secs_f64(),
+            );
 
         log::info!("batch proof. compress exec");
+        let exec_start = std::time::Instant::now();
         exec(
             &batch_stark.zkin,
             &batch_stark.wasm_file,
@@ -110,8 +124,18 @@ impl Prover<BatchContext> for BatchProver {
             &batch_stark.exec_file,
             &batch_stark.commit_file,
         )?;
+        let exec_elapsed = exec_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Batch(BatchStark),
+                Function::Exec,
+                exec_elapsed.as_secs_f64(),
+            );
 
         // 3. stark prove
+        let stark_prove_start = std::time::Instant::now();
         stark_prove(
             &ctx.batch_struct,
             &batch_stark.piljson,
@@ -125,6 +149,15 @@ impl Prover<BatchContext> for BatchProver {
             "",
         )?;
         log::info!("end batch prove");
+        let stark_prove_elapsed = stark_prove_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Batch(BatchStark),
+                Function::StarkProve,
+                stark_prove_elapsed.as_secs_f64(),
+            );
 
         log::info!("start c12 prove: {:?}", c12_stark);
 
@@ -139,6 +172,7 @@ impl Prover<BatchContext> for BatchProver {
             false, // reduced_simplification
         )?;
 
+        let c12_setup_start = std::time::Instant::now();
         setup(
             &c12_stark.r1cs_file,
             &c12_stark.pil_file,
@@ -146,8 +180,18 @@ impl Prover<BatchContext> for BatchProver {
             &c12_stark.exec_file,
             ctx.force_bits,
         )?;
+        let c12_setup_elapsed = c12_setup_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Batch(Batch::C12Stark),
+                Function::Setup,
+                c12_setup_elapsed.as_secs_f64(),
+            );
 
         log::info!("c12 proof: compress exec");
+        let c12_exec_start = std::time::Instant::now();
         exec(
             &c12_stark.zkin,
             &c12_stark.wasm_file,
@@ -155,8 +199,19 @@ impl Prover<BatchContext> for BatchProver {
             &c12_stark.exec_file,
             &c12_stark.commit_file,
         )?;
+        let c12_exec_elapsed = c12_exec_start.elapsed();
+        log::info!("c12 proof: compress exec elapsed: {:?}", c12_exec_elapsed);
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Batch(Batch::C12Stark),
+                Function::Exec,
+                c12_exec_elapsed.as_secs_f64(),
+            );
 
         // 3. stark prove
+        let c12_stark_prove_start = std::time::Instant::now();
         stark_prove(
             &ctx.c12_struct,
             &c12_stark.piljson,
@@ -169,8 +224,26 @@ impl Prover<BatchContext> for BatchProver {
             &r1_stark.zkin,
             "",
         )?;
+        let c12_stark_prove_elapsed = c12_stark_prove_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Batch(Batch::C12Stark),
+                Function::StarkProve,
+                c12_stark_prove_elapsed.as_secs_f64(),
+            );
 
         log::info!("end c12 prove");
+        let prove_elapsed = prove_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Batch(BatchStark),
+                Function::Total,
+                prove_elapsed.as_secs_f64(),
+            );
         Ok(())
     }
 }

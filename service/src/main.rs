@@ -1,6 +1,7 @@
 #![allow(clippy::large_enum_variant)]
 #![allow(dead_code)]
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tonic::transport::Server;
 mod batch_prover_service;
@@ -88,6 +89,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("Prover service Listening on {}", addr);
 
     log::info!("BatchProverScheduler service Listening on {}", addr);
+
+    let prometheus_port = std::env::var("PROMETHEUS_ADDR").unwrap_or("0.0.0.0:33032".to_string());
+    let prometheus_addr: SocketAddr = prometheus_port.parse().expect("Invalid socket address");
+
+    tokio::spawn(async move { metrics::launch_prometheus(prometheus_addr).await });
+
     let prover_request_handler =
         Arc::new(prover_service::ProverRequestHandler::new(executor_base_dir));
     let prover_server = ProverServiceSVC::new(prover_request_handler);

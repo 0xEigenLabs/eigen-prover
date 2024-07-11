@@ -5,6 +5,7 @@ use crate::contexts::{CacheStage, SnarkFileType, StarkFileType};
 use anyhow::Result;
 use dsl_compile::circom_compiler;
 use groth16::api::{groth16_prove, groth16_setup, groth16_verify};
+use metrics::{Function, Step};
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
 
@@ -20,6 +21,7 @@ impl FinalProver {
 impl Prover<FinalContext> for FinalProver {
     fn prove(&self, ctx: &FinalContext) -> Result<()> {
         log::info!("start final_stark prove, ctx: {:?}", ctx);
+        let prove_start = std::time::Instant::now();
         let mut prove_data_cache = ctx.prove_data_cache.lock().unwrap();
 
         // 1. compress setup
@@ -30,6 +32,7 @@ impl Prover<FinalContext> for FinalProver {
 
         let mut cached_files = vec![];
 
+        let setup_start = std::time::Instant::now();
         if !prove_data_cache.final_cache.already_cached {
             circom_compiler(
                 rc2.circom_file.clone(),
@@ -68,12 +71,22 @@ impl Prover<FinalContext> for FinalProver {
             ]);
             prove_data_cache.batch_add(cached_files.clone())?;
         }
+        let setup_elapsed = setup_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Final,
+                Function::Setup,
+                setup_elapsed.as_secs_f64(),
+            );
 
         log::info!("2. compress exec");
         // let wasm_file = format!(
         //     "{}/{}.recursive2_js/{}.recursive2.wasm",
         //     cc.output, ctx.task_name, ctx.task_name
         // );
+        let exec_start = std::time::Instant::now();
         exec(
             &r2.zkin,
             &prove_data_cache.final_cache.wasm_file,
@@ -81,8 +94,18 @@ impl Prover<FinalContext> for FinalProver {
             &prove_data_cache.final_cache.exec_file,
             &r2.commit_file,
         )?;
+        let exec_elapsed = exec_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Final,
+                Function::Exec,
+                exec_elapsed.as_secs_f64(),
+            );
 
         log::info!("3. generate final proof");
+        let stark_prove_start = std::time::Instant::now();
         stark_prove(
             &ctx.final_stark_struct,
             &prove_data_cache.final_cache.piljson_file,
@@ -95,6 +118,15 @@ impl Prover<FinalContext> for FinalProver {
             &sp.zkin,
             &ctx.prover_addr,
         )?;
+        let stark_prove_elapsed = stark_prove_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Final,
+                Function::StarkProve,
+                stark_prove_elapsed.as_secs_f64(),
+            );
 
         log::info!("end final stark prove");
         let args = &ctx.final_snark;
@@ -146,6 +178,15 @@ impl Prover<FinalContext> for FinalProver {
             &args.proof_file,
         )?;
 
+        let prove_elapsed = prove_start.elapsed();
+        metrics::PROMETHEUS_METRICS
+            .lock()
+            .unwrap()
+            .observe_prover_processing_time_gauge(
+                Step::Final,
+                Function::Total,
+                prove_elapsed.as_secs_f64(),
+            );
         log::info!("end snark prove");
         Ok(())
     }
