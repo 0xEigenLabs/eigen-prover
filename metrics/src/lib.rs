@@ -30,7 +30,8 @@ pub mod batch_processing_time_histogram_labels {
     pub const LABELS_BLOCK_NUMBER: &str = "block_number";
     pub const LABELS_CHUNK_ID: &str = "chunk_id";
     pub const LABELS_STEP: &str = "step";
-    pub const LABELS_STEP_BATCH: &str = "step_batch";
+    pub const LABELS_STEP_BATCH_STARK: &str = "step_batch_stark";
+    pub const LABELS_STEP_BATCH_C12_STARK: &str = "step_batch_c12_stark";
     pub const LABELS_STEP_AGG: &str = "step_agg";
     pub const LABELS_STEP_FINAL: &str = "step_final";
     pub const LABELS_FUNCTION: &str = "function";
@@ -48,15 +49,27 @@ pub enum BatchProcessingTimeHistogramLabels {
 }
 
 pub enum Step {
-    Batch,
+    Batch(Batch),
     Agg,
     Final,
+}
+
+pub enum Batch {
+    BatchStark,
+    C12Stark,
 }
 
 impl From<Step> for String {
     fn from(value: Step) -> Self {
         match value {
-            Step::Batch => batch_processing_time_histogram_labels::LABELS_STEP_BATCH.to_string(),
+            Step::Batch(value) => match value {
+                Batch::BatchStark => {
+                    batch_processing_time_histogram_labels::LABELS_STEP_BATCH_STARK.to_string()
+                }
+                Batch::C12Stark => {
+                    batch_processing_time_histogram_labels::LABELS_STEP_BATCH_STARK.to_string()
+                }
+            },
             Step::Agg => batch_processing_time_histogram_labels::LABELS_STEP_AGG.to_string(),
             Step::Final => batch_processing_time_histogram_labels::LABELS_STEP_FINAL.to_string(),
         }
@@ -101,8 +114,6 @@ impl PrometheusMetrics {
             .namespace("eigen_prover")
             .const_label("type", "gauge"),
             &[
-                batch_processing_time_gauge_labels::LABELS_BLOCK_NUMBER,
-                batch_processing_time_gauge_labels::LABELS_CHUNK_ID,
                 batch_processing_time_gauge_labels::LABELS_STEP,
                 batch_processing_time_gauge_labels::LABELS_FUNCTION,
             ],
@@ -117,8 +128,6 @@ impl PrometheusMetrics {
             .namespace("eigen_prover")
             .const_label("type", "histogram"),
             &[
-                batch_processing_time_histogram_labels::LABELS_BLOCK_NUMBER,
-                batch_processing_time_histogram_labels::LABELS_CHUNK_ID,
                 batch_processing_time_histogram_labels::LABELS_STEP,
                 batch_processing_time_histogram_labels::LABELS_FUNCTION,
             ],
@@ -138,30 +147,16 @@ impl PrometheusMetrics {
         })
     }
 
-    pub fn observe_prover_processing_time_gauge(
-        &self,
-        block_number: String,
-        chunk_id: String,
-        step: Step,
-        function: Function,
-        value: f64,
-    ) {
+    pub fn observe_prover_processing_time_gauge(&self, step: Step, function: Function, value: f64) {
         let step_string: String = step.into();
         let function_string: String = function.into();
         self.prover_processing_time_gauge
-            .with_label_values(&[
-                &block_number,
-                &chunk_id,
-                step_string.as_str(),
-                function_string.as_str(),
-            ])
+            .with_label_values(&[step_string.as_str(), function_string.as_str()])
             .set(value);
     }
 
-    pub fn observe_prover_processing_time_histogram(
+    pub fn _observe_prover_processing_time_histogram(
         &self,
-        block_number: String,
-        chunk_id: String,
         step: Step,
         function: Function,
         value: f64,
@@ -169,12 +164,7 @@ impl PrometheusMetrics {
         let step_string: String = step.into();
         let function_string: String = function.into();
         self.prover_processing_time_histogram
-            .with_label_values(&[
-                &block_number,
-                &chunk_id,
-                step_string.as_str(),
-                function_string.as_str(),
-            ])
+            .with_label_values(&[step_string.as_str(), function_string.as_str()])
             .observe(value);
     }
 }
@@ -256,25 +246,21 @@ mod tests {
             .lock()
             .unwrap()
             .observe_prover_processing_time_gauge(
-                "0000000001".to_string(),
-                "1".to_string(),
-                Step::Batch,
+                Step::Batch(Batch::BatchStark),
                 Function::Setup,
                 1.0,
             );
         PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0000000001".to_string(),
-                "1".to_string(),
-                Step::Batch,
+            ._observe_prover_processing_time_histogram(
+                Step::Batch(Batch::BatchStark),
                 Function::Setup,
                 1.0,
             );
 
         let prometheus_port =
-            std::env::var("PROMETHEUS_ADDR").unwrap_or("0.0.0.0:33032".to_string());
+            std::env::var("PROMETHEUS_ADDR").unwrap_or("0.0.0.0:43032".to_string());
         let prometheus_addr: SocketAddr = prometheus_port.parse().expect("Invalid socket address");
         // let prometheus_addr = ([127, 0, 0, 1], 33032).into();
         tokio::spawn(async move {
@@ -300,30 +286,32 @@ mod tests {
         let body_content = str::from_utf8(&body_bytes).unwrap();
 
         println!("Response body: {}", body_content);
-        // # HELP eigen_prover_prover_processing_time_gauge Prover processing time in seconds
+        // Response body: # HELP eigen_prover_prover_processing_time_gauge Prover processing time in seconds
         // # TYPE eigen_prover_prover_processing_time_gauge gauge
-        // eigen_prover_prover_processing_time_gauge{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="gauge"} 1
+        // eigen_prover_prover_processing_time_gauge{function="function_setup",step="step_batch_stark",type="gauge"} 1
         // # HELP eigen_prover_prover_processing_time_histogram Prover processing time in seconds
         // # TYPE eigen_prover_prover_processing_time_histogram histogram
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="0.005"} 0
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="0.01"} 0
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="0.025"} 0
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="0.05"} 0
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="0.1"} 0
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="0.25"} 0
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="0.5"} 0
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="1"} 1
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="2.5"} 1
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="5"} 1
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="10"} 1
-        // eigen_prover_prover_processing_time_histogram_bucket{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram",le="+Inf"} 1
-        // eigen_prover_prover_processing_time_histogram_sum{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram"} 1
-        // eigen_prover_prover_processing_time_histogram_count{block_number="0000000001",chunk_id="1",function="function_setup",step="step_batch",type="histogram"} 1
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="0.005"} 0
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="0.01"} 0
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="0.025"} 0
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="0.05"} 0
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="0.1"} 0
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="0.25"} 0
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="0.5"} 0
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="1"} 1
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="2.5"} 1
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="5"} 1
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="10"} 1
+        // eigen_prover_prover_processing_time_histogram_bucket{function="function_setup",step="step_batch_stark",type="histogram",le="+Inf"} 1
+        // eigen_prover_prover_processing_time_histogram_sum{function="function_setup",step="step_batch_stark",type="histogram"} 1
+        // eigen_prover_prover_processing_time_histogram_count{function="function_setup",step="step_batch_stark",type="histogram"} 1
 
-        let expect_gauge = "eigen_prover_prover_processing_time_gauge{block_number=\"0000000001\",chunk_id=\"1\",function=\"function_setup\",step=\"step_batch\",type=\"gauge\"} 1";
+        // eigen_prover_prover_processing_time_gauge{function="function_setup",step="step_batch_stark",type="gauge"} 1
+        let expect_gauge = "eigen_prover_prover_processing_time_gauge{function=\"function_setup\",step=\"step_batch_stark\",type=\"gauge\"} 1";
         assert!(body_content.contains(expect_gauge));
 
-        let expect_histogram_sum = "eigen_prover_prover_processing_time_histogram_sum{block_number=\"0000000001\",chunk_id=\"1\",function=\"function_setup\",step=\"step_batch\",type=\"histogram\"} 1";
+        // eigen_prover_prover_processing_time_histogram_sum{function="function_setup",step="step_batch_stark",type="histogram"} 1
+        let expect_histogram_sum = "eigen_prover_prover_processing_time_histogram_sum{function=\"function_setup\",step=\"step_batch_stark\",type=\"histogram\"} 1";
         assert!(body_content.contains(expect_histogram_sum));
     }
 }

@@ -5,7 +5,8 @@ use anyhow::Result;
 use powdr::number::{FieldElement, GoldilocksField};
 
 use dsl_compile::circom_compiler;
-use metrics::{Function, Step};
+use metrics::Batch::BatchStark;
+use metrics::{Batch, Function, Step};
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
 use std::{fs, io::Read};
@@ -108,10 +109,8 @@ impl Prover<BatchContext> for BatchProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                ctx.task_id.clone(),
-                ctx.chunk_id.clone(),
-                Step::Batch,
+            .observe_prover_processing_time_gauge(
+                Step::Batch(Batch::BatchStark),
                 Function::Setup,
                 setup_elapsed.as_secs_f64(),
             );
@@ -129,10 +128,8 @@ impl Prover<BatchContext> for BatchProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                ctx.task_id.clone(),
-                ctx.chunk_id.clone(),
-                Step::Batch,
+            .observe_prover_processing_time_gauge(
+                Step::Batch(BatchStark),
                 Function::Exec,
                 exec_elapsed.as_secs_f64(),
             );
@@ -156,10 +153,8 @@ impl Prover<BatchContext> for BatchProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                ctx.task_id.clone(),
-                ctx.chunk_id.clone(),
-                Step::Batch,
+            .observe_prover_processing_time_gauge(
+                Step::Batch(BatchStark),
                 Function::StarkProve,
                 stark_prove_elapsed.as_secs_f64(),
             );
@@ -189,10 +184,8 @@ impl Prover<BatchContext> for BatchProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                ctx.task_id.clone(),
-                ctx.chunk_id.clone(),
-                Step::Batch,
+            .observe_prover_processing_time_gauge(
+                Step::Batch(Batch::C12Stark),
                 Function::Setup,
                 c12_setup_elapsed.as_secs_f64(),
             );
@@ -207,13 +200,12 @@ impl Prover<BatchContext> for BatchProver {
             &c12_stark.commit_file,
         )?;
         let c12_exec_elapsed = c12_exec_start.elapsed();
+        log::info!("c12 proof: compress exec elapsed: {:?}", c12_exec_elapsed);
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                ctx.task_id.clone(),
-                ctx.chunk_id.clone(),
-                Step::Batch,
+            .observe_prover_processing_time_gauge(
+                Step::Batch(Batch::C12Stark),
                 Function::Exec,
                 c12_exec_elapsed.as_secs_f64(),
             );
@@ -236,10 +228,8 @@ impl Prover<BatchContext> for BatchProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                ctx.task_id.clone(),
-                ctx.chunk_id.clone(),
-                Step::Batch,
+            .observe_prover_processing_time_gauge(
+                Step::Batch(Batch::C12Stark),
                 Function::StarkProve,
                 c12_stark_prove_elapsed.as_secs_f64(),
             );
@@ -249,10 +239,8 @@ impl Prover<BatchContext> for BatchProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                ctx.task_id.clone(),
-                ctx.chunk_id.clone(),
-                Step::Batch,
+            .observe_prover_processing_time_gauge(
+                Step::Batch(BatchStark),
                 Function::Total,
                 prove_elapsed.as_secs_f64(),
             );

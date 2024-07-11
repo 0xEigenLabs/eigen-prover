@@ -75,9 +75,7 @@ impl Prover<FinalContext> for FinalProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0".to_string(),
-                "0".to_string(),
+            .observe_prover_processing_time_gauge(
                 Step::Final,
                 Function::Setup,
                 setup_elapsed.as_secs_f64(),
@@ -100,9 +98,7 @@ impl Prover<FinalContext> for FinalProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0".to_string(),
-                "0".to_string(),
+            .observe_prover_processing_time_gauge(
                 Step::Final,
                 Function::Exec,
                 exec_elapsed.as_secs_f64(),
@@ -126,9 +122,7 @@ impl Prover<FinalContext> for FinalProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0".to_string(),
-                "0".to_string(),
+            .observe_prover_processing_time_gauge(
                 Step::Final,
                 Function::StarkProve,
                 stark_prove_elapsed.as_secs_f64(),
@@ -188,9 +182,7 @@ impl Prover<FinalContext> for FinalProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0".to_string(),
-                "0".to_string(),
+            .observe_prover_processing_time_gauge(
                 Step::Final,
                 Function::Total,
                 prove_elapsed.as_secs_f64(),

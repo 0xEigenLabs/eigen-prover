@@ -138,9 +138,7 @@ impl Prover<AggContext> for AggProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0".to_string(),
-                "0".to_string(),
+            .observe_prover_processing_time_gauge(
                 Step::Agg,
                 Function::Setup,
                 setup_elapsed.as_secs_f64(),
@@ -161,9 +159,7 @@ impl Prover<AggContext> for AggProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0".to_string(),
-                "0".to_string(),
+            .observe_prover_processing_time_gauge(
                 Step::Agg,
                 Function::Exec,
                 exec_elapsed.as_secs_f64(),
@@ -194,9 +190,7 @@ impl Prover<AggContext> for AggProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0".to_string(),
-                "0".to_string(),
+            .observe_prover_processing_time_gauge(
                 Step::Agg,
                 Function::StarkProve,
                 stark_prove_elapsed.as_secs_f64(),
@@ -229,9 +223,7 @@ impl Prover<AggContext> for AggProver {
             metrics::PROMETHEUS_METRICS
                 .lock()
                 .unwrap()
-                .observe_prover_processing_time_histogram(
-                    "0".to_string(),
-                    "0".to_string(),
+                .observe_prover_processing_time_gauge(
                     Step::Agg,
                     Function::Exec,
                     exec_elapsed.as_secs_f64(),
@@ -254,9 +246,7 @@ impl Prover<AggContext> for AggProver {
             metrics::PROMETHEUS_METRICS
                 .lock()
                 .unwrap()
-                .observe_prover_processing_time_histogram(
-                    "0".to_string(),
-                    "0".to_string(),
+                .observe_prover_processing_time_gauge(
                     Step::Agg,
                     Function::StarkProve,
                     stark_prove_elapsed.as_secs_f64(),
@@ -269,9 +259,7 @@ impl Prover<AggContext> for AggProver {
         metrics::PROMETHEUS_METRICS
             .lock()
             .unwrap()
-            .observe_prover_processing_time_histogram(
-                "0".to_string(),
-                "0".to_string(),
+            .observe_prover_processing_time_gauge(
                 Step::Agg,
                 Function::Total,
                 prove_elapsed.as_secs_f64(),
