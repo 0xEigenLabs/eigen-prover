@@ -45,7 +45,7 @@ fn integration_test() -> anyhow::Result<()> {
     let task5 = pipeline
         .final_prove(
             task4,
-            curve_name.clone().into(),
+            curve_name.clone(),
             "273030697313060285579891744179749754319274977764".into(),
         )
         .unwrap();
@@ -61,7 +61,7 @@ fn integration_test() -> anyhow::Result<()> {
     let task7 = pipeline
         .final_prove(
             task6,
-            curve_name.into(),
+            curve_name,
             "273030697313060285579891744179749754319274977764".into(),
         )
         .unwrap();
