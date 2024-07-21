@@ -6,6 +6,7 @@ use prover::pipeline::Pipeline;
 #[ignore = "slow"]
 fn integration_test() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
+    let curve_name = env::var("CURVE_NAME").unwrap_or("BN128".to_string());
 
     // init pipeline.
     let mut pipeline = Pipeline::new(
@@ -44,7 +45,7 @@ fn integration_test() -> anyhow::Result<()> {
     let task5 = pipeline
         .final_prove(
             task4,
-            "BN128".into(),
+            curve_name.clone(),
             "273030697313060285579891744179749754319274977764".into(),
         )
         .unwrap();
@@ -60,7 +61,7 @@ fn integration_test() -> anyhow::Result<()> {
     let task7 = pipeline
         .final_prove(
             task6,
-            "BN128".into(),
+            curve_name,
             "273030697313060285579891744179749754319274977764".into(),
         )
         .unwrap();
