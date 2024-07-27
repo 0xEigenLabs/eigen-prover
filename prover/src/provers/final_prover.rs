@@ -1,10 +1,21 @@
+use std::default;
+
 use super::Prover;
 use crate::contexts::FinalContext;
+use crate::contexts::{initialize_global_cache, SnarkCache, GLOBAL_SNARK_CACHE};
 use crate::contexts::{CacheStage, SnarkFileType, StarkFileType};
 
+use algebraic::circom_circuit::CircomCircuit;
+use algebraic::reader::load_r1cs;
 use anyhow::Result;
 use dsl_compile::circom_compiler;
-use groth16::api::{groth16_prove, groth16_setup, groth16_verify};
+use groth16::api::{
+    groth16_prove, groth16_prove_inplace, groth16_setup_inplace, groth16_verify_inplace,
+    SetupResult,
+};
+use groth16::bellman_ce::bls12_381::Bls12;
+use groth16::bellman_ce::groth16::{Parameters, VerifyingKey};
+use groth16::json_utils::serialize_vk;
 use metrics::{Function, Step};
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
@@ -141,13 +152,23 @@ impl Prover<FinalContext> for FinalProver {
                 false,
                 false,
             )?;
-            groth16_setup(
-                &args.curve_type,
-                &sp.r1cs_file,
-                &args.pk_file,
-                &args.vk_file,
-                false,
-            )?;
+
+            let setup_result = groth16_setup_inplace(&args.curve_type, &sp.r1cs_file).unwrap();
+
+            match setup_result {
+                SetupResult::BLS12381(circuit, pk, vk) => {
+                    let writer = std::fs::File::create(&args.pk_file)?;
+                    let _ = pk.write(writer);
+                    let vk_json = serialize_vk(&vk, &args.curve_type, false)?;
+                    std::fs::write(&args.vk_file, vk_json)?;
+                }
+                SetupResult::BN128(circuit, pk, vk) => {
+                    let writer = std::fs::File::create(&args.pk_file)?;
+                    let _ = pk.write(writer);
+                    let vk_json = serialize_vk(&vk, &args.curve_type, false)?;
+                    std::fs::write(&args.vk_file, vk_json)?;
+                }
+            };
 
             cached_files.extend_from_slice(&[
                 (sp.wasm_file.clone(), CacheStage::Snark(SnarkFileType::Wasm)),
@@ -160,23 +181,58 @@ impl Prover<FinalContext> for FinalProver {
 
         let curve_cache = &prove_data_cache.snark_cache;
 
-        groth16_prove(
+        initialize_global_cache(
             &args.curve_type,
-            &curve_cache.r1cs_file,
-            &curve_cache.wasm_file,
-            &curve_cache.pk_file,
-            &sp.zkin,
-            &args.public_input_file,
-            &args.proof_file,
-            false,
-        )?;
+            &sp.r1cs_file,
+            &args.pk_file,
+            &args.vk_file,
+        );
+        let snark_cache = GLOBAL_SNARK_CACHE.read();
 
-        groth16_verify(
-            &args.curve_type,
-            &curve_cache.vk_file,
-            &args.public_input_file,
-            &args.proof_file,
-        )?;
+        if let Some(snark_cache) = &*snark_cache {
+            match snark_cache {
+                SnarkCache::Bn256(cache_data) => {
+                    groth16_prove_inplace(
+                        &args.curve_type,
+                        cache_data.circuit.clone(),
+                        &curve_cache.wasm_file,
+                        cache_data.pk.clone(),
+                        &sp.zkin,
+                        &args.public_input_file,
+                        &args.proof_file,
+                        false,
+                    )
+                    .unwrap();
+
+                    groth16_verify_inplace(
+                        &args.curve_type,
+                        cache_data.vk,
+                        &args.public_input_file,
+                        &args.proof_file,
+                    )?;
+                }
+                SnarkCache::Bls12(cache_data) => {
+                    groth16_prove_inplace(
+                        &args.curve_type,
+                        cache_data.circuit.clone(),
+                        &curve_cache.wasm_file,
+                        cache_data.pk.clone(),
+                        &sp.zkin,
+                        &args.public_input_file,
+                        &args.proof_file,
+                        false,
+                    )
+                    .unwrap();
+
+                    groth16_verify_inplace(
+                        &args.curve_type,
+                        cache_data.vk,
+                        &args.public_input_file,
+                        &args.proof_file,
+                    )?;
+                }
+            }
+        }
 
         let prove_elapsed = prove_start.elapsed();
         metrics::PROMETHEUS_METRICS
