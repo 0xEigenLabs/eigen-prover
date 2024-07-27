@@ -153,22 +153,13 @@ impl Prover<FinalContext> for FinalProver {
                 false,
             )?;
 
-            let setup_result = groth16_setup_inplace(&args.curve_type, &sp.r1cs_file).unwrap();
-
-            match setup_result {
-                SetupResult::BLS12381(circuit, pk, vk) => {
-                    let writer = std::fs::File::create(&args.pk_file)?;
-                    let _ = pk.write(writer);
-                    let vk_json = serialize_vk(&vk, &args.curve_type, false)?;
-                    std::fs::write(&args.vk_file, vk_json)?;
-                }
-                SetupResult::BN128(circuit, pk, vk) => {
-                    let writer = std::fs::File::create(&args.pk_file)?;
-                    let _ = pk.write(writer);
-                    let vk_json = serialize_vk(&vk, &args.curve_type, false)?;
-                    std::fs::write(&args.vk_file, vk_json)?;
-                }
-            };
+            groth16_setup(
+                &args.curve_type,
+                &sp.r1cs_file,
+                &args.pk_file,
+                &args.vk_file,
+                false,
+            )?;
 
             cached_files.extend_from_slice(&[
                 (sp.wasm_file.clone(), CacheStage::Snark(SnarkFileType::Wasm)),
