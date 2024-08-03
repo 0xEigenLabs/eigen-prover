@@ -58,9 +58,8 @@ impl Pipeline {
         let force_bits = force_bits
             .parse::<usize>()
             .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
-        log::info!("proof: compress setup, force_bits {force_bits}");
+        log::info!("pipeline: compress setup force_bits {force_bits}");
 
-        // TODO: recover tasks from basedir
         Pipeline {
             basedir: basedir.clone(),
             queue: VecDeque::new(),

@@ -48,15 +48,21 @@ impl FinalContext {
             final_stark: StarkProveArgs::new(&basedir, &prev_task_path, &final_task_name, &curve),
             recursive2_stark: StarkProveArgs::new(&basedir, &prev_task_path, &r2_task_name, &curve),
             final_circom: CircomCompileArgs::new(
+                "",
                 &basedir,
-                &prev_task_path,
                 &final_task_name,
+                &prev_task_path,
+                "",
+                0,
                 &curve,
             ),
             recursive2_circom: CircomCompileArgs::new(
+                "",
                 &basedir,
-                &prev_task_path,
                 &r2_task_name,
+                &prev_task_path,
+                "",
+                0,
                 "GL",
             ),
             final_snark: FinalProveArgs {

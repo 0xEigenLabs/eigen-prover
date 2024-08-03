@@ -17,9 +17,10 @@ pub struct AggContext {
     pub input: String,
     pub input2: String,
     pub task_name: String,
+    pub r2_task_name: String,
     pub prove_data_cache: Arc<Mutex<ProveDataCache>>,
-
     pub force_bits: usize,
+    pub task_path: String,
 }
 
 impl AggContext {
@@ -36,14 +37,17 @@ impl AggContext {
         let r2_task_name = format!("{}.recursive2", task_name);
 
         AggContext {
+            task_path: task_path.clone(),
             basedir: basedir.to_string(),
             task_name: task_name.to_string(),
             input,
             input2,
+            agg_stark: StarkProveArgs::new(basedir, &task_path, &r2_task_name, "GL"),
+            agg_circom: CircomCompileArgs::new("", basedir, &r2_task_name, &task_path, "", 0, "GL"),
+
             agg_zkin: format!("{}/proof/{}/agg_zkin.json", basedir, task_id),
             agg_struct: format!("{}/{}/c12.stark_struct.json", basedir, task_name), // should be same as c12
-            agg_stark: StarkProveArgs::new(basedir, &task_path, &r2_task_name, "GL"),
-            agg_circom: CircomCompileArgs::new(basedir, &task_path, &r2_task_name, "GL"),
+            r2_task_name,
             prove_data_cache,
             force_bits,
         }

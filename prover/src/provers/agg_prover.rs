@@ -27,42 +27,51 @@ impl Prover<AggContext> for AggProver {
         let mut prove_data_cache = ctx.prove_data_cache.lock().unwrap();
 
         // 1. Compile circom circuit to r1cs, and generate witness
+        // FIXME: extract all the proof and verifier from the request.
         let task_id_slice: Vec<_> = ctx.input.split("_chunk_").collect();
         let task_id2_slice: Vec<_> = ctx.input2.split("_chunk_").collect();
         assert_eq!(task_id_slice[0], task_id2_slice[0]);
-
         let start: usize = task_id_slice[1].parse::<usize>().unwrap();
         let end: usize = task_id2_slice[1].parse::<usize>().unwrap();
-        let mut batch_ctx = vec![];
+
+        let mut ids = vec![];
         for i in start..=end {
-            batch_ctx.push(BatchContext::new(
-                &ctx.basedir,
-                task_id_slice[0],
-                &ctx.task_name,
-                &format!("{}", i),
-                "".to_string(), // don't have to init the l2_batch_data when aggregate proof
-                ctx.force_bits,
-            ));
-            log::info!("batch_ctx[{}]: {:?}", i, batch_ctx[i]);
+            let mut f = std::fs::File::open(format!("{}/{}.ids", ctx.task_path, i))?;
+            let mut submachine_id_vec: Vec<usize>= serde_json::from_reader(&f)?;
+            ids.push(submachine_id_vec);
         }
 
-        let sp = &ctx.agg_stark;
+        let mut batch_ctx = vec![];
+        for i in start..=end {
+            let sub_ids = &ids[i - start];
+            for j in sub_ids {
+                batch_ctx.push(BatchContext::new(
+                    &ctx.basedir,
+                    task_id_slice[0],
+                    &ctx.task_name,
+                    &format!("{}", i),
+                    "".to_string(), // don't have to init the l2_batch_data when aggregate proof
+                    ctx.force_bits,
+                ));
+                log::info!("batch_ctx[{}]: {:?}", i, batch_ctx[i]);
+            }
+        }
+
         let cc = &ctx.agg_circom;
 
-        let r1_stark = batch_ctx[0].recursive1_stark.clone();
-        let r1_circom = batch_ctx[0].recursive1_circom.clone();
+        let r1_stark = batch_ctx[0].get_stark(&batch_ctx[0].r1_task_name, 0);
+        let r1_circom = batch_ctx[0].get_circom(&batch_ctx[0].r1_task_name, 0);
 
-        log::info!("agg_stark: {:?}", sp);
         log::info!("agg_circom: {:?}", cc);
 
         let mut cached_files = vec![];
         if !prove_data_cache.agg_cache.already_cached {
             circom_compiler(
-                r1_circom.circom_file.clone(),
+                r1_circom.circom(),
                 "goldilocks".to_string(),
                 "full".to_string(),
                 cc.link_directories.clone(),
-                r1_circom.output.clone(),
+                r1_circom.zkin(),
                 false,
                 false,
             )?;
@@ -181,7 +190,7 @@ impl Prover<AggContext> for AggProver {
             false,
             &prove_data_cache.agg_cache.const_file,
             &r1_stark.commit_file,
-            &cc.circom_file,
+            &cc.circom(),
             &prev_zkin_out,
             "",
         )?;
@@ -206,7 +215,8 @@ impl Prover<AggContext> for AggProver {
                 "{}/proof/{}/batch_proof_{}/{}_input.recursive1.zkin.json",
                 ctx.basedir, task_id_slice[0], i, ctx.task_name,
             );
-            let r_stark = &batch_ctx[i].recursive1_stark;
+            // FIXME
+            let r_stark = &batch_ctx[i].get_stark(&batch_ctx[i].r1_task_name, 0);
 
             log::info!("join {} {} -> {}", prev_zkin_out, zkin, zkin_out);
             join_zkin(&prev_zkin_out, &zkin, &zkin_out)?;
@@ -238,7 +248,7 @@ impl Prover<AggContext> for AggProver {
                 false,
                 &prove_data_cache.agg_cache.const_file,
                 &r_stark.commit_file,
-                &cc.circom_file,
+                &cc.circom(),
                 &prev_zkin_out,
                 "",
             )?;
@@ -252,7 +262,7 @@ impl Prover<AggContext> for AggProver {
                     stark_prove_elapsed.as_secs_f64(),
                 );
         }
-        std::fs::copy(prev_zkin_out, sp.zkin.clone())?;
+        std::fs::copy(prev_zkin_out, cc.zkin())?;
 
         log::info!("end aggregate prove");
         let prove_elapsed = prove_start.elapsed();
