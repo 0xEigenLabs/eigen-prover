@@ -393,6 +393,7 @@ pub async fn batch_process(
     // Ensure the sender is 0x000..000 by default
     let mut transaction_parts = models::TransactionParts {
         sender: Some(Address::default()),
+        to: Some(Address::default()),
         ..Default::default()
     };
 
