@@ -67,11 +67,11 @@ impl Prover<AggContext> for AggProver {
         let mut cached_files = vec![];
         if !prove_data_cache.agg_cache.already_cached {
             circom_compiler(
-                r1_circom.circom(),
+                r1_circom.circom(true),
                 "goldilocks".to_string(),
                 "full".to_string(),
                 cc.link_directories.clone(),
-                r1_circom.zkin(),
+                r1_circom.zkin(true),
                 false,
                 false,
             )?;
@@ -190,7 +190,7 @@ impl Prover<AggContext> for AggProver {
             false,
             &prove_data_cache.agg_cache.const_file,
             &r1_stark.commit_file,
-            &cc.circom(),
+            &cc.circom(true),
             &prev_zkin_out,
             "",
         )?;
@@ -248,7 +248,7 @@ impl Prover<AggContext> for AggProver {
                 false,
                 &prove_data_cache.agg_cache.const_file,
                 &r_stark.commit_file,
-                &cc.circom(),
+                &cc.circom(true),
                 &prev_zkin_out,
                 "",
             )?;
@@ -262,7 +262,7 @@ impl Prover<AggContext> for AggProver {
                     stark_prove_elapsed.as_secs_f64(),
                 );
         }
-        std::fs::copy(prev_zkin_out, cc.zkin())?;
+        std::fs::copy(prev_zkin_out, cc.zkin(true))?;
 
         log::info!("end aggregate prove");
         let prove_elapsed = prove_start.elapsed();

@@ -14,8 +14,8 @@ impl Stage {
     /// get the path of the stage
     pub fn path(&self) -> String {
         match self {
-            Self::Batch(task_id, chunk_id, _) => {
-                format!("proof/{task_id}/batch_proof_{chunk_id}")
+            Self::Batch(task_id, _, _) => {
+                format!("proof/{task_id}/batch_proof")
             }
             Self::Aggregate(task_id, _, _) => format!("proof/{task_id}/agg_proof"),
             Self::Final(task_id, _, _) => format!("proof/{task_id}/snark_proof"),

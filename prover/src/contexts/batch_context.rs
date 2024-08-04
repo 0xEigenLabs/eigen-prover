@@ -81,7 +81,7 @@ impl BatchContext {
 
     pub fn get_stark(&self, name: &str, submachine_id: usize) -> StarkProveArgs {
         StarkProveArgs{
-            commit_file: format!("{}/{}_chunk_{}_submachine_{}/commits.bin",self.program_output, name, self.chunk_id, submachine_id),
+            commit_file: format!("{}/{}_chunk_{}/commits.bin",self.program_output, name, self.chunk_id),
             const_file: format!("{}/constants.bin", self.program_output),
             curve_type: "GL".to_string(),
             exec_file: format!("{}/{}/{}_chunk_{}_submachine_{}.exec",self.basedir, self.task_path, name, self.chunk_id, submachine_id),

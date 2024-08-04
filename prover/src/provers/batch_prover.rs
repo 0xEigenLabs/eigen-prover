@@ -57,6 +57,7 @@ impl Prover<BatchContext> for BatchProver {
         });
         log::debug!("read bootstrap input done");
 
+        /*
         let machine_ids = zkvm_prove_only(
             &ctx.task_name,
             &serde_data,
@@ -66,6 +67,7 @@ impl Prover<BatchContext> for BatchProver {
             &ctx.program_output,
         )?;
         log::debug!("zkvm_prove_only done, machine ids: {:?}", machine_ids);
+        */
         /*
         stark_prove(
             &ctx.batch_struct,
@@ -80,14 +82,15 @@ impl Prover<BatchContext> for BatchProver {
         )?;
         */
         
-        let mut f = std::fs::File::create(format!("{}/{}.ids", ctx.program_output, ctx.chunk_id))?;
-        let id_vec = serde_json::to_vec(&machine_ids)?;
-        f.write_all(&id_vec)?;
+        //let mut f = std::fs::File::create(format!("{}/{}.ids", ctx.program_output, ctx.chunk_id))?;
+        //let id_vec = serde_json::to_vec(&machine_ids)?;
+        //f.write_all(&id_vec)?;
 
+        let machine_ids = (0..17).into_iter();
         for submachine_id in machine_ids {
             let batch_circom = ctx.get_circom(&ctx.task_name, submachine_id);
-            let batch_circom_file = batch_circom.circom();
-            let batch_zkin= batch_circom.zkin();
+            let batch_circom_file = batch_circom.circom(false);
+            let batch_zkin= batch_circom.zkin(false);
 
             log::debug!("circom_compiler: {:?}", batch_circom);
             // 2. Compile circom circuit to r1cs, and generate witness
@@ -96,14 +99,15 @@ impl Prover<BatchContext> for BatchProver {
                 "goldilocks".to_string(), // prime
                 "full".to_string(),       // full_simplification
                 batch_circom.link_directories.clone(),
-                batch_circom.task_path(),
+                batch_circom.circom_output(),
                 false, // no_simplification
                 false, // reduced_simplification
             )?;
 
-            log::info!("batch proof: compress setup");
             let setup_start = std::time::Instant::now();
             let batch_stark = ctx.get_stark(&ctx.task_name, submachine_id);
+            log::info!("batch proof: compress setup, {:?}", batch_stark);
+            
             setup(
                 &batch_stark.r1cs_file,
                 &batch_stark.pil_file,
@@ -111,6 +115,7 @@ impl Prover<BatchContext> for BatchProver {
                 &batch_stark.exec_file,
                 0,
             )?;
+            log::info!("setup done");
             let setup_elapsed = setup_start.elapsed();
             metrics::PROMETHEUS_METRICS
                 .lock()
@@ -152,8 +157,8 @@ impl Prover<BatchContext> for BatchProver {
                 false,
                 &batch_stark.const_file,
                 &batch_stark.commit_file,
-                &c12_circom.circom(),
-                &c12_circom.zkin(),
+                &c12_circom.circom(true),
+                &c12_circom.zkin(true),
                 "",
             )?;
             log::info!("end batch prove");
@@ -169,11 +174,11 @@ impl Prover<BatchContext> for BatchProver {
 
             // 2. Compile circom circuit to r1cs, and generate witness
             circom_compiler(
-                c12_circom.circom(),
+                c12_circom.circom(true),
                 "goldilocks".to_string(), // prime
                 "full".to_string(),       // full_simplification
                 c12_circom.link_directories.clone(),
-                c12_circom.zkin(),
+                c12_circom.zkin(true),
                 false, // no_simplification
                 false, // reduced_simplification
             )?;
@@ -200,7 +205,7 @@ impl Prover<BatchContext> for BatchProver {
             log::info!("c12 proof: compress exec");
             let c12_exec_start = std::time::Instant::now();
             exec(
-                &c12_circom.zkin(),
+                &c12_circom.zkin(true),
                 &c12_stark.wasm_file,
                 &c12_stark.pil_file,
                 &c12_stark.exec_file,
@@ -228,8 +233,8 @@ impl Prover<BatchContext> for BatchProver {
                 true,
                 &c12_stark.const_file,
                 &c12_stark.commit_file,
-                &r1_circom.circom(),
-                &r1_circom.zkin(),
+                &r1_circom.circom(true),
+                &r1_circom.zkin(true),
                 "",
             )?;
             let c12_stark_prove_elapsed = c12_stark_prove_start.elapsed();

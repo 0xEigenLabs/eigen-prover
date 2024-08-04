@@ -6,12 +6,20 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "feat/no-plonby", default-features = false }
-recursion = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "feat/no-plonby", default-features = false }
-groth16 = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "feat/no-plonby", default-features = false  }
-algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "feat/no-plonby", default-features = false }
-dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "feat/no-plonby" }
-zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "feat/no-plonby", default-features = false }
+starky      = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+recursion   = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+groth16     = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false  }
+algebraic   = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+zkvm        = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+
+#starky      = { path = "../../eigen-zkvm/starky" }
+#recursion   = { path = "../../eigen-zkvm/recursion" }
+#groth16     = { path = "../../eigen-zkvm/groth16" }
+#algebraic   = { path = "../../eigen-zkvm/algebraic" }
+#dsl_compile = { path = "../../eigen-zkvm/dsl_compile" } 
+#zkvm        = { path = "../../eigen-zkvm/zkvm" }
+
 metrics = { path = "../metrics" }
 
 powdr = { git = "https://github.com/0xEigenLabs/powdr", branch = "eigen/v1", default-features = false }

@@ -34,16 +34,24 @@ impl CircomCompileArgs {
         }
     }
 
-    pub fn circom(&self) -> String {
-        format!("{}/{}_chunk_{}_submachine_{}.circom", self.program_output, self.task_name, self.chunk_id, self.submachine_id)
+    pub fn circom(&self, use_base: bool) -> String {
+        match use_base {
+            false => format!("{}/{}_chunk_{}_submachine_{}.circom", self.program_output, self.task_name, self.chunk_id, self.submachine_id),
+            true => format!("{}/{}_chunk_{}_submachine_{}.circom", self.base_dir, self.task_name, self.chunk_id, self.submachine_id)
+        }
     }
 
-    pub fn zkin(&self) -> String { 
-            format!("{}/{}_chunk_{}_submachine_{}.json", self.program_output, self.task_name, self.chunk_id, self.submachine_id)
+    pub fn zkin(&self, use_base: bool) -> String { 
+            match use_base {
+                false => format!("{}/{}_chunk_{}_submachine_{}.json", self.program_output, self.task_name, self.chunk_id, self.submachine_id),
+                true => format!("{}/{}_chunk_{}_submachine_{}.json", self.base_dir, self.task_name, self.chunk_id, self.submachine_id)
+            }
     }
 
-    pub fn task_path(&self) -> String {
-        format!("{}/{}/{}", self.base_dir, self.task_path, self.submachine_id)
+    pub fn circom_output(&self) -> String {
+        let path = format!("{}/{}", self.base_dir, self.task_path);
+        std::fs::create_dir_all(&path).unwrap();
+        path
     }
 }
 

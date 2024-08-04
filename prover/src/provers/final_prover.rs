@@ -35,11 +35,11 @@ impl Prover<FinalContext> for FinalProver {
         let setup_start = std::time::Instant::now();
         if !prove_data_cache.final_cache.already_cached {
             circom_compiler(
-                rc2.circom(),
+                rc2.circom(true),
                 "goldilocks".to_string(),
                 "full".to_string(),
                 rc2.link_directories.clone(),
-                rc2.zkin(),
+                rc2.zkin(true),
                 false,
                 false,
             )?;
@@ -88,7 +88,7 @@ impl Prover<FinalContext> for FinalProver {
         // );
         let exec_start = std::time::Instant::now();
         exec(
-            &rc2.zkin(),
+            &rc2.zkin(true),
             &prove_data_cache.final_cache.wasm_file,
             &prove_data_cache.final_cache.pil_file,
             &prove_data_cache.final_cache.exec_file,
@@ -114,8 +114,8 @@ impl Prover<FinalContext> for FinalProver {
             false,
             &prove_data_cache.final_cache.const_file,
             &r2.commit_file,
-            &cc.circom(),
-            &cc.zkin(),
+            &cc.circom(true),
+            &cc.zkin(true),
             &ctx.prover_addr,
         )?;
         let stark_prove_elapsed = stark_prove_start.elapsed();
@@ -133,11 +133,11 @@ impl Prover<FinalContext> for FinalProver {
 
         if !prove_data_cache.snark_cache.already_cached {
             circom_compiler(
-                cc.circom(),
+                cc.circom(true),
                 args.curve_type.to_lowercase(),
                 "full".to_string(),
                 cc.link_directories.clone(),
-                cc.zkin(),
+                cc.zkin(true),
                 false,
                 false,
             )?;
@@ -165,7 +165,7 @@ impl Prover<FinalContext> for FinalProver {
             &curve_cache.r1cs_file,
             &curve_cache.wasm_file,
             &curve_cache.pk_file,
-            &cc.zkin(),
+            &cc.zkin(true),
             &args.public_input_file,
             &args.proof_file,
             false,
