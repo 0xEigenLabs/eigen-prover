@@ -3,7 +3,6 @@ use std::env;
 use prover::pipeline::Pipeline;
 
 #[test]
-#[ignore = "slow"]
 fn integration_test() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
     let curve_name = env::var("CURVE_NAME").unwrap_or("BN128".to_string());
@@ -13,11 +12,13 @@ fn integration_test() -> anyhow::Result<()> {
         env::var("BASEDIR").unwrap_or("data".to_string()),
         env::var("TASK_NAME").unwrap_or("evm".to_string()),
     );
+    log::debug!("read batch data");
     let l2_batch_data = std::fs::read_to_string(
         env::var("SUITE_JSON")
             .unwrap_or("../executor/test-vectors/solidityExample.json".to_string()),
     )
     .unwrap();
+    log::debug!("run task1");
     let task1 = pipeline
         .batch_prove("0".into(), "0".into(), l2_batch_data.clone())
         .unwrap();
@@ -71,7 +72,7 @@ fn integration_test() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "slow"]
+#[ignore = "too slow"]
 fn integration_test_lr() -> anyhow::Result<()> {
     env::set_var("RUST_LOG", "info");
     env_logger::try_init().unwrap_or_default();

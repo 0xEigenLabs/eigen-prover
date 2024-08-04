@@ -393,6 +393,7 @@ pub async fn batch_process(
     // Ensure the sender is 0x000..000 by default
     let mut transaction_parts = models::TransactionParts {
         sender: Some(Address::default()),
+        to: Some(Address::default()),
         ..Default::default()
     };
 
@@ -487,14 +488,14 @@ mod tests {
         let test_file =
             stdenv::var("SUITE_JSON").unwrap_or(String::from("test-vectors/solidityExample.json"));
         let suite_json = fs::read_to_string(test_file).unwrap();
-        let task: String = stdenv::var("TASK").unwrap_or(String::from("evm"));
+        let task: String = stdenv::var("TASK").unwrap_or(String::from("lr"));
         let task_id = "0";
         let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
         let workspace = format!("program/{}", task);
         let bootloader_inputs =
             zkvm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
         let cnt_chunks: usize = bootloader_inputs.len();
-        log::debug!("Generated {} chunks", cnt_chunks);
+        log::info!("Generated {} chunks", cnt_chunks);
         // save the chunks
         let bi_files: Vec<_> = (0..cnt_chunks)
             .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
