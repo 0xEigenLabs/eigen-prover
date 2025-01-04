@@ -28,7 +28,7 @@ impl CircomCompileArgs {
             task_name: task_name.to_string(),
             chunk_id: chunk_id.to_string(),
             link_directories: load_link(curve),
-            base_dir: basedir.to_string(), 
+            base_dir: basedir.to_string(),
             task_path: task_path.to_string(),
             submachine_id,
         }
@@ -36,16 +36,28 @@ impl CircomCompileArgs {
 
     pub fn circom(&self, use_base: bool) -> String {
         match use_base {
-            false => format!("{}/{}_chunk_{}_submachine_{}.circom", self.program_output, self.task_name, self.chunk_id, self.submachine_id),
-            true => format!("{}/{}_chunk_{}_submachine_{}.circom", self.base_dir, self.task_name, self.chunk_id, self.submachine_id)
+            false => format!(
+                "{}/{}_chunk_{}_submachine_{}.circom",
+                self.program_output, self.task_name, self.chunk_id, self.submachine_id
+            ),
+            true => format!(
+                "{}/{}_chunk_{}_submachine_{}.circom",
+                self.base_dir, self.task_name, self.chunk_id, self.submachine_id
+            ),
         }
     }
 
-    pub fn zkin(&self, use_base: bool) -> String { 
-            match use_base {
-                false => format!("{}/{}_chunk_{}_submachine_{}.json", self.program_output, self.task_name, self.chunk_id, self.submachine_id),
-                true => format!("{}/{}_chunk_{}_submachine_{}.json", self.base_dir, self.task_name, self.chunk_id, self.submachine_id)
-            }
+    pub fn zkin(&self, use_base: bool) -> String {
+        match use_base {
+            false => format!(
+                "{}/{}_chunk_{}_submachine_{}.json",
+                self.program_output, self.task_name, self.chunk_id, self.submachine_id
+            ),
+            true => format!(
+                "{}/{}_chunk_{}_submachine_{}.json",
+                self.base_dir, self.task_name, self.chunk_id, self.submachine_id
+            ),
+        }
     }
 
     pub fn circom_output(&self) -> String {

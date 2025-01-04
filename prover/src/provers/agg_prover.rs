@@ -37,7 +37,7 @@ impl Prover<AggContext> for AggProver {
         let mut ids = vec![];
         for i in start..=end {
             let mut f = std::fs::File::open(format!("{}/{}.ids", ctx.task_path, i))?;
-            let mut submachine_id_vec: Vec<usize>= serde_json::from_reader(&f)?;
+            let mut submachine_id_vec: Vec<usize> = serde_json::from_reader(&f)?;
             ids.push(submachine_id_vec);
         }
 
