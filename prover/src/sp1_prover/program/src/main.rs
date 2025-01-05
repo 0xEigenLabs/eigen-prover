@@ -28,17 +28,18 @@ pub fn recover_address(private_key: &[u8]) -> Option<Address> {
 
 pub fn main() {
     // let suite_json: String = io::read(TEST_CHANNEL);
-    let suite: TestUnit = sp1_zkvm::io::read::<TestUnit>();
+    // let suite: TestUnit = sp1_zkvm::io::read::<TestUnit>();
+    let suite_json = sp1_zkvm::io::read::<String>();
     // println!("suite_json: {suite}\n");
-    // let suite = read_suite(&suite_json);
+    let suite = read_suite(&suite_json);
     assert!(execute_test(&suite).is_ok());
 }
 
 // FIXME: serde by runtime.
-// fn read_suite(s: &String) -> TestUnit {
-//     let suite: TestUnit = serde_json::from_str(s).map_err(|e| e).unwrap();
-//     suite
-// }
+fn read_suite(s: &String) -> TestUnit {
+    let suite: TestUnit = serde_json::from_str(s).map_err(|e| e).unwrap();
+    suite
+}
 
 fn execute_test(unit: &TestUnit) -> Result<(), String> {
     // Create database and insert cache
