@@ -22,7 +22,6 @@ impl Prover<BatchContext> for Sp1Prover {
     fn prove(&self, ctx: &BatchContext) -> Result<()> {
         log::info!("start batch prove, ctx: {:?}", ctx);
         let prove_start = std::time::Instant::now();
-        // 1. stark prove: generate `.circom` file.
         // given that the l2batch data has been stored in ctx.l2_data.
         let serde_data = ctx.l2_batch_data.clone();
         // let suite: TestUnit = serde_json::from_str(serde_data.as_str()).map_err(|e| e).unwrap();

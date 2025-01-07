@@ -13,9 +13,8 @@ algebraic   = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "mai
 dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
 zkvm        = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
 
-#sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "563ede179054dbc62186e24583bdcc4a68256799" }
-sp1-build = { git = "https://github.com/succinctlabs/sp1.git", rev = "563ede179054dbc62186e24583bdcc4a68256799" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
 
 #starky      = { path = "../../eigen-zkvm/starky" }
 #recursion   = { path = "../../eigen-zkvm/recursion" }
