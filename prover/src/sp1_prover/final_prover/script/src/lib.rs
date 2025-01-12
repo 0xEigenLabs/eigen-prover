@@ -1,5 +1,5 @@
-//! A script that generates a Groth16 proof for the Fibonacci program, and verifies the
-//! Groth16 proof in SP1.
+use prover::contexts::FinalContext;
+use prover::provers::Prover;
 
 use sp1_sdk::{include_elf, utils, HashableKey, ProverClient, SP1Stdin, SP1ProofWithPublicValues};
 
@@ -28,7 +28,7 @@ impl Prover<FinalContext> for FinalProver {
         utils::setup_logger();
 
         // Create a `ProverClient`.
-        let client = ProverClient::from_env();
+        let client = ProverClient::new();
         let (pk, vk) = client.setup(AGGREGATION_ELF);
 
         let agg_proof = SP1ProofWithPublicValues::load("../../agg_prover/script/agg_proof.bin")?;
@@ -51,14 +51,6 @@ impl Prover<FinalContext> for FinalProver {
         println!("{}", report);
 
         let prove_elapsed = prove_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Final,
-                Function::Total,
-                prove_elapsed.as_secs_f64(),
-            );
         log::info!("end snark prove");
         Ok(())
     }

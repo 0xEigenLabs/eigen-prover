@@ -5,5 +5,5 @@ edition = "2021"
 publish = false
 
 [dependencies]
-sp1-zkvm = { path = "../../../crates/zkvm/entrypoint" }
-sp1-verifier =  { path = "../../../crates/verifier" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
+sp1-verifier = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }

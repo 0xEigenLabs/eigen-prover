@@ -1,5 +1,5 @@
-//! A simple example showing how to aggregate proofs of multiple programs with SP1.
-
+use prover::contexts::AggContext;
+use prover::provers::Prover;
 use sp1_sdk::{
     include_elf, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
     SP1VerifyingKey,
@@ -31,8 +31,9 @@ impl AggProver {
 impl Prover<AggContext> for AggProver {
     fn prove(&self, ctx: &AggContext) -> Result<()> {
         log::info!("start aggregate prove, ctx: {:?}", ctx);
-        let prove_start = std::time::Instant::now();
 
+        let client = ProverClient::new();
+        let (aggregation_pk, _) = client.setup(AGGREGATION_ELF);
         let (_, evm_vk) = client.setup(EVM_ELF);
         let proof_1 = SP1ProofWithPublicValues::load("/mnt/nfs/sy/eigen-prover/prover/src/sp1_prover/script/sp1_proof_68855.bin")?;
         let proof_2 = SP1ProofWithPublicValues::load("/mnt/nfs/sy/eigen-prover/prover/src/sp1_prover/script/sp1_proof_68858.bin")?;
@@ -62,19 +63,10 @@ impl Prover<AggContext> for AggProver {
         }
 
         // Generate the plonk bn254 proof.
-        let agg_proof = client.prove(&aggregation_pk, &stdin).plonk().run().expect("proving failed");
-        agg_proof.save("../agg_proof.bin").expect("saving proof failed");        ;
+        let agg_proof = client.prove(&aggregation_pk, stdin).plonk().run().expect("proving failed");
+        agg_proof.save("../agg_proof.bin").expect("saving proof failed");
 
         log::info!("end aggregate prove");
-        let prove_elapsed = prove_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Agg,
-                Function::Total,
-                prove_elapsed.as_secs_f64(),
-            );
         Ok(())
     }
 }
