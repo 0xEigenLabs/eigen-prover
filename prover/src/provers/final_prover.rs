@@ -2,16 +2,6 @@ use super::Prover;
 use crate::contexts::FinalContext;
 use crate::contexts::{CacheStage, SnarkFileType, StarkFileType};
 
-use sp1_sdk::{
-    include_elf, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
-    SP1VerifyingKey,
-};
-
-/// The ELF for the Groth16 verifier program.
-const GROTH16_ELF: &[u8] = include_elf!("groth16-verifier-program");
-/// A program that aggregates the proofs of the simple program.
-const AGGREGATION_ELF: &[u8] = include_elf!("aggregation-program");
-
 use anyhow::Result;
 use dsl_compile::circom_compiler;
 use groth16::api::{groth16_prove, groth16_setup, groth16_verify};
