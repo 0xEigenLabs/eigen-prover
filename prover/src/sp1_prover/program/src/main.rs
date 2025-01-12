@@ -1,21 +1,20 @@
-#![no_std]
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 use revm::{
     db::CacheState,
     interpreter::CreateScheme,
     primitives::{
-        Address,
-        calc_excess_blob_gas, keccak256, Env, AccountInfo, Bytecode, TransactTo, U256, SpecId
+        calc_excess_blob_gas, keccak256, AccountInfo, Address, Bytecode, Env, SpecId, TransactTo,
+        U256,
     },
 };
 
 use models::*;
 
 extern crate alloc;
-use alloc::vec::Vec;
 use alloc::string::String;
 use alloc::string::ToString;
+use alloc::vec::Vec;
 
 use k256::ecdsa::SigningKey;
 
@@ -28,17 +27,17 @@ pub fn recover_address(private_key: &[u8]) -> Option<Address> {
 
 pub fn main() {
     // let suite_json: String = io::read(TEST_CHANNEL);
-    let suite: TestUnit = sp1_zkvm::io::read::<TestUnit>();
-    // println!("suite_json: {suite}\n");
-    // let suite = read_suite(&suite_json);
+    // let suite: TestUnit = sp1_zkvm::io::read::<TestUnit>();
+    let suite_json = sp1_zkvm::io::read::<String>();
+    let suite = read_suite(&suite_json);
     assert!(execute_test(&suite).is_ok());
 }
 
 // FIXME: serde by runtime.
-// fn read_suite(s: &String) -> TestUnit {
-//     let suite: TestUnit = serde_json::from_str(s).map_err(|e| e).unwrap();
-//     suite
-// }
+fn read_suite(s: &String) -> TestUnit {
+    let suite: TestUnit = serde_json::from_str(s).map_err(|e| e).unwrap();
+    suite
+}
 
 fn execute_test(unit: &TestUnit) -> Result<(), String> {
     // Create database and insert cache
@@ -73,20 +72,21 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
     if let (Some(parent_blob_gas_used), Some(parent_excess_blob_gas)) = (
         unit.env.parent_blob_gas_used,
         unit.env.parent_excess_blob_gas,
-        ) {
+    ) {
         env.block
             .set_blob_excess_gas_and_price(calc_excess_blob_gas(
-                    parent_blob_gas_used.to(),
-                    parent_excess_blob_gas.to(),
-                    ));
+                parent_blob_gas_used.to(),
+                parent_excess_blob_gas.to(),
+            ));
     }
 
     // tx env
     env.tx.caller = match unit.transaction.sender {
-            Some(address) => address,
-            _ => recover_address(unit.transaction.secret_key.as_slice())
-                .ok_or_else(|| String::new())?,
-        };
+        Some(address) => address,
+        _ => {
+            recover_address(unit.transaction.secret_key.as_slice()).ok_or_else(|| String::new())?
+        }
+    };
     env.tx.gas_price = unit
         .transaction
         .gas_price
@@ -101,10 +101,8 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
     for (spec_name, tests) in &unit.post {
         if matches!(
             spec_name,
-            SpecName::ByzantiumToConstantinopleAt5
-            | SpecName::Constantinople
-            | SpecName::Unknown
-            ) {
+            SpecName::ByzantiumToConstantinopleAt5 | SpecName::Constantinople | SpecName::Unknown
+        ) {
             continue;
         }
 
@@ -132,12 +130,12 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
                     (
                         item.address,
                         item.storage_keys
-                        .iter()
-                        .map(|key| U256::from_be_bytes(key.0))
-                        .collect::<Vec<_>>(),
-                        )
+                            .iter()
+                            .map(|key| U256::from_be_bytes(key.0))
+                            .collect::<Vec<_>>(),
+                    )
                 })
-            .collect();
+                .collect();
 
             let to = match unit.transaction.to {
                 Some(add) => TransactTo::Call(add),
@@ -146,21 +144,21 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
             env.tx.transact_to = to;
             let spec_id = spec_name.to_spec_id();
 
-             let mut cache = cache_state.clone();
-                cache.set_state_clear_flag(SpecId::enabled(
-                    spec_id,
-                    revm::primitives::SpecId::SPURIOUS_DRAGON,
-                ));
+            let mut cache = cache_state.clone();
+            cache.set_state_clear_flag(SpecId::enabled(
+                spec_id,
+                revm::primitives::SpecId::SPURIOUS_DRAGON,
+            ));
             let mut state = revm::db::State::builder()
                 .with_cached_prestate(cache)
                 .with_bundle_update()
                 .build();
 
             let mut evm = revm::Evm::builder()
-                    .with_db(&mut state)
-                    .modify_env(|e| *e = env.clone())
-                    .spec_id(spec_id)
-                    .build();
+                .with_db(&mut state)
+                .modify_env(|e| *e = env.clone())
+                .spec_id(spec_id)
+                .build();
 
             // do the deed
             let exec_result = evm.transact_commit();
@@ -188,17 +186,16 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
                     }
                     _ => {
                         let s = exec_result.clone().err().map(|e| e.to_string()).unwrap();
-                        // println!("UNEXPECTED ERROR: {s}");
                         return Err(s);
                     }
                 }
                 Ok(())
             };
 
-                    // dump state and traces if test failed
-                    let Err(e) = check() else { continue };
+            // dump state and traces if test failed
+            let Err(e) = check() else { continue };
 
-                    return Err(e);
+            return Err(e);
         }
     }
     Ok(())

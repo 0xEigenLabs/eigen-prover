@@ -22,22 +22,23 @@ impl Prover<BatchContext> for Sp1Prover {
     fn prove(&self, ctx: &BatchContext) -> Result<()> {
         log::info!("start batch prove, ctx: {:?}", ctx);
         let prove_start = std::time::Instant::now();
-        // 1. stark prove: generate `.circom` file.
-                                              // given that the l2batch data has been stored in ctx.l2_data.
+        // given that the l2batch data has been stored in ctx.l2_data.
         let serde_data = ctx.l2_batch_data.clone();
-        let suite: TestUnit = serde_json::from_str(serde_data.as_str()).map_err(|e| e).unwrap();
+        // let suite: TestUnit = serde_json::from_str(serde_data.as_str()).map_err(|e| e).unwrap();
 
         utils::setup_logger();
         let mut stdin = SP1Stdin::new();
-        stdin.write(&suite);
+        stdin.write(&serde_data);
 
         let client = ProverClient::new();
         let (pk, vk) = client.setup(ELF);
         let mut proof = client.prove(&pk, stdin).run().unwrap();
 
-        // let is_prime = proof.public_values.read::<bool>();
         client.verify(&proof, &vk).expect("verification failed");
-        proof.save("proof-with-is-prime.bin").expect("saving proof failed");
+        log::info!("ctx.program_output: {:?}", ctx.program_output);
+        proof
+            .save(ctx.program_output.clone() + "/sp1_proof.bin")
+            .expect("saving proof failed");
 
         let prove_elapsed = prove_start.elapsed();
         log::info!("prove_elapsed: {:?}", prove_elapsed);
@@ -54,14 +55,14 @@ mod tests {
 
     #[test]
     fn test_sp1_prove() {
-        // env_logger::try_init().unwrap_or_default();
-        //let test_file = "test-vectors/blockInfo.json";
         let sp1_prover = Sp1Prover::new();
-        let test_file =
-            stdenv::var("SUITE_JSON").unwrap_or(String::from("../../../../executor/test-vectors/solidityExample.json"));
+        let test_file = stdenv::var("SUITE_JSON").unwrap_or(String::from(
+            "../../../../executor/test-vectors/solidityExample.json",
+        ));
         let suite_json = fs::read_to_string(test_file).unwrap();
         let mut batch_context = BatchContext::default();
         batch_context.l2_batch_data = suite_json;
+        batch_context.program_output = ".".to_string();
         let _ = sp1_prover.prove(&batch_context);
     }
 }

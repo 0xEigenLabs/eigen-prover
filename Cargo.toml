@@ -5,7 +5,8 @@ members = [
   "executor",
   "prover-scheduler",
   "metrics",
-  "prover/src/sp1_prover/script"
+  "prover/src/sp1_prover/script",
+  "prover/src/sp1_prover/program"
 ]
 
 resolver = "2"
