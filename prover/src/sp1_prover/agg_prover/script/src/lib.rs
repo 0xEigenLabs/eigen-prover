@@ -1,5 +1,7 @@
 use prover::contexts::AggContext;
 use prover::provers::Prover;
+use anyhow::Result;
+
 use sp1_sdk::{
     include_elf, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
     SP1VerifyingKey,
@@ -33,11 +35,11 @@ impl Prover<AggContext> for AggProver {
         log::info!("start aggregate prove, ctx: {:?}", ctx);
 
         let client = ProverClient::new();
-        let (aggregation_pk, _) = client.setup(AGGREGATION_ELF);
+        let (aggregation_pk, aggregation_vk) = client.setup(AGGREGATION_ELF);
         let (_, evm_vk) = client.setup(EVM_ELF);
-        let proof_1 = SP1ProofWithPublicValues::load("/mnt/nfs/sy/eigen-prover/prover/src/sp1_prover/script/sp1_proof_68855.bin")?;
-        let proof_2 = SP1ProofWithPublicValues::load("/mnt/nfs/sy/eigen-prover/prover/src/sp1_prover/script/sp1_proof_68858.bin")?;
-        let agg_input1 = AggregationInput { proof: proof_1, vk: evm_vk};
+        let proof_1 = SP1ProofWithPublicValues::load(ctx.input)?;
+        let proof_2 = SP1ProofWithPublicValues::load(ctx.input2)?;
+        let agg_input1 = AggregationInput { proof: proof_1, vk: evm_vk.clone()};
         let agg_input2 = AggregationInput{ proof: proof_2, vk: evm_vk};
         let inputs = vec![agg_input1, agg_input2];
 
@@ -63,7 +65,7 @@ impl Prover<AggContext> for AggProver {
         }
 
         // Generate the plonk bn254 proof.
-        let agg_proof = client.prove(&aggregation_pk, stdin).plonk().run().expect("proving failed");
+        let agg_proof = client.prove(&aggregation_pk, stdin).groth16().run().expect("proving failed");
         agg_proof.save("../agg_proof.bin").expect("saving proof failed");
 
         log::info!("end aggregate prove");
@@ -74,8 +76,6 @@ impl Prover<AggContext> for AggProver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env as stdenv;
-    use std::fs;
 
     #[test]
     fn test_agg_prove() {

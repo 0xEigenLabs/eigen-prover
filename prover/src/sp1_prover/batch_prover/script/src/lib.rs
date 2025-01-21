@@ -32,7 +32,7 @@ impl Prover<BatchContext> for Sp1Prover {
 
         let client = ProverClient::new();
         let (pk, vk) = client.setup(ELF);
-        let mut proof = client.prove(&pk, stdin).run().unwrap();
+        let mut proof = client.prove(&pk, stdin).compressed().run().unwrap();
 
         client.verify(&proof, &vk).expect("verification failed");
         log::info!("ctx.program_output: {:?}", ctx.program_output);
@@ -57,7 +57,7 @@ mod tests {
     fn test_sp1_prove() {
         let sp1_prover = Sp1Prover::new();
         let test_file = stdenv::var("SUITE_JSON").unwrap_or(String::from(
-            "../../../../executor/test-vectors/solidityExample.json",
+            "../../../../../executor/test-vectors/solidityExample.json",
         ));
         let suite_json = fs::read_to_string(test_file).unwrap();
         let mut batch_context = BatchContext::default();
