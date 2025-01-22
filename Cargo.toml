@@ -8,7 +8,7 @@ members = [
   "prover/src/sp1_prover/batch_prover/script",
   "prover/src/sp1_prover/batch_prover/program",
   "prover/src/sp1_prover/agg_prover/script",
-  "prover/src/sp1_prover/agg_prover/program
+  "prover/src/sp1_prover/agg_prover/program",
 ]
 
 resolver = "2"

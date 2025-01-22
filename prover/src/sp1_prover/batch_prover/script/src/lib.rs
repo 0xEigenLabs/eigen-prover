@@ -35,9 +35,10 @@ impl Prover<BatchContext> for Sp1Prover {
         let mut proof = client.prove(&pk, stdin).compressed().run().unwrap();
 
         client.verify(&proof, &vk).expect("verification failed");
-        log::info!("ctx.program_output: {:?}", ctx.program_output);
+        log::info!("ctx.basedir: {:?}", ctx.basedir);
+        let proof_path = format!("{}/proof/{}/sp1_proof.bin", ctx.basedir, ctx.task_id);
         proof
-            .save(ctx.program_output.clone() + "/sp1_proof.bin")
+            .save(proof_path)
             .expect("saving proof failed");
 
         let prove_elapsed = prove_start.elapsed();
@@ -62,7 +63,8 @@ mod tests {
         let suite_json = fs::read_to_string(test_file).unwrap();
         let mut batch_context = BatchContext::default();
         batch_context.l2_batch_data = suite_json;
-        batch_context.program_output = ".".to_string();
+        batch_context.basedir = "../../test_vectors".to_string();
+        batch_context.task_id = "0".to_string();
         let _ = sp1_prover.prove(&batch_context);
     }
 }
