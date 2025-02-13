@@ -1,22 +1,25 @@
 use prover::contexts::BatchContext;
-use prover::provers::Prover;
-
+use prover::prover::Prover;
+// use crate::contexts::BatchContext;
 use anyhow::Result;
 
 use sp1_sdk::{include_elf, utils, HashableKey, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
+// pub use crate::Prover;
+
+// pub use Sp1BatchProver;
 
 const ELF: &[u8] = include_elf!("evm");
 
 #[derive(Default)]
-pub struct Sp1Prover {}
+pub struct Sp1BatchProver {}
 
-impl Sp1Prover {
+impl Sp1BatchProver {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl Prover<BatchContext> for Sp1Prover {
+impl Prover<BatchContext> for Sp1BatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
     fn prove(&self, ctx: &BatchContext) -> Result<()> {
         log::info!("start batch prove, ctx: {:?}", ctx);
@@ -46,6 +49,11 @@ impl Prover<BatchContext> for Sp1Prover {
     }
 }
 
+#[ctor::ctor]
+fn register() {
+    prover::registry::register_prover("sp1", || Box::new(Sp1BatchProver::new()));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -54,7 +62,7 @@ mod tests {
 
     #[test]
     fn test_sp1_prove() {
-        let sp1_prover = Sp1Prover::new();
+        let sp1_prover = Sp1BatchProver::new();
         let test_file = stdenv::var("SUITE_JSON").unwrap_or(String::from(
             "../../../../../executor/test-vectors/solidityExample.json",
         ));

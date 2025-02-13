@@ -1,4 +1,4 @@
-use super::Prover;
+use crate::prover::Prover;
 use crate::contexts::FinalContext;
 use crate::contexts::{CacheStage, SnarkFileType, StarkFileType};
 

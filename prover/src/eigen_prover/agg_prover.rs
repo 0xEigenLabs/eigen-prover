@@ -1,4 +1,5 @@
-use super::Prover;
+// use super::Prover;
+use crate::prover::Prover;
 use crate::contexts::AggContext;
 use crate::contexts::BatchContext;
 use crate::contexts::{CacheStage, StarkFileType};

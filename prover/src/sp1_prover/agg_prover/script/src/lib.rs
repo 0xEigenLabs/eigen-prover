@@ -1,6 +1,8 @@
 use anyhow::Result;
 use prover::contexts::AggContext;
-use prover::provers::Prover;
+// use prover::provers::Prover;
+use prover::prover::Prover;
+use prover::eigen_prover::Sp1AggProver;
 
 use sp1_sdk::{
     include_elf, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
@@ -21,15 +23,15 @@ struct AggregationInput {
 }
 
 #[derive(Default)]
-pub struct AggProver {}
+pub struct Sp1AggProver {}
 
-impl AggProver {
+impl Sp1AggProver {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl Prover<AggContext> for AggProver {
+impl Prover<AggContext> for Sp1AggProver {
     fn prove(&self, ctx: &AggContext) -> Result<()> {
         log::info!("start aggregate prove, ctx: {:?}", ctx);
 
@@ -100,7 +102,7 @@ mod tests {
     #[test]
     fn test_agg_prove() {
         env_logger::try_init().unwrap_or_default();
-        let agg_prover = AggProver::new();
+        let agg_prover = SP1AggProver::new();
         let mut agg_context = AggContext::default();
         agg_context.input = "../../test_vectors/proof/0/sp1_proof_0.bin".to_string();
         agg_context.input2 = "../../test_vectors/proof/0/sp1_proof_1.bin".to_string();
