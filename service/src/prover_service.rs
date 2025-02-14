@@ -1,4 +1,4 @@
-use prover::stage::Stage;
+use prover_core::stage::Stage;
 use std::env::var;
 use std::path::Path;
 use std::pin::Pin;
@@ -22,8 +22,8 @@ use crate::prover_service::prover_service::{
 use anyhow::{anyhow, bail, Result};
 use ethers_providers::{Http, Middleware, Provider};
 use executor::batch_process;
-use prover::contexts::BatchContext;
 use prover::pipeline::Pipeline;
+use prover_core::contexts::BatchContext;
 use prover_service::prover_service_server::ProverService;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, watch};

@@ -1,8 +1,6 @@
 use anyhow::Result;
-use prover::contexts::AggContext;
-// use prover::provers::Prover;
-use prover::prover::Prover;
-use prover::eigen_prover::Sp1AggProver;
+use prover_core::contexts::AggContext;
+use prover_core::prover::Prover;
 
 use sp1_sdk::{
     include_elf, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
@@ -35,13 +33,19 @@ impl Prover<AggContext> for Sp1AggProver {
     fn prove(&self, ctx: &AggContext) -> Result<()> {
         log::info!("start aggregate prove, ctx: {:?}", ctx);
 
-        let client = ProverClient::new();
+        let client: ProverClient = ProverClient::new();
         let (aggregation_pk, aggregation_vk) = client.setup(AGGREGATION_ELF);
         log::info!("aggregation_vk: {:?}", aggregation_vk.bytes32());
         let (_, evm_vk) = client.setup(EVM_ELF);
         log::info!("evm_vk: {:?}", evm_vk.bytes32());
-        let proof_1 = SP1ProofWithPublicValues::load(ctx.input.clone())?;
-        let proof_2 = SP1ProofWithPublicValues::load(ctx.input2.clone())?;
+        let task_id_slice: Vec<_> = ctx.input.split("_chunk_").collect();
+        let task_id2_slice: Vec<_> = ctx.input2.split("_chunk_").collect();
+
+        let proof_1_path = format!("{}/proof/{}/sp1_proof.bin", ctx.basedir, task_id_slice[0]);
+        let proof_2_path = format!("{}/proof/{}/sp1_proof.bin", ctx.basedir, task_id2_slice[0]);
+
+        let proof_1 = SP1ProofWithPublicValues::load(proof_1_path)?;
+        let proof_2 = SP1ProofWithPublicValues::load(proof_2_path)?;
         let agg_input1 = AggregationInput {
             proof: proof_1,
             vk: evm_vk.clone(),
@@ -86,9 +90,9 @@ impl Prover<AggContext> for Sp1AggProver {
             .groth16()
             .run()
             .expect("proving failed");
-        agg_proof
-            .save(ctx.task_path.clone())
-            .expect("saving proof failed");
+
+        let agg_proof_path = format!("{}/{}/agg_proof.bin", ctx.basedir, ctx.task_path);
+        agg_proof.save(agg_proof_path).expect("saving proof failed");
 
         log::info!("end aggregate prove");
         Ok(())

@@ -1,12 +1,9 @@
-use prover::contexts::BatchContext;
-use prover::prover::Prover;
+use prover_core::contexts::BatchContext;
+use prover_core::prover::Prover;
 // use crate::contexts::BatchContext;
 use anyhow::Result;
 
-use sp1_sdk::{include_elf, utils, HashableKey, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
-// pub use crate::Prover;
-
-// pub use Sp1BatchProver;
+use sp1_sdk::{include_elf, utils, HashableKey, ProverClient, SP1Stdin};
 
 const ELF: &[u8] = include_elf!("evm");
 
@@ -47,11 +44,6 @@ impl Prover<BatchContext> for Sp1BatchProver {
 
         Ok(())
     }
-}
-
-#[ctor::ctor]
-fn register() {
-    prover::registry::register_prover("sp1", || Box::new(Sp1BatchProver::new()));
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 // use super::Prover;
-use crate::prover::{Prover};
-use crate::contexts::BatchContext;
+use prover_core::contexts::BatchContext;
+use prover_core::prover::Prover;
 
 use anyhow::Result;
 use groth16::bellman_ce::plonk::better_better_cs::verifier;

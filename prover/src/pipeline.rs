@@ -1,8 +1,10 @@
-use crate::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
 use crate::eigen_prover::{AggProver, BatchProver, FinalProver};
-use crate::prover::Prover;
-use crate::registry::{get_prover_by_type, register_prover};
-use crate::stage::Stage;
+use prover_core::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
+use prover_core::prover::Prover;
+use prover_core::stage::Stage;
+
+use sp1_agg_prover::Sp1AggProver;
+use sp1_batch_prover::Sp1BatchProver;
 
 use anyhow::{anyhow, bail, Result};
 use std::collections::{HashMap, VecDeque};
@@ -23,7 +25,7 @@ pub struct Pipeline {
     prove_data_cache: Arc<Mutex<ProveDataCache>>,
     task_sender: Option<Sender<BatchContext>>,
     prover_model: ProverModel,
-    prover_type: String,
+    prover_type: ProverType,
 
     force_bits: usize,
 }
@@ -48,25 +50,25 @@ impl From<String> for ProverModel {
     }
 }
 
-// #[derive(Debug)]
-// pub enum ProverType {
-//     Eigen,
-//     SP1,
-// }
+#[derive(Debug)]
+pub enum ProverType {
+    Eigen,
+    SP1,
+}
 
-// impl From<String> for ProverType {
-//     fn from(value: String) -> Self {
-//         match value.as_str() {
-//             "eigen" => ProverType::Eigen,
-//             "sp1" => ProverType::SP1,
-//             // invalid env value, use default local type
-//             _ => {
-//                 log::error!("invalid prover type: {}, please set the env PROVER_TYPE to local or sp1, use default local model", value);
-//                 ProverType::Eigen
-//             }
-//         }
-//     }
-// }
+impl From<String> for ProverType {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "eigen" => ProverType::Eigen,
+            "sp1" => ProverType::SP1,
+            // invalid env value, use default local type
+            _ => {
+                log::error!("invalid prover type: {}, please set the env PROVER_TYPE to local or sp1, use default local model", value);
+                ProverType::Eigen
+            }
+        }
+    }
+}
 
 impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
@@ -76,11 +78,11 @@ impl Pipeline {
             .unwrap_or("local".to_string())
             .into();
         log::info!("start pipeline with prover model: {:?}", prover_model);
-        let prover_type: String  = env::var("PROVER_TYPE")
+        let prover_type: ProverType = env::var("PROVER_TYPE")
             .unwrap_or("eigen".to_string())
             .into();
         log::info!("start pipeline with prover type: {:?}", prover_type);
-        
+
         let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
         let force_bits = force_bits
             .parse::<usize>()
@@ -283,10 +285,15 @@ impl Pipeline {
 
                         match self.prover_model {
                             ProverModel::Local => {
-                                let prover = get_prover_by_type(self.prover_type.as_str())
-                                    .ok_or_else(|| anyhow::anyhow!("invalid prover type: {}", self.prover_type))?;
-                                prover.prove(&ctx)?;
-                                
+                                match self.prover_type {
+                                    ProverType::Eigen => {
+                                        BatchProver::new().prove(&ctx)?;
+                                    }
+                                    ProverType::SP1 => {
+                                        Sp1BatchProver::new().prove(&ctx)?;
+                                    }
+                                }
+
                                 self.save_checkpoint(&key, true)?;
                             }
                             ProverModel::GRPC => {
@@ -312,10 +319,15 @@ impl Pipeline {
                             self.force_bits,
                             self.prove_data_cache.clone(),
                         );
-                        let prover = get_prover_by_type(self.prover_type.as_str())
-                            .ok_or_else(|| anyhow::anyhow!("invalid prover type: {}", self.prover_type))?;
-                        prover.prove(&ctx)?;
-                        
+                        match self.prover_type {
+                            ProverType::Eigen => {
+                                AggProver::new().prove(&ctx)?;
+                            }
+                            ProverType::SP1 => {
+                                Sp1AggProver::new().prove(&ctx)?;
+                            }
+                        }
+
                         self.save_checkpoint(&key, true)?;
                     }
                     Stage::Final(task_id, curve_name, prover_addr) => {
@@ -327,7 +339,14 @@ impl Pipeline {
                             prover_addr.clone(),
                             self.prove_data_cache.clone(),
                         );
-                        FinalProver::new().prove(&ctx)?;
+                        match self.prover_type {
+                            ProverType::Eigen => {
+                                FinalProver::new().prove(&ctx)?;
+                            }
+                            ProverType::SP1 => {
+                                // nothing
+                            }
+                        }
                         self.save_checkpoint(&key, true)?;
                     }
                 },

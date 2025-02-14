@@ -1,7 +1,7 @@
 use super::event::{Event, ResultStatus, TaskResult};
-use crate::contexts::BatchContext;
 use crate::scheduler::{AddServiceResult, ProofResult, TakeTaskResult};
-use crate::stage::Stage;
+use prover_core::contexts::BatchContext;
+use prover_core::stage::Stage;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;

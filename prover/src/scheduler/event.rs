@@ -1,5 +1,5 @@
-use crate::contexts::BatchContext;
 use crate::scheduler::scheduler::ServiceId;
+use prover_core::contexts::BatchContext;
 use tokio::sync::mpsc::Sender;
 
 /// Event is used to communicate between scheduler and scheduler_server

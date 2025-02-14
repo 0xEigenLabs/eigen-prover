@@ -1,6 +1,6 @@
-use prover::contexts::BatchContext;
 use prover::eigen_prover;
-use prover::prover::Prover;
+use prover_core::contexts::BatchContext;
+use prover_core::prover::Prover;
 use scheduler_service::scheduler_service_client::SchedulerServiceClient;
 use scheduler_service::TakeBatchProofTaskResponse;
 use scheduler_service::{batch_prover_message, scheduler_message, BatchProverMessage};

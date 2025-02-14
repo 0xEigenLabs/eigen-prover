@@ -1,8 +1,8 @@
 // use super::Prover;
-use crate::prover::Prover;
-use crate::contexts::AggContext;
-use crate::contexts::BatchContext;
-use crate::contexts::{CacheStage, StarkFileType};
+use prover_core::contexts::AggContext;
+use prover_core::contexts::BatchContext;
+use prover_core::contexts::{CacheStage, StarkFileType};
+use prover_core::prover::Prover;
 
 use anyhow::Result;
 use dsl_compile::circom_compiler;

@@ -1,5 +1,5 @@
 [package]
-name = "batch-prover"
+name = "sp1-batch-prover"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,7 @@ edition = "2021"
 # sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede", features = ["native-gnark"]}
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
 models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
-prover-contexts = { path = "../../../../contexts" }
-prover-core = { path = "../../../../prover" }
+prover-core = { path = "../../../../../prover-core" }
 serde_json = "1.0.135"
 log = "0.4"
 anyhow =  "1.0"

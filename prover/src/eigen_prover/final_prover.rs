@@ -1,6 +1,6 @@
-use crate::prover::Prover;
-use crate::contexts::FinalContext;
-use crate::contexts::{CacheStage, SnarkFileType, StarkFileType};
+use prover_core::contexts::FinalContext;
+use prover_core::contexts::{CacheStage, SnarkFileType, StarkFileType};
+use prover_core::prover::Prover;
 
 use anyhow::Result;
 use dsl_compile::circom_compiler;
