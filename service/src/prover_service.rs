@@ -21,8 +21,8 @@ use crate::prover_service::prover_service::{
 };
 use anyhow::{anyhow, bail, Result};
 use ethers_providers::{Http, Middleware, Provider};
-use executor::batch_process;
-use prover::pipeline::Pipeline;
+use executor::{batch_process, gen_block_json};
+use prover::pipeline::{Pipeline, ProverType};
 use prover_core::contexts::BatchContext;
 use prover_service::prover_service_server::ProverService;
 use tokio::sync::mpsc::Sender;
@@ -337,16 +337,33 @@ impl ProverHandler for ProverRequestHandler {
             msg_id
         );
 
-        // gen chunk
-        let (_res, l2_batch_data, cnt_chunks) = batch_process(
-            client.clone(),
-            block_number,
-            request.chain_id,
-            &request.program_name,
-            execute_task_id.to_string().as_str(),
-            self.executor_base_dir.as_str(),
-        )
-        .await;
+        let prover_type: ProverType = std::env::var("PROVER_TYPE")
+            .unwrap_or("eigen".to_string())
+            .into();
+
+        let (_res, l2_batch_data, cnt_chunks) = match prover_type {
+            ProverType::Eigen => {
+                batch_process(
+                    client.clone(),
+                    block_number,
+                    request.chain_id,
+                    &request.program_name,
+                    execute_task_id.to_string().as_str(),
+                    self.executor_base_dir.as_str(),
+                )
+                .await
+            }
+            ProverType::SP1 => {
+                let (_res, l2_batch_data) = gen_block_json(
+                    client.clone(),
+                    block_number,
+                    request.chain_id,
+                )
+                .await;
+                (_res, l2_batch_data, 1)
+            }
+        };
+        
 
         // get previous block state root
         let previous_block_number = block_number - 1;
