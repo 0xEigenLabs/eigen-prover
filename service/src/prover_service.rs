@@ -364,7 +364,6 @@ impl ProverHandler for ProverRequestHandler {
             }
         };
         
-
         // get previous block state root
         let previous_block_number = block_number - 1;
         let previous_block = match client.get_block_with_txs(previous_block_number).await {
@@ -697,8 +696,16 @@ impl ProverHandler for ProverRequestHandler {
             msg_id
         );
 
-        let checkpoint_key = format!("{}_final", task_id.clone());
+        // let checkpoint_key = format!("{}_final", task_id.clone());
 
+        let prover_type: ProverType = std::env::var("PROVER_TYPE")
+            .unwrap_or("eigen".to_string())
+            .into();
+
+        let checkpoint_key: String = match prover_type {
+            ProverType::Eigen => format!("{}_final", task_id.clone()),
+            ProverType::SP1 => format!("{}_agg", task_id.clone()),
+        };
         loop {
             tokio::select! {
                 _ = polling_ticker.tick() => {

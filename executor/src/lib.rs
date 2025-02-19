@@ -346,8 +346,8 @@ pub async fn batch_process(
 ) -> (ExecResult, String, usize) {
     let (all_result, json_string) = gen_block_json(client, block_number, chain_id).await;
     let cnt_chunks = generate_chunks(task, task_id, base_dir, &json_string);
-
-    (Ok(all_result.unwrap()), json_string, cnt_chunks)
+    log::info!("all_result: {:?}", all_result);
+    (all_result, json_string, cnt_chunks)
 }
 
 pub async fn gen_block_json(

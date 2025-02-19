@@ -78,7 +78,7 @@ impl ResultHandler {
     }
 
     pub async fn take_result(&self) -> TaskResult {
-        self.result_receiver.lock().await.recv().await.unwrap()
+        self.result_receiver.lock().await.recv().await.unwrap_or_default()
     }
 }
 

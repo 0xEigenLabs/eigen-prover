@@ -1,6 +1,5 @@
 use prover_core::contexts::BatchContext;
 use prover_core::prover::Prover;
-// use crate::contexts::BatchContext;
 use anyhow::Result;
 
 use sp1_sdk::{include_elf, utils, HashableKey, ProverClient, SP1Stdin};
@@ -25,7 +24,6 @@ impl Prover<BatchContext> for Sp1BatchProver {
         let serde_data = ctx.l2_batch_data.clone();
         // let suite: TestUnit = serde_json::from_str(serde_data.as_str()).map_err(|e| e).unwrap();
 
-        utils::setup_logger();
         let mut stdin = SP1Stdin::new();
         stdin.write(&serde_data);
 
