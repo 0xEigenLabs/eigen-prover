@@ -28,6 +28,9 @@ pub struct Pipeline {
     prover_type: ProverType,
 
     force_bits: usize,
+
+    elf_path: String,
+    aggregation_elf_path: String,
 }
 
 #[derive(Debug)]
@@ -86,6 +89,9 @@ impl Pipeline {
             .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
         log::info!("pipeline: compress setup force_bits {force_bits}");
 
+        let elf_path = env::var("ELF_PATH").unwrap();
+        let aggregation_elf_path = env::var("ELF_PATH").unwrap();
+
         Pipeline {
             basedir: basedir.clone(),
             queue: VecDeque::new(),
@@ -100,6 +106,8 @@ impl Pipeline {
             prover_model,
             prover_type,
             force_bits,
+            elf_path,
+            aggregation_elf_path,
         }
     }
 
@@ -265,7 +273,7 @@ impl Pipeline {
                             chunk_id,
                             l2_batch_data.clone(),
                             self.force_bits,
-                            ..Default::default()
+                            self.elf_path,
                         );
 
                         match self.prover_model {
@@ -303,7 +311,8 @@ impl Pipeline {
                             input2.clone(),
                             self.force_bits,
                             self.prove_data_cache.clone(),
-                            ..Default::default()
+                            self.elf_path,
+                            self.aggregation_elf_path,
                         );
                         match self.prover_type {
                             ProverType::Eigen => {
