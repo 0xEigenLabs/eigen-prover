@@ -273,7 +273,7 @@ impl Pipeline {
                             chunk_id,
                             l2_batch_data.clone(),
                             self.force_bits,
-                            self.elf_path,
+                            &self.elf_path,
                         );
 
                         match self.prover_model {
@@ -311,8 +311,8 @@ impl Pipeline {
                             input2.clone(),
                             self.force_bits,
                             self.prove_data_cache.clone(),
-                            self.elf_path,
-                            self.aggregation_elf_path,
+                            &self.elf_path,
+                            &self.aggregation_elf_path,
                         );
                         match self.prover_type {
                             ProverType::Eigen => {
