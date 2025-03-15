@@ -75,7 +75,7 @@ fn integration_test() -> anyhow::Result<()> {
 #[test]
 #[ignore = "too slow"]
 fn integration_sp1_test() -> anyhow::Result<()> {
-    // env_logger::try_init().unwrap_or_default();
+    env_logger::try_init().unwrap_or_default();
     let curve_name = env::var("CURVE_NAME").unwrap_or("BN128".to_string());
 
     let basedir = env::var("BASEDIR").unwrap_or("data".to_string());
