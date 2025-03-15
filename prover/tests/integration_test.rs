@@ -59,7 +59,6 @@ fn integration_test() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "too slow"]
 fn integration_sp1_test() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
     let curve_name = env::var("CURVE_NAME").unwrap_or("BN128".to_string());
@@ -96,7 +95,7 @@ fn integration_sp1_test() -> anyhow::Result<()> {
     log::info!("agg task: {task3}");
 
     let task4 = pipeline
-        .final_prove(task3, curve_name, "273030697313060285579891744179749754319274977764".into())
+        .final_prove(task3, "BN128".to_, "273030697313060285579891744179749754319274977764".into())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("final task: {task4}");

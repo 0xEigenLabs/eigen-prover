@@ -12,12 +12,6 @@ use starky::prove::stark_prove;
 #[derive(Default)]
 pub struct FinalProver {}
 
-impl FinalProver {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
 impl Prover<FinalContext> for FinalProver {
     fn prove(&self, ctx: &FinalContext) -> Result<()> {
         log::info!("start final_stark prove, ctx: {:?}", ctx);

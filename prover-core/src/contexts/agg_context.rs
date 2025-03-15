@@ -4,6 +4,7 @@ use super::ProveDataCache;
 use crate::args::CircomCompileArgs;
 use crate::args::StarkProveArgs;
 use crate::stage::Stage;
+use std::default;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -21,6 +22,9 @@ pub struct AggContext {
     pub prove_data_cache: Arc<Mutex<ProveDataCache>>,
     pub force_bits: usize,
     pub task_path: String,
+
+    pub elf_path: String,
+    pub aggregate_elf_path: String,
 }
 
 impl AggContext {
@@ -50,6 +54,15 @@ impl AggContext {
             r2_task_name,
             prove_data_cache,
             force_bits,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_sp1(elf_path: String, aggregate_elf_path: String) -> Self {
+        Self {
+            elf_path,
+            aggregate_elf_path,
+            ..Default::default()
         }
     }
 }

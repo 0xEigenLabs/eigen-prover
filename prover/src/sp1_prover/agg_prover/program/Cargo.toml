@@ -1,9 +1,0 @@
-[package]
-name = "aggregation-program"
-version = "1.1.0"
-edition = "2021"
-publish = false
-
-[dependencies]
-sha2 = "0.10.8"
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede", features = ["verify"]}

@@ -3,8 +3,8 @@ use prover_core::contexts::{AggContext, BatchContext, FinalContext, ProveDataCac
 use prover_core::prover::Prover;
 use prover_core::stage::Stage;
 
-use sp1_agg_prover::Sp1AggProver;
-use sp1_batch_prover::Sp1BatchProver;
+use crate::sp1_prover::agg_prover::Sp1AggProver;
+use crate::sp1_prover::batch_prover::Sp1BatchProver;
 
 use anyhow::{anyhow, bail, Result};
 use std::collections::{HashMap, VecDeque};
@@ -325,7 +325,7 @@ impl Pipeline {
                         );
                         match self.prover_type {
                             ProverType::Eigen => {
-                                FinalProver::new().prove(&ctx)?;
+                                FinalProver::default().prove(&ctx)?;
                             }
                             ProverType::SP1 => {
                                 // nothing
