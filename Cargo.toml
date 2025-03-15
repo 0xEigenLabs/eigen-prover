@@ -6,6 +6,8 @@ members = [
   "prover-scheduler",
   "metrics",
   "prover-core",
+  "guests/revm",
+  "guests/aggregation",
 ]
 
 resolver = "2"

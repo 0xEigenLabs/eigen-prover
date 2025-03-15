@@ -31,6 +31,7 @@ impl BatchContext {
         chunk_id: &str,
         l2_batch_data: String,
         force_bits: usize,
+        elf_path: &str,
     ) -> Self {
         //TODO : don't clone the l2 batch data
         let task_path =
@@ -64,7 +65,7 @@ impl BatchContext {
             //recursive1_circom: CircomCompileArgs::new(basedir, basedir, &r1_task_name, &task_path,chunk_id, &"GL"),
             force_bits,
 
-            elf_path: "".to_string(),
+            elf_path: elf_path.to_string(),
         }
     }
 

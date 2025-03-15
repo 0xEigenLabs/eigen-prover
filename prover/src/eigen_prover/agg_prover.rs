@@ -53,6 +53,7 @@ impl Prover<AggContext> for AggProver {
                     &format!("{}", i),
                     "".to_string(), // don't have to init the l2_batch_data when aggregate proof
                     ctx.force_bits,
+                    ..Default::default()
                 ));
                 log::info!("batch_ctx[{}]: {:?}", i, batch_ctx[i]);
             }

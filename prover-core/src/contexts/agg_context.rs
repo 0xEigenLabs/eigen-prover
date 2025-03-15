@@ -4,7 +4,6 @@ use super::ProveDataCache;
 use crate::args::CircomCompileArgs;
 use crate::args::StarkProveArgs;
 use crate::stage::Stage;
-use std::default;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -36,6 +35,8 @@ impl AggContext {
         input2: String,
         force_bits: usize,
         prove_data_cache: Arc<Mutex<ProveDataCache>>,
+        elf_path: &str,
+        aggregate_elf_path: &str,
     ) -> Self {
         let task_path = Stage::Aggregate(task_id.to_string(), input.clone(), input2.clone()).path();
         let r2_task_name = format!("{}.recursive2", task_name);
@@ -54,15 +55,8 @@ impl AggContext {
             r2_task_name,
             prove_data_cache,
             force_bits,
-            ..Default::default()
-        }
-    }
-
-    pub fn new_sp1(elf_path: String, aggregate_elf_path: String) -> Self {
-        Self {
-            elf_path,
-            aggregate_elf_path,
-            ..Default::default()
+            elf_path: elf_path.to_string(),
+            aggregate_elf_path: aggregate_elf_path.to_string(),
         }
     }
 }
