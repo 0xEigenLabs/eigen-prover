@@ -344,6 +344,17 @@ pub async fn batch_process(
     task_id: &str,
     base_dir: &str,
 ) -> (ExecResult, String, usize) {
+    let (all_result, json_string) = gen_block_json(client, block_number, chain_id).await;
+    let cnt_chunks = generate_chunks(task, task_id, base_dir, &json_string);
+    log::info!("all_result: {:?}", all_result);
+    (all_result, json_string, cnt_chunks)
+}
+
+pub async fn gen_block_json(
+    client: Arc<Provider<Http>>,
+    block_number: u64,
+    chain_id: u64,
+) -> (ExecResult, String) {
     //let client = Provider::<Http>::try_from(url).unwrap();
     //let client = Arc::new(client);
     let block: ethers_core::types::Block<ethers_core::types::Transaction> =
@@ -470,8 +481,7 @@ pub async fn batch_process(
     let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
     log::debug!("test_unit: {}", json_string);
 
-    let cnt_chunks = generate_chunks(task, task_id, base_dir, &json_string);
-    (Ok(all_result), json_string, cnt_chunks)
+    (Ok(all_result), json_string)
 }
 
 #[cfg(test)]

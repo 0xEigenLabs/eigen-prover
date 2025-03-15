@@ -1,4 +1,4 @@
-use prover::contexts::BatchContext;
+use prover_core::contexts::BatchContext;
 use std::env;
 
 use prover_scheduler::scheduler_server::{SchedulerServerHandler, SchedulerServiceSVC};

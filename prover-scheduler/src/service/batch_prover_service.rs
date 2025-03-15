@@ -1,6 +1,6 @@
-use prover::contexts::BatchContext;
-use prover::provers;
-use prover::provers::Prover;
+use prover::eigen_prover;
+use prover_core::contexts::BatchContext;
+use prover_core::prover::Prover;
 use scheduler_service::scheduler_service_client::SchedulerServiceClient;
 use scheduler_service::TakeBatchProofTaskResponse;
 use scheduler_service::{batch_prover_message, scheduler_message, BatchProverMessage};
@@ -106,7 +106,7 @@ impl BatchProverHandler for BatchProverServiceHandler {
             ctx.task_id,
             ctx.chunk_id
         );
-        match provers::BatchProver::new().prove(&ctx) {
+        match eigen_prover::BatchProver::new().prove(&ctx) {
             Ok(_) => {
                 log::info!("batch prove success, task id: {}", ctx.task_id.clone());
                 // Return Result and Trigger next task

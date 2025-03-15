@@ -1,7 +1,8 @@
-use super::Prover;
-use crate::contexts::AggContext;
-use crate::contexts::BatchContext;
-use crate::contexts::{CacheStage, StarkFileType};
+// use super::Prover;
+use prover_core::contexts::AggContext;
+use prover_core::contexts::BatchContext;
+use prover_core::contexts::{CacheStage, StarkFileType};
+use prover_core::prover::Prover;
 
 use anyhow::Result;
 use dsl_compile::circom_compiler;
@@ -37,7 +38,7 @@ impl Prover<AggContext> for AggProver {
         let mut ids = vec![];
         for i in start..=end {
             let mut f = std::fs::File::open(format!("{}/{}.ids", ctx.task_path, i))?;
-            let mut submachine_id_vec: Vec<usize>= serde_json::from_reader(&f)?;
+            let mut submachine_id_vec: Vec<usize> = serde_json::from_reader(&f)?;
             ids.push(submachine_id_vec);
         }
 

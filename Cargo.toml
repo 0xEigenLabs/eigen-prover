@@ -4,7 +4,12 @@ members = [
   "service",
   "executor",
   "prover-scheduler",
-  "metrics"
+  "metrics",
+  "prover/src/sp1_prover/batch_prover/script",
+  "prover/src/sp1_prover/batch_prover/program",
+  "prover/src/sp1_prover/agg_prover/script",
+  "prover/src/sp1_prover/agg_prover/program", 
+  "prover-core",
 ]
 
 resolver = "2"

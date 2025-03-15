@@ -49,7 +49,7 @@ impl BatchContext {
             batch_struct: format!("{}/{}/batch.stark_struct.json", basedir, task_name),
             c12_struct: format!("{}/{}/c12.stark_struct.json", basedir, task_name),
 
-            task_path: task_path.clone(), 
+            task_path: task_path.clone(),
 
             program_output,
             chunk_id: chunk_id.to_string(),
@@ -80,15 +80,40 @@ impl BatchContext {
     }
 
     pub fn get_stark(&self, name: &str, submachine_id: usize) -> StarkProveArgs {
-        StarkProveArgs{
-            commit_file: format!("{}/{}_chunk_{}/commits.bin",self.program_output, name, self.chunk_id),
+        StarkProveArgs {
+            commit_file: format!(
+                "{}/{}_chunk_{}/commits.bin",
+                self.program_output, name, self.chunk_id
+            ),
             const_file: format!("{}/constants.bin", self.program_output),
             curve_type: "GL".to_string(),
-            exec_file: format!("{}/{}/{}_chunk_{}_submachine_{}.exec",self.basedir, self.task_path, name, self.chunk_id, submachine_id),
-            pil_file: format!("{}/{}/{}_chunk_{}_submachine_{}.pil",self.basedir, self.task_path, name, self.chunk_id, submachine_id),
-            piljson: format!("{}/{}/{}_chunk_{}_submachine_{}.pil.json",self.basedir, self.task_path, name, self.chunk_id, submachine_id),
-            r1cs_file: format!("{}/{}/{}_chunk_{}_submachine_{}.r1cs",self.basedir, self.task_path, name, self.chunk_id, submachine_id),
-            wasm_file: format!("{}/{}/{}_chunk_{}_submachine_{}_js/{}_chunk_{}_submachine_{}.wasm",self.basedir, self.task_path, name, self.chunk_id, submachine_id, name, self.chunk_id, submachine_id),
+            exec_file: format!(
+                "{}/{}/{}_chunk_{}_submachine_{}.exec",
+                self.basedir, self.task_path, name, self.chunk_id, submachine_id
+            ),
+            pil_file: format!(
+                "{}/{}/{}_chunk_{}_submachine_{}.pil",
+                self.basedir, self.task_path, name, self.chunk_id, submachine_id
+            ),
+            piljson: format!(
+                "{}/{}/{}_chunk_{}_submachine_{}.pil.json",
+                self.basedir, self.task_path, name, self.chunk_id, submachine_id
+            ),
+            r1cs_file: format!(
+                "{}/{}/{}_chunk_{}_submachine_{}.r1cs",
+                self.basedir, self.task_path, name, self.chunk_id, submachine_id
+            ),
+            wasm_file: format!(
+                "{}/{}/{}_chunk_{}_submachine_{}_js/{}_chunk_{}_submachine_{}.wasm",
+                self.basedir,
+                self.task_path,
+                name,
+                self.chunk_id,
+                submachine_id,
+                name,
+                self.chunk_id,
+                submachine_id
+            ),
             //zkin: format!("{}/{}_chunk_{}_submachine_{}/{}_proof.bin",self.program_output, name, self.chunk_id, submachine_id, name),
         }
     }

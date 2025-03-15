@@ -1,5 +1,6 @@
-use super::Prover;
-use crate::contexts::BatchContext;
+// use super::Prover;
+use prover_core::contexts::BatchContext;
+use prover_core::prover::Prover;
 
 use anyhow::Result;
 use groth16::bellman_ce::plonk::better_better_cs::verifier;
@@ -29,7 +30,7 @@ impl Prover<BatchContext> for BatchProver {
         log::info!("start batch prove, ctx: {:?}", ctx);
         let prove_start = std::time::Instant::now();
         // 1. stark prove: generate `.circom` file.
-                                              // given that the l2batch data has been stored in ctx.l2_data.
+        // given that the l2batch data has been stored in ctx.l2_data.
         let serde_data = ctx.l2_batch_data.clone();
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
@@ -81,7 +82,7 @@ impl Prover<BatchContext> for BatchProver {
             "", // prover address
         )?;
         */
-        
+
         //let mut f = std::fs::File::create(format!("{}/{}.ids", ctx.program_output, ctx.chunk_id))?;
         //let id_vec = serde_json::to_vec(&machine_ids)?;
         //f.write_all(&id_vec)?;
@@ -90,7 +91,7 @@ impl Prover<BatchContext> for BatchProver {
         for submachine_id in machine_ids {
             let batch_circom = ctx.get_circom(&ctx.task_name, submachine_id);
             let batch_circom_file = batch_circom.circom(false);
-            let batch_zkin= batch_circom.zkin(false);
+            let batch_zkin = batch_circom.zkin(false);
 
             log::debug!("circom_compiler: {:?}", batch_circom);
             // 2. Compile circom circuit to r1cs, and generate witness
@@ -107,7 +108,7 @@ impl Prover<BatchContext> for BatchProver {
             let setup_start = std::time::Instant::now();
             let batch_stark = ctx.get_stark(&ctx.task_name, submachine_id);
             log::info!("batch proof: compress setup, {:?}", batch_stark);
-            
+
             setup(
                 &batch_stark.r1cs_file,
                 &batch_stark.pil_file,
@@ -184,7 +185,7 @@ impl Prover<BatchContext> for BatchProver {
             )?;
 
             let c12_setup_start = std::time::Instant::now();
-            let c12_stark =  ctx.get_stark(&ctx.c12_task_name, submachine_id);
+            let c12_stark = ctx.get_stark(&ctx.c12_task_name, submachine_id);
             setup(
                 &c12_stark.r1cs_file,
                 &c12_stark.pil_file,
