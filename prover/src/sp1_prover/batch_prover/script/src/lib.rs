@@ -1,7 +1,8 @@
+use anyhow::Result;
 use prover_core::contexts::BatchContext;
 use prover_core::prover::Prover;
-use anyhow::Result;
 
+use sp1_prover::SP1CoreProofData;
 use sp1_sdk::{include_elf, utils, HashableKey, ProverClient, SP1Stdin};
 
 const ELF: &[u8] = include_elf!("evm");
@@ -30,11 +31,12 @@ impl Prover<BatchContext> for Sp1BatchProver {
         let client = ProverClient::new();
         let (pk, vk) = client.setup(ELF);
         log::info!("vk: {:?}", vk.bytes32());
-        let proof = client.prove(&pk, stdin).compressed().run().unwrap();
+        // let proof = client.prove(&pk, stdin).compressed().run().unwrap();
+        let proof = client.prove(&pk, stdin).core().run().unwrap();
 
         client.verify(&proof, &vk).expect("verification failed");
         log::info!("ctx.basedir: {:?}", ctx.basedir);
-        let proof_path = format!("{}/proof/{}/sp1_proof.bin", ctx.basedir, ctx.task_id);
+        let proof_path = format!("{}/proof/{}/sp1_core_proof.bin", ctx.basedir, ctx.task_id);
         proof.save(proof_path).expect("saving proof failed");
 
         let prove_elapsed = prove_start.elapsed();

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 # sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede", features = ["native-gnark"]}
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
 models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
 prover-core = { path = "../../../../../prover-core" }
 serde_json = "1.0.135"

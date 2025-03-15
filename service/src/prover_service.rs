@@ -354,16 +354,12 @@ impl ProverHandler for ProverRequestHandler {
                 .await
             }
             ProverType::SP1 => {
-                let (_res, l2_batch_data) = gen_block_json(
-                    client.clone(),
-                    block_number,
-                    request.chain_id,
-                )
-                .await;
+                let (_res, l2_batch_data) =
+                    gen_block_json(client.clone(), block_number, request.chain_id).await;
                 (_res, l2_batch_data, 1)
             }
         };
-        
+
         // get previous block state root
         let previous_block_number = block_number - 1;
         let previous_block = match client.get_block_with_txs(previous_block_number).await {

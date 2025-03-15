@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use prover::contexts::BatchContext;
+use prover_core::contexts::BatchContext;
 use prover::scheduler::{Event, TaskResult};
 use prover_scheduler::scheduler_server::scheduler_service::{
     scheduler_message as server_scheduler_message, BatchContextBytes as ServerBatchContextBytes,
