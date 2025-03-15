@@ -117,25 +117,13 @@ fn fill_test_env(
         parent_excess_blob_gas: Some(U256::default()),
     };
     test_env.current_coinbase = Address(block.author.map(|h160| FixedBytes(h160.0)).unwrap());
-    local_fill!(
-        test_env.current_difficulty,
-        Some(block.difficulty),
-        U256::from_limbs
-    );
-    local_fill!(
-        test_env.current_gas_limit,
-        Some(block.gas_limit),
-        U256::from_limbs
-    );
+    local_fill!(test_env.current_difficulty, Some(block.difficulty), U256::from_limbs);
+    local_fill!(test_env.current_gas_limit, Some(block.gas_limit), U256::from_limbs);
     if let Some(number) = block.number {
         let nn = number.0[0];
         test_env.current_number = U256::from(nn);
     }
-    local_fill!(
-        test_env.current_timestamp,
-        Some(block.timestamp),
-        U256::from_limbs
-    );
+    local_fill!(test_env.current_timestamp, Some(block.timestamp), U256::from_limbs);
     let mut base_fee = Uint::ZERO;
     local_fill!(base_fee, block.base_fee_per_gas, U256::from_limbs);
     test_env.current_base_fee = Some(base_fee);
@@ -162,11 +150,7 @@ fn generate_chunks(task: &str, task_id: &str, base_dir: &str, json_string: &Stri
 
     let project_root_path = project_root::get_project_root()
         .unwrap_or_else(|_| panic!("Failed to get project root path"));
-    let workspace = format!(
-        "{}/executor/program/{}",
-        project_root_path.to_str().unwrap(),
-        task
-    );
+    let workspace = format!("{}/executor/program/{}", project_root_path.to_str().unwrap(), task);
     log::debug!("workspace: {}", workspace);
     let bootloader_inputs =
         zkvm_generate_chunks(workspace.as_str(), json_string, output_path.as_str()).unwrap();
@@ -177,17 +161,14 @@ fn generate_chunks(task: &str, task_id: &str, base_dir: &str, json_string: &Stri
         .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
         .collect();
     log::debug!("bi_files: {:#?}", bi_files);
-    bootloader_inputs
-        .iter()
-        .zip(&bi_files)
-        .for_each(|(data, filename)| {
-            let mut f = fs::File::create(filename).unwrap();
-            // write the start_of_shutdown_routine
-            f.write_all(&data.1.to_le_bytes()).unwrap();
-            for d in &data.0 {
-                f.write_all(&d.to_bytes_le()[0..8]).unwrap();
-            }
-        });
+    bootloader_inputs.iter().zip(&bi_files).for_each(|(data, filename)| {
+        let mut f = fs::File::create(filename).unwrap();
+        // write the start_of_shutdown_routine
+        f.write_all(&data.1.to_le_bytes()).unwrap();
+        for d in &data.0 {
+            f.write_all(&d.to_bytes_le()[0..8]).unwrap();
+        }
+    });
 
     cnt_chunks
 }
@@ -202,12 +183,7 @@ fn fill_test_post(
             // 1. expect_exception: Option<String>,
             log::debug!("expect_exception: {:?}", result.is_success());
             // indexes: TxPartIndices,
-            log::debug!(
-                "indexes: data{:?}, value: {}, gas: {}",
-                data,
-                value,
-                result.gas_used()
-            );
+            log::debug!("indexes: data{:?}, value: {}, gas: {}", data, value, result.gas_used());
             log::debug!("output: {:?}", result.output());
 
             // post_state: HashMap<Address, AccountInfo>,
@@ -223,12 +199,7 @@ fn fill_test_post(
             for (address, account) in state.iter() {
                 let account_info = models::AccountInfo {
                     balance: account.info.balance,
-                    code: account
-                        .info
-                        .code
-                        .clone()
-                        .map(|code| code.bytecode)
-                        .unwrap_or_default(),
+                    code: account.info.code.clone().map(|code| code.bytecode).unwrap_or_default(),
                     nonce: account.info.nonce,
                     storage: new_storage(&account.storage),
                 };
@@ -243,19 +214,14 @@ fn fill_test_post(
                 ));
             }
 
-            let post_value = test_post
-                .entry(models::SpecName::Shanghai)
-                .or_insert_with(|| Vec::new());
+            let post_value =
+                test_post.entry(models::SpecName::Shanghai).or_insert_with(|| Vec::new());
             let mut new_post_value = std::mem::take(post_value);
 
             let state_root = state_merkle_trie_root(plain_accounts);
             new_post_value.push(models::Test {
                 expect_exception: None,
-                indexes: models::TxPartIndices {
-                    data: idx,
-                    gas: idx,
-                    value: idx,
-                },
+                indexes: models::TxPartIndices { data: idx, gas: idx, value: idx },
                 post_state: new_state,
                 // TODO: fill logs
                 logs: FixedBytes::default(),
@@ -293,10 +259,8 @@ async fn fill_test_pre(
             ..Default::default()
         };
 
-        let geth_trace: ethers_core::types::GethTrace = client
-            .debug_trace_transaction(tx.hash, trace_options)
-            .await
-            .unwrap();
+        let geth_trace: ethers_core::types::GethTrace =
+            client.debug_trace_transaction(tx.hash, trace_options).await.unwrap();
 
         log::debug!("geth_trace: {:#?}", geth_trace);
 
@@ -420,11 +384,7 @@ pub async fn gen_block_json(
                 local_fill!(etx.value, Some(tx.value), U256::from_limbs);
                 etx.data = tx.input.0.clone().into();
                 let mut gas_priority_fee = U256::ZERO;
-                local_fill!(
-                    gas_priority_fee,
-                    tx.max_priority_fee_per_gas,
-                    U256::from_limbs
-                );
+                local_fill!(gas_priority_fee, tx.max_priority_fee_per_gas, U256::from_limbs);
                 etx.gas_priority_fee = Some(gas_priority_fee);
                 etx.chain_id = Some(chain_id);
                 etx.nonce = Some(tx.nonce.as_u64());
@@ -511,16 +471,13 @@ mod tests {
             .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
             .collect();
         log::debug!("bi_files: {:#?}", bi_files);
-        bootloader_inputs
-            .iter()
-            .zip(&bi_files)
-            .for_each(|(data, filename)| {
-                let mut f = fs::File::create(filename).unwrap();
-                f.write_all(&data.1.to_le_bytes()).unwrap();
-                for d in &data.0 {
-                    f.write_all(&d.to_bytes_le()[0..8]).unwrap();
-                }
-            });
+        bootloader_inputs.iter().zip(&bi_files).for_each(|(data, filename)| {
+            let mut f = fs::File::create(filename).unwrap();
+            f.write_all(&data.1.to_le_bytes()).unwrap();
+            for d in &data.0 {
+                f.write_all(&d.to_bytes_le()[0..8]).unwrap();
+            }
+        });
     }
 
     #[test]

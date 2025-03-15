@@ -55,9 +55,8 @@ mod tests {
     #[test]
     fn test_sp1_prove() {
         let sp1_prover = Sp1BatchProver::new();
-        let test_file = stdenv::var("SUITE_JSON").unwrap_or(String::from(
-            "../../../../../executor/test-vectors/solidityExample.json",
-        ));
+        let test_file = stdenv::var("SUITE_JSON")
+            .unwrap_or(String::from("../../../../../executor/test-vectors/solidityExample.json"));
         let suite_json = fs::read_to_string(test_file).unwrap();
         let mut batch_context = BatchContext::default();
         batch_context.l2_batch_data = suite_json;

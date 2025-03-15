@@ -36,11 +36,7 @@ impl SchedulerServiceSVC {
         result_sender: mpsc::Sender<TaskResult>,
         handler: Arc<dyn SchedulerHandler + Send + Sync>,
     ) -> Self {
-        SchedulerServiceSVC {
-            scheduler_sender,
-            result_sender,
-            handler,
-        }
+        SchedulerServiceSVC { scheduler_sender, result_sender, handler }
     }
 
     pub async fn launch_server(&self, addr: String) -> Result<(), Box<dyn std::error::Error>> {
@@ -51,10 +47,7 @@ impl SchedulerServiceSVC {
             self.result_sender.clone(),
             self.handler.clone(),
         );
-        Server::builder()
-            .add_service(SchedulerServiceServer::new(svc))
-            .serve(socket_addr)
-            .await?;
+        Server::builder().add_service(SchedulerServiceServer::new(svc)).serve(socket_addr).await?;
         Ok(())
     }
 }
@@ -148,9 +141,7 @@ impl SchedulerService for SchedulerServiceSVC {
             }
         });
 
-        Ok(Response::new(Box::pin(
-            tokio_stream::wrappers::ReceiverStream::new(rx),
-        )))
+        Ok(Response::new(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))))
     }
 }
 
@@ -190,10 +181,7 @@ impl SchedulerHandler for SchedulerServerHandler {
         // send Event::AddService to the scheduler, registry the service to the scheduler
         // wait for the event result from the relay channel
         let (relay_to, mut relay) = mpsc::channel::<AddServiceResult>(1);
-        let event = Event::AddService {
-            service_id: r.prover_id.clone(),
-            relay_to,
-        };
+        let event = Event::AddService { service_id: r.prover_id.clone(), relay_to };
         if let Err(e) = scheduler_sender.send(event.clone()).await {
             // can't send event to scheduler, close the connection
             log::error!("Failed to send Event: {:?}, receiver dropped: {}", event, e);
@@ -203,9 +191,8 @@ impl SchedulerHandler for SchedulerServerHandler {
         if let Some(add_service_result) = relay.recv().await {
             match add_service_result {
                 AddServiceResult::Success(_service_id) => {
-                    if let Ok(scheduler_msg) = self
-                        .handle_gen_batch_proof_response(r.prover_id, scheduler_sender)
-                        .await
+                    if let Ok(scheduler_msg) =
+                        self.handle_gen_batch_proof_response(r.prover_id, scheduler_sender).await
                     {
                         Ok(scheduler_msg)
                     } else {
@@ -231,10 +218,7 @@ impl SchedulerHandler for SchedulerServerHandler {
     ) -> Result<SchedulerMessage> {
         let (relay_to, mut relay) = mpsc::channel::<TakeTaskResult>(1);
         // then, send Event::TriggerTask to the scheduler
-        let event = Event::TakeTask {
-            service_id: provider_id.clone(),
-            relay_to,
-        };
+        let event = Event::TakeTask { service_id: provider_id.clone(), relay_to };
 
         if let Err(e) = scheduler_sender.send(event.clone()).await {
             // can't send event to scheduler, close the connection
@@ -300,21 +284,12 @@ impl SchedulerHandler for SchedulerServerHandler {
 
         if let Err(e) = result_sender.send(task_result.clone()).await {
             // can't send event to scheduler, close the connection
-            log::error!(
-                "Failed to send Event: {:?}, receiver dropped: {}",
-                task_result,
-                e
-            );
-            bail!(
-                "Failed to send Event: {:?}, receiver dropped: {}",
-                task_result,
-                e
-            )
+            log::error!("Failed to send Event: {:?}, receiver dropped: {}", task_result, e);
+            bail!("Failed to send Event: {:?}, receiver dropped: {}", task_result, e)
         }
 
-        if let Ok(scheduler_msg) = self
-            .handle_gen_batch_proof_response(r.prover_id, scheduler_sender)
-            .await
+        if let Ok(scheduler_msg) =
+            self.handle_gen_batch_proof_response(r.prover_id, scheduler_sender).await
         {
             Ok(scheduler_msg)
         } else {
@@ -326,9 +301,7 @@ impl SchedulerHandler for SchedulerServerHandler {
     #[allow(dead_code)]
     async fn remove_service(&self, service_id: String, scheduler_sender: mpsc::Sender<Event>) {
         // send Event::RemoveService to the scheduler, remove the service from the scheduler
-        let event = Event::RemoveService {
-            service_id: service_id.clone(),
-        };
+        let event = Event::RemoveService { service_id: service_id.clone() };
         if let Err(e) = scheduler_sender.send(event.clone()).await {
             // can't send event to scheduler, close the connection
             log::error!("Failed to send Event: {:?}, receiver dropped: {}", event, e);

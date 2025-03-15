@@ -63,19 +63,13 @@ async fn prover_scheduler_e2e_mock_test() {
 
     tokio::spawn(async move {
         log::info!("====================1. Task incoming ====================");
-        let task1 = pipeline
-            .batch_prove("0".into(), "0".into(), l2_batch_data.clone())
-            .unwrap();
+        let task1 = pipeline.batch_prove("0".into(), "0".into(), l2_batch_data.clone()).unwrap();
         log::info!("task: {task1}");
 
-        let task2 = pipeline
-            .batch_prove("0".into(), "1".into(), l2_batch_data.clone())
-            .unwrap();
+        let task2 = pipeline.batch_prove("0".into(), "1".into(), l2_batch_data.clone()).unwrap();
         log::info!("task2: {task2}");
 
-        let task3 = pipeline
-            .batch_prove("0".into(), "2".into(), l2_batch_data)
-            .unwrap();
+        let task3 = pipeline.batch_prove("0".into(), "2".into(), l2_batch_data).unwrap();
         log::info!("task3: {task3}");
 
         loop {
@@ -147,10 +141,7 @@ impl BatchProverHandler for MockBatchProverHandler {
         take_batch_proof_task_response: ClientTakeBatchProofTaskResponse,
     ) -> ClientBatchProverMessage {
         let ctx = serde_json::from_slice::<BatchContext>(
-            &take_batch_proof_task_response
-                .batch_context_bytes
-                .unwrap()
-                .data,
+            &take_batch_proof_task_response.batch_context_bytes.unwrap().data,
         )
         .unwrap();
 

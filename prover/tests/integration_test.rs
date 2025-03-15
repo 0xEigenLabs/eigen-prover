@@ -20,27 +20,19 @@ fn integration_test() -> anyhow::Result<()> {
     )
     .unwrap();
     log::debug!("run task1");
-    let task1 = pipeline
-        .batch_prove("0".into(), "0".into(), l2_batch_data.clone())
-        .unwrap();
+    let task1 = pipeline.batch_prove("0".into(), "0".into(), l2_batch_data.clone()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
 
-    let task2 = pipeline
-        .batch_prove("0".into(), "1".into(), l2_batch_data.clone())
-        .unwrap();
+    let task2 = pipeline.batch_prove("0".into(), "1".into(), l2_batch_data.clone()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task2: {task2}");
 
-    let task3 = pipeline
-        .batch_prove("0".into(), "2".into(), l2_batch_data)
-        .unwrap();
+    let task3 = pipeline.batch_prove("0".into(), "2".into(), l2_batch_data).unwrap();
     pipeline.prove().unwrap();
     log::info!("task3: {task3}");
 
-    let task4 = pipeline
-        .aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string())
-        .unwrap();
+    let task4 = pipeline.aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string()).unwrap();
     pipeline.prove().unwrap();
     log::info!("agg task: {task4}");
 
@@ -54,18 +46,12 @@ fn integration_test() -> anyhow::Result<()> {
     pipeline.prove().unwrap();
     log::info!("final task: {task5}");
 
-    let task6 = pipeline
-        .aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string())
-        .unwrap();
+    let task6 = pipeline.aggregate_prove("0_chunk_0".to_string(), "0_chunk_2".to_string()).unwrap();
     pipeline.prove().unwrap();
     log::info!("agg task: {task6}");
 
     let task7 = pipeline
-        .final_prove(
-            task6,
-            curve_name,
-            "273030697313060285579891744179749754319274977764".into(),
-        )
+        .final_prove(task6, curve_name, "273030697313060285579891744179749754319274977764".into())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("final task: {task7}");
@@ -80,10 +66,8 @@ fn integration_sp1_test() -> anyhow::Result<()> {
 
     let basedir = env::var("BASEDIR").unwrap_or("data".to_string());
     // init pipeline.
-    let mut pipeline = Pipeline::new(
-        basedir.clone(),
-        env::var("TASK_NAME").unwrap_or("evm".to_string()),
-    );
+    let mut pipeline =
+        Pipeline::new(basedir.clone(), env::var("TASK_NAME").unwrap_or("evm".to_string()));
     log::info!("read batch data");
     let task1_l2_batch_data = std::fs::read_to_string(
         env::var("SUITE_JSON")
@@ -92,9 +76,7 @@ fn integration_sp1_test() -> anyhow::Result<()> {
     .unwrap();
 
     log::info!("run task1");
-    let task1 = pipeline
-        .batch_prove("1".into(), "0".into(), task1_l2_batch_data.clone())
-        .unwrap();
+    let task1 = pipeline.batch_prove("1".into(), "0".into(), task1_l2_batch_data.clone()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
 
@@ -105,24 +87,16 @@ fn integration_sp1_test() -> anyhow::Result<()> {
     .unwrap();
 
     log::info!("run task2");
-    let task2 = pipeline
-        .batch_prove("2".into(), "0".into(), task2_l2_batch_data.clone())
-        .unwrap();
+    let task2 = pipeline.batch_prove("2".into(), "0".into(), task2_l2_batch_data.clone()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task2}");
 
-    let task3 = pipeline
-        .aggregate_prove("1_chunk_0".to_string(), "2_chunk_1".to_string())
-        .unwrap();
+    let task3 = pipeline.aggregate_prove("1_chunk_0".to_string(), "2_chunk_1".to_string()).unwrap();
     pipeline.prove().unwrap();
     log::info!("agg task: {task3}");
 
     let task4 = pipeline
-        .final_prove(
-            task3,
-            curve_name,
-            "273030697313060285579891744179749754319274977764".into(),
-        )
+        .final_prove(task3, curve_name, "273030697313060285579891744179749754319274977764".into())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("final task: {task4}");
@@ -143,9 +117,7 @@ fn integration_test_lr() -> anyhow::Result<()> {
     let l2_batch_data =
         std::fs::read_to_string(env::var("SUIT_JSON").unwrap_or("data/test.json".to_string()))
             .unwrap();
-    let task1 = pipeline
-        .batch_prove("0".into(), "0".into(), l2_batch_data)
-        .unwrap();
+    let task1 = pipeline.batch_prove("0".into(), "0".into(), l2_batch_data).unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
     Ok(())

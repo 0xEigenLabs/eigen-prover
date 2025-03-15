@@ -85,12 +85,7 @@ impl ExecutorService for ExecutorServiceSVC {
             // 1. expect_exception: Option<String>,
             debug!("expect_exception: {:?}", result.is_success());
             // indexes: TxPartIndices,
-            debug!(
-                "indexes: data{:?}, value: {}, gas: {}",
-                data,
-                value,
-                result.gas_used()
-            );
+            debug!("indexes: data{:?}, value: {}, gas: {}", data, value, result.gas_used());
             debug!("output: {:?}", result.output());
 
             // TODO: hash: B256, // post state root

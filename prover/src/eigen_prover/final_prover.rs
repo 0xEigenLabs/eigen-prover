@@ -49,37 +49,22 @@ impl Prover<FinalContext> for FinalProver {
                 (r2.wasm_file.clone(), CacheStage::Final(StarkFileType::Wasm)),
             ]);
 
-            setup(
-                &r2.r1cs_file,
-                &r2.pil_file,
-                &r2.const_file,
-                &r2.exec_file,
-                0,
-            )?;
+            setup(&r2.r1cs_file, &r2.pil_file, &r2.const_file, &r2.exec_file, 0)?;
             let _ = std::fs::copy(r2.pil_file.clone(), r2.piljson.clone());
             cached_files.extend_from_slice(&[
                 (r2.pil_file.clone(), CacheStage::Final(StarkFileType::Pil)),
-                (
-                    r2.const_file.clone(),
-                    CacheStage::Final(StarkFileType::Const),
-                ),
+                (r2.const_file.clone(), CacheStage::Final(StarkFileType::Const)),
                 (r2.exec_file.clone(), CacheStage::Final(StarkFileType::Exec)),
-                (
-                    format!("{}.json", r2.pil_file),
-                    CacheStage::Final(StarkFileType::PilJson),
-                ),
+                (format!("{}.json", r2.pil_file), CacheStage::Final(StarkFileType::PilJson)),
             ]);
             prove_data_cache.batch_add(cached_files.clone())?;
         }
         let setup_elapsed = setup_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Final,
-                Function::Setup,
-                setup_elapsed.as_secs_f64(),
-            );
+        metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Final,
+            Function::Setup,
+            setup_elapsed.as_secs_f64(),
+        );
 
         log::info!("2. compress exec");
         // let wasm_file = format!(
@@ -95,14 +80,11 @@ impl Prover<FinalContext> for FinalProver {
             &r2.commit_file,
         )?;
         let exec_elapsed = exec_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Final,
-                Function::Exec,
-                exec_elapsed.as_secs_f64(),
-            );
+        metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Final,
+            Function::Exec,
+            exec_elapsed.as_secs_f64(),
+        );
 
         log::info!("3. generate final proof");
         let stark_prove_start = std::time::Instant::now();
@@ -119,14 +101,11 @@ impl Prover<FinalContext> for FinalProver {
             &ctx.prover_addr,
         )?;
         let stark_prove_elapsed = stark_prove_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Final,
-                Function::StarkProve,
-                stark_prove_elapsed.as_secs_f64(),
-            );
+        metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Final,
+            Function::StarkProve,
+            stark_prove_elapsed.as_secs_f64(),
+        );
 
         log::info!("end final stark prove");
         let args = &ctx.final_snark;
@@ -141,13 +120,7 @@ impl Prover<FinalContext> for FinalProver {
                 false,
                 false,
             )?;
-            groth16_setup(
-                &args.curve_type,
-                &sp.r1cs_file,
-                &args.pk_file,
-                &args.vk_file,
-                false,
-            )?;
+            groth16_setup(&args.curve_type, &sp.r1cs_file, &args.pk_file, &args.vk_file, false)?;
 
             cached_files.extend_from_slice(&[
                 (sp.wasm_file.clone(), CacheStage::Snark(SnarkFileType::Wasm)),
@@ -179,14 +152,11 @@ impl Prover<FinalContext> for FinalProver {
         )?;
 
         let prove_elapsed = prove_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Final,
-                Function::Total,
-                prove_elapsed.as_secs_f64(),
-            );
+        metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Final,
+            Function::Total,
+            prove_elapsed.as_secs_f64(),
+        );
         log::info!("end snark prove");
         Ok(())
     }

@@ -47,31 +47,20 @@ impl Prover<AggContext> for Sp1AggProver {
 
         let proof_1 = SP1ProofWithPublicValues::load(proof_1_path)?;
         let proof_2 = SP1ProofWithPublicValues::load(proof_2_path)?;
-        let agg_input1 = AggregationInput {
-            proof: proof_1,
-            vk: evm_vk.clone(),
-        };
-        let agg_input2 = AggregationInput {
-            proof: proof_2,
-            vk: evm_vk,
-        };
+        let agg_input1 = AggregationInput { proof: proof_1, vk: evm_vk.clone() };
+        let agg_input2 = AggregationInput { proof: proof_2, vk: evm_vk };
         let inputs = vec![agg_input1, agg_input2];
 
         // Aggregate the proofs.
         let mut stdin = SP1Stdin::new();
 
         // Write the verification keys.
-        let vkeys = inputs
-            .iter()
-            .map(|input| input.vk.hash_u32())
-            .collect::<Vec<_>>();
+        let vkeys = inputs.iter().map(|input| input.vk.hash_u32()).collect::<Vec<_>>();
         stdin.write::<Vec<[u32; 8]>>(&vkeys);
 
         // Write the public values.
-        let public_values = inputs
-            .iter()
-            .map(|input| input.proof.public_values.to_vec())
-            .collect::<Vec<_>>();
+        let public_values =
+            inputs.iter().map(|input| input.proof.public_values.to_vec()).collect::<Vec<_>>();
         stdin.write::<Vec<Vec<u8>>>(&public_values);
 
         // Write the proofs.
@@ -79,18 +68,13 @@ impl Prover<AggContext> for Sp1AggProver {
         // Note: this data will not actually be read by the aggregation program, instead it will be
         // witnessed by the prover during the recursive aggregation process inside SP1 itself.
         for input in inputs {
-            let SP1Proof::Compressed(proof) = input.proof.proof else {
-                panic!()
-            };
+            let SP1Proof::Compressed(proof) = input.proof.proof else { panic!() };
             stdin.write_proof(*proof, input.vk.vk);
         }
 
         // Generate the plonk bn254 proof.
-        let agg_proof = client
-            .prove(&aggregation_pk, stdin)
-            .groth16()
-            .run()
-            .expect("proving failed");
+        let agg_proof =
+            client.prove(&aggregation_pk, stdin).groth16().run().expect("proving failed");
 
         let agg_proof_path = format!("{}/{}/agg_proof.bin", ctx.basedir, ctx.task_path);
         agg_proof.save(agg_proof_path).expect("saving proof failed");

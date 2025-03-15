@@ -69,15 +69,13 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
     // after the Merge prevrandao replaces mix_hash field in block and replaced difficulty opcode in EVM.
     env.block.prevrandao = Some(unit.env.current_difficulty.to_be_bytes().into());
     // EIP-4844
-    if let (Some(parent_blob_gas_used), Some(parent_excess_blob_gas)) = (
-        unit.env.parent_blob_gas_used,
-        unit.env.parent_excess_blob_gas,
-    ) {
-        env.block
-            .set_blob_excess_gas_and_price(calc_excess_blob_gas(
-                parent_blob_gas_used.to(),
-                parent_excess_blob_gas.to(),
-            ));
+    if let (Some(parent_blob_gas_used), Some(parent_excess_blob_gas)) =
+        (unit.env.parent_blob_gas_used, unit.env.parent_excess_blob_gas)
+    {
+        env.block.set_blob_excess_gas_and_price(calc_excess_blob_gas(
+            parent_blob_gas_used.to(),
+            parent_excess_blob_gas.to(),
+        ));
     }
 
     // tx env
@@ -87,11 +85,8 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
             recover_address(unit.transaction.secret_key.as_slice()).ok_or_else(|| String::new())?
         }
     };
-    env.tx.gas_price = unit
-        .transaction
-        .gas_price
-        .or(unit.transaction.max_fee_per_gas)
-        .unwrap_or_default();
+    env.tx.gas_price =
+        unit.transaction.gas_price.or(unit.transaction.max_fee_per_gas).unwrap_or_default();
     env.tx.gas_priority_fee = unit.transaction.max_priority_fee_per_gas;
     // EIP-4844
     env.tx.blob_hashes = unit.transaction.blob_versioned_hashes.clone();
@@ -111,12 +106,7 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
         for test in tests {
             env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
 
-            env.tx.data = unit
-                .transaction
-                .data
-                .get(test.indexes.data)
-                .unwrap()
-                .clone();
+            env.tx.data = unit.transaction.data.get(test.indexes.data).unwrap().clone();
             env.tx.value = unit.transaction.value[test.indexes.value];
 
             env.tx.access_list = unit
@@ -149,10 +139,8 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
                 spec_id,
                 revm::primitives::SpecId::SPURIOUS_DRAGON,
             ));
-            let mut state = revm::db::State::builder()
-                .with_cached_prestate(cache)
-                .with_bundle_update()
-                .build();
+            let mut state =
+                revm::db::State::builder().with_cached_prestate(cache).with_bundle_update().build();
 
             let mut evm = revm::Evm::builder()
                 .with_db(&mut state)

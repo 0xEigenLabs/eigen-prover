@@ -78,14 +78,8 @@ impl Prover<AggContext> for AggProver {
             )?;
 
             cached_files.extend_from_slice(&[
-                (
-                    r1_stark.r1cs_file.clone(),
-                    CacheStage::Agg(StarkFileType::R1cs),
-                ),
-                (
-                    r1_stark.wasm_file.clone(),
-                    CacheStage::Agg(StarkFileType::Wasm),
-                ),
+                (r1_stark.r1cs_file.clone(), CacheStage::Agg(StarkFileType::R1cs)),
+                (r1_stark.wasm_file.clone(), CacheStage::Agg(StarkFileType::Wasm)),
             ])
         }
 
@@ -125,18 +119,9 @@ impl Prover<AggContext> for AggProver {
             let _ = std::fs::copy(r1_stark.pil_file.clone(), r1_stark.piljson.clone());
             // add r1cs pil, const, exec to cache and update flag
             cached_files.extend_from_slice(&[
-                (
-                    r1_stark.pil_file.clone(),
-                    CacheStage::Agg(StarkFileType::Pil),
-                ),
-                (
-                    r1_stark.const_file.clone(),
-                    CacheStage::Agg(StarkFileType::Const),
-                ),
-                (
-                    r1_stark.exec_file.clone(),
-                    CacheStage::Agg(StarkFileType::Exec),
-                ),
+                (r1_stark.pil_file.clone(), CacheStage::Agg(StarkFileType::Pil)),
+                (r1_stark.const_file.clone(), CacheStage::Agg(StarkFileType::Const)),
+                (r1_stark.exec_file.clone(), CacheStage::Agg(StarkFileType::Exec)),
                 (
                     format!("{}.json", r1_stark.pil_file.clone()),
                     CacheStage::Agg(StarkFileType::PilJson),
@@ -145,14 +130,11 @@ impl Prover<AggContext> for AggProver {
             prove_data_cache.batch_add(cached_files)?;
         }
         let setup_elapsed = setup_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Agg,
-                Function::Setup,
-                setup_elapsed.as_secs_f64(),
-            );
+        metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Agg,
+            Function::Setup,
+            setup_elapsed.as_secs_f64(),
+        );
 
         // 4. compress exec
         log::info!("wasm_file: {}", prove_data_cache.agg_cache.wasm_file);
@@ -166,14 +148,11 @@ impl Prover<AggContext> for AggProver {
         )?;
 
         let exec_elapsed = exec_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Agg,
-                Function::Exec,
-                exec_elapsed.as_secs_f64(),
-            );
+        metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Agg,
+            Function::Exec,
+            exec_elapsed.as_secs_f64(),
+        );
 
         // 5. stark prove
         log::info!("recursive2: {:?} -> {:?}", r1_stark, cc);
@@ -197,14 +176,11 @@ impl Prover<AggContext> for AggProver {
         )?;
 
         let stark_prove_elapsed = stark_prove_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Agg,
-                Function::StarkProve,
-                stark_prove_elapsed.as_secs_f64(),
-            );
+        metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Agg,
+            Function::StarkProve,
+            stark_prove_elapsed.as_secs_f64(),
+        );
 
         #[allow(clippy::needless_range_loop)]
         for i in 2..=end {
@@ -231,14 +207,11 @@ impl Prover<AggContext> for AggProver {
                 &r_stark.commit_file,
             )?;
             let exec_elapsed = exec_start.elapsed();
-            metrics::PROMETHEUS_METRICS
-                .lock()
-                .unwrap()
-                .observe_prover_processing_time_gauge(
-                    Step::Agg,
-                    Function::Exec,
-                    exec_elapsed.as_secs_f64(),
-                );
+            metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+                Step::Agg,
+                Function::Exec,
+                exec_elapsed.as_secs_f64(),
+            );
 
             let stark_prove_start = std::time::Instant::now();
             stark_prove(
@@ -254,27 +227,21 @@ impl Prover<AggContext> for AggProver {
                 "",
             )?;
             let stark_prove_elapsed = stark_prove_start.elapsed();
-            metrics::PROMETHEUS_METRICS
-                .lock()
-                .unwrap()
-                .observe_prover_processing_time_gauge(
-                    Step::Agg,
-                    Function::StarkProve,
-                    stark_prove_elapsed.as_secs_f64(),
-                );
+            metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+                Step::Agg,
+                Function::StarkProve,
+                stark_prove_elapsed.as_secs_f64(),
+            );
         }
         std::fs::copy(prev_zkin_out, cc.zkin(true))?;
 
         log::info!("end aggregate prove");
         let prove_elapsed = prove_start.elapsed();
-        metrics::PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Agg,
-                Function::Total,
-                prove_elapsed.as_secs_f64(),
-            );
+        metrics::PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Agg,
+            Function::Total,
+            prove_elapsed.as_secs_f64(),
+        );
         Ok(())
     }
 }

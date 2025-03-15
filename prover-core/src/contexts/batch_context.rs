@@ -31,12 +31,8 @@ impl BatchContext {
         force_bits: usize,
     ) -> Self {
         //TODO : don't clone the l2 batch data
-        let task_path = Stage::Batch(
-            task_id.to_string(),
-            chunk_id.to_string(),
-            l2_batch_data.clone(),
-        )
-        .path();
+        let task_path =
+            Stage::Batch(task_id.to_string(), chunk_id.to_string(), l2_batch_data.clone()).path();
         let c12_task_name = format!("{}.c12", task_name);
 
         let r1_task_name = format!("{}.recursive1", task_name);

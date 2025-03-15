@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use prover_core::contexts::BatchContext;
 use prover::scheduler::{Event, TaskResult};
+use prover_core::contexts::BatchContext;
 use prover_scheduler::scheduler_server::scheduler_service::{
     scheduler_message as server_scheduler_message, BatchContextBytes as ServerBatchContextBytes,
     BatchProofResult as ServerBatchProofResult, Registry as ServerRegistry,
@@ -109,14 +109,8 @@ impl SchedulerHandler for MockSchedulerServerHandler {
         )
         .unwrap();
         let force_bits = 18;
-        let first_task = BatchContext::new(
-            basedir,
-            task_id,
-            task_name,
-            chunk_id,
-            l2_batch_data,
-            force_bits,
-        );
+        let first_task =
+            BatchContext::new(basedir, task_id, task_name, chunk_id, l2_batch_data, force_bits);
         // just test the server and client communication
         // we will test the message sending in lib prover
         log::info!(
@@ -127,16 +121,14 @@ impl SchedulerHandler for MockSchedulerServerHandler {
 
         Ok(ServerSchedulerMessage {
             id: "".into(),
-            message_type: Some(
-                server_scheduler_message::MessageType::TakeBatchProofTaskResponse(
-                    ServerTakeBatchProofTaskResponse {
-                        prover_id: r.prover_id.clone(),
-                        batch_context_bytes: Some(ServerBatchContextBytes {
-                            data: serde_json::to_vec(&first_task).unwrap(),
-                        }),
-                    },
-                ),
-            ),
+            message_type: Some(server_scheduler_message::MessageType::TakeBatchProofTaskResponse(
+                ServerTakeBatchProofTaskResponse {
+                    prover_id: r.prover_id.clone(),
+                    batch_context_bytes: Some(ServerBatchContextBytes {
+                        data: serde_json::to_vec(&first_task).unwrap(),
+                    }),
+                },
+            )),
         })
     }
 
@@ -179,10 +171,7 @@ impl BatchProverHandler for MockBatchProverHandler {
         take_batch_proof_task_response: ClientTakeBatchProofTaskResponse,
     ) -> ClientBatchProverMessage {
         let ctx = serde_json::from_slice::<BatchContext>(
-            &take_batch_proof_task_response
-                .batch_context_bytes
-                .unwrap()
-                .data,
+            &take_batch_proof_task_response.batch_context_bytes.unwrap().data,
         )
         .unwrap();
 

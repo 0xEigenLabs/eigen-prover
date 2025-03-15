@@ -19,10 +19,7 @@ pub enum Event {
 
     /// Used to take a task from the scheduler and wait for the result
     /// currently, there is only one type of task: batch_proof
-    TakeTask {
-        service_id: ServiceId,
-        relay_to: Sender<TakeTaskResult>,
-    },
+    TakeTask { service_id: ServiceId, relay_to: Sender<TakeTaskResult> },
     // Used to send the proof result to the scheduler
     // TaskResult {
     //     service_id: ServiceId,

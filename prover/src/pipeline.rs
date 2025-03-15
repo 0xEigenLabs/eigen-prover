@@ -74,13 +74,10 @@ impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
         // TODO move those codes out of Pipeline::new.
         let default_cache_dir = env::var("CACHE_DIR").unwrap_or(String::from(""));
-        let prover_model: ProverModel = env::var("PROVER_MODEL")
-            .unwrap_or("local".to_string())
-            .into();
+        let prover_model: ProverModel =
+            env::var("PROVER_MODEL").unwrap_or("local".to_string()).into();
         log::info!("start pipeline with prover model: {:?}", prover_model);
-        let prover_type: ProverType = env::var("PROVER_TYPE")
-            .unwrap_or("eigen".to_string())
-            .into();
+        let prover_type: ProverType = env::var("PROVER_TYPE").unwrap_or("eigen".to_string()).into();
         log::info!("start pipeline with prover type: {:?}", prover_type);
 
         let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
@@ -141,9 +138,7 @@ impl Pipeline {
 
         if let Some(stage) = task {
             // mkdir
-            let workdir = Path::new(&self.basedir)
-                .join(stage.path())
-                .join("status.finished");
+            let workdir = Path::new(&self.basedir).join(stage.path()).join("status.finished");
             log::info!("load_checkpoint, check file: {:?}", workdir);
 
             let status = match std::fs::read_to_string(workdir)?.trim() {
@@ -169,20 +164,12 @@ impl Pipeline {
 
             let proof_path = workdir.clone().join("proof.json");
             let proof = std::fs::read_to_string(proof_path.clone()).map_err(|e| {
-                anyhow!(
-                    "Failed to load the proof.json: {:?}, err: {}",
-                    proof_path,
-                    e
-                )
+                anyhow!("Failed to load the proof.json: {:?}, err: {}", proof_path, e)
             })?;
 
             let input_path = workdir.join("public_input.json");
             let input = std::fs::read_to_string(input_path.clone()).map_err(|e| {
-                anyhow!(
-                    "Failed to load the public_input.json: {:?}, err: {}",
-                    input_path,
-                    e
-                )
+                anyhow!("Failed to load the public_input.json: {:?}, err: {}", input_path, e)
             })?;
 
             Ok((proof, input))
@@ -201,10 +188,7 @@ impl Pipeline {
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
-                w.insert(
-                    key.clone(),
-                    Stage::Batch(task_id.clone(), chunk_id, l2_batch_data),
-                );
+                w.insert(key.clone(), Stage::Batch(task_id.clone(), chunk_id, l2_batch_data));
                 self.save_checkpoint(&key, false)
             }
             _ => bail!("Task queue is full".to_string()),

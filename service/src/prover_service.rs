@@ -75,10 +75,7 @@ impl ProverServiceSVC {
     pub fn new(handler: Arc<dyn ProverHandler + Send + Sync>) -> Self {
         let url = std::env::var("URL").unwrap_or(String::from("http://localhost:8545"));
         let client = Provider::<Http>::try_from(url).unwrap();
-        ProverServiceSVC {
-            handler,
-            eth_client: Arc::new(client),
-        }
+        ProverServiceSVC { handler, eth_client: Arc::new(client) }
     }
 }
 
@@ -108,10 +105,7 @@ impl ProverService for ProverServiceSVC {
                 };
 
                 let request_id = request.id.clone();
-                log::info!(
-                    "receive the request from eigen-zeth, request: {:?}",
-                    request
-                );
+                log::info!("receive the request from eigen-zeth, request: {:?}", request);
 
                 if let Some(req_type) = request.request_type {
                     let resp = match req_type {
@@ -212,9 +206,7 @@ impl ProverService for ProverServiceSVC {
             }
         });
 
-        Ok(Response::new(Box::pin(
-            tokio_stream::wrappers::ReceiverStream::new(rx),
-        )))
+        Ok(Response::new(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))))
     }
 }
 
@@ -331,15 +323,10 @@ impl ProverHandler for ProverRequestHandler {
 
         let execute_task_id = format!("{:010}", block_number);
 
-        log::info!(
-            "generate chunks for Block: {:?}, request id {:?}",
-            block_number,
-            msg_id
-        );
+        log::info!("generate chunks for Block: {:?}, request id {:?}", block_number, msg_id);
 
-        let prover_type: ProverType = std::env::var("PROVER_TYPE")
-            .unwrap_or("eigen".to_string())
-            .into();
+        let prover_type: ProverType =
+            std::env::var("PROVER_TYPE").unwrap_or("eigen".to_string()).into();
 
         let (_res, l2_batch_data, cnt_chunks) = match prover_type {
             ProverType::Eigen => {
@@ -365,11 +352,9 @@ impl ProverHandler for ProverRequestHandler {
         let previous_block = match client.get_block_with_txs(previous_block_number).await {
             Ok(Some(block)) => block,
             Ok(None) => bail!("Previous block:{} not found", previous_block_number),
-            Err(error) => bail!(
-                "Failed to get previous block:{} err: {:?}",
-                previous_block_number,
-                error
-            ),
+            Err(error) => {
+                bail!("Failed to get previous block:{} err: {:?}", previous_block_number, error)
+            }
         };
 
         let pre_state_root = previous_block.state_root;
@@ -382,10 +367,8 @@ impl ProverHandler for ProverRequestHandler {
             .get(&models::SpecName::Shanghai)
             .ok_or_else(|| anyhow!("Failed to get block test"))?;
 
-        let post_state_hash = block_test
-            .last()
-            .ok_or_else(|| anyhow!("Failed to get last block test"))?
-            .hash;
+        let post_state_hash =
+            block_test.last().ok_or_else(|| anyhow!("Failed to get last block test"))?.hash;
 
         let pre_state_root = <[u8; 32]>::from(pre_state_root);
         let post_state_root = *post_state_hash;
@@ -393,18 +376,16 @@ impl ProverHandler for ProverRequestHandler {
         Ok(ProverResponse {
             id: msg_id,
             response_type: Some(ResponseType::GenBatchProof(GenBatchProofResponse {
-                step: Some(gen_batch_proof_response::Step::GenBatchChunks(
-                    GenBatchChunksResult {
-                        batch_id: request.batch_id,
-                        task_id: execute_task_id,
-                        result_code: 0,
-                        chunk_count: cnt_chunks as u64,
-                        batch_data: l2_batch_data,
-                        pre_state_root: Vec::from(pre_state_root),
-                        post_state_root: Vec::from(post_state_root),
-                        error_message: "".to_string(),
-                    },
-                )),
+                step: Some(gen_batch_proof_response::Step::GenBatchChunks(GenBatchChunksResult {
+                    batch_id: request.batch_id,
+                    task_id: execute_task_id,
+                    result_code: 0,
+                    chunk_count: cnt_chunks as u64,
+                    batch_data: l2_batch_data,
+                    pre_state_root: Vec::from(pre_state_root),
+                    post_state_root: Vec::from(post_state_root),
+                    error_message: "".to_string(),
+                })),
             })),
         })
     }
@@ -434,14 +415,10 @@ impl ProverHandler for ProverRequestHandler {
         // put the task into the pipeline, skip the finished tasks
         for (index, key) in pending_tasks.iter().enumerate() {
             // let proof_result = PIPELINE.lock().unwrap().get_proof(key.clone(), 0);
-            let tmp_stage = Stage::Batch(
-                execute_task_id.clone(),
-                index.to_string(),
-                l2_batch_data.clone(),
-            );
-            let task_result_dir = Path::new(&*BASE_DIR)
-                .join(tmp_stage.path())
-                .join("status.finished");
+            let tmp_stage =
+                Stage::Batch(execute_task_id.clone(), index.to_string(), l2_batch_data.clone());
+            let task_result_dir =
+                Path::new(&*BASE_DIR).join(tmp_stage.path()).join("status.finished");
             log::info!("check the task status: {}", task_result_dir.display());
             let status = match std::fs::read_to_string(task_result_dir) {
                 Ok(flag) => {
@@ -453,10 +430,7 @@ impl ProverHandler for ProverRequestHandler {
                     }
                 }
                 Err(e) => {
-                    log::error!(
-                        "Failed to read task status, gen proof again, err: {:?}, ",
-                        e
-                    );
+                    log::error!("Failed to read task status, gen proof again, err: {:?}, ", e);
                     false
                 }
             };
@@ -559,10 +533,8 @@ impl ProverHandler for ProverRequestHandler {
             msg_id
         );
 
-        let mut batch_proof_result = BatchProofResult {
-            task_id: execute_task_id.to_string(),
-            ..Default::default()
-        };
+        let mut batch_proof_result =
+            BatchProofResult { task_id: execute_task_id.to_string(), ..Default::default() };
 
         for (chunk_id, chunk_proof_key) in results.iter().enumerate().take(cnt_chunk) {
             let chunk_proof = ChunkProof {
@@ -577,15 +549,13 @@ impl ProverHandler for ProverRequestHandler {
         Ok(ProverResponse {
             id: msg_id,
             response_type: Some(ResponseType::GenBatchProof(GenBatchProofResponse {
-                step: Some(gen_batch_proof_response::Step::GenChunkProof(
-                    GenChunkProofResult {
-                        batch_id: request.batch_id.clone(),
-                        task_id: execute_task_id,
-                        result_code: 0,
-                        batch_proof_result: Some(batch_proof_result),
-                        error_message: "".to_string(),
-                    },
-                )),
+                step: Some(gen_batch_proof_response::Step::GenChunkProof(GenChunkProofResult {
+                    batch_id: request.batch_id.clone(),
+                    task_id: execute_task_id,
+                    result_code: 0,
+                    batch_proof_result: Some(batch_proof_result),
+                    error_message: "".to_string(),
+                })),
             })),
         })
     }
@@ -596,19 +566,16 @@ impl ProverHandler for ProverRequestHandler {
         request: GenAggregatedProofRequest,
     ) -> Result<ProverResponse> {
         // put the task into the pipeline
-        let task_id = match PIPELINE.lock().unwrap().aggregate_prove(
-            request.recursive_proof_1.clone(),
-            request.recursive_proof_2.clone(),
-        ) {
+        let task_id = match PIPELINE
+            .lock()
+            .unwrap()
+            .aggregate_prove(request.recursive_proof_1.clone(), request.recursive_proof_2.clone())
+        {
             Ok(id) => id,
             Err(e) => bail!("Failed to generate aggregated proof: {:?}", e.to_string()),
         };
 
-        log::info!(
-            "generate agg proof, task_id: {:?}, request id {:?}",
-            task_id,
-            msg_id
-        );
+        log::info!("generate agg proof, task_id: {:?}, request id {:?}", task_id, msg_id);
 
         // waiting for the proof result
         let mut polling_ticker = time::interval(DEFAULT_AGGREGATED_PROOF_POLLING_INTERVAL);
@@ -616,11 +583,7 @@ impl ProverHandler for ProverRequestHandler {
         let mut timeout_ticker =
             time::interval_at(timeout_start, DEFAULT_AGGREGATED_PROOF_POLLING_TIMEOUT);
 
-        log::info!(
-            "polling the agg proof of agg_task: {:?}, request id {:?}",
-            task_id,
-            msg_id
-        );
+        log::info!("polling the agg proof of agg_task: {:?}, request id {:?}", task_id, msg_id);
 
         let checkpoint_key = format!("{}_agg", task_id.clone());
         // let result_key: String;
@@ -649,14 +612,12 @@ impl ProverHandler for ProverRequestHandler {
 
         Ok(ProverResponse {
             id: msg_id,
-            response_type: Some(ResponseType::GenAggregatedProof(
-                GenAggregatedProofResponse {
-                    batch_id: request.batch_id,
-                    result_code: ProofResultCode::CompletedOk as i32,
-                    result_string: task_id,
-                    error_message: "".to_string(),
-                },
-            )),
+            response_type: Some(ResponseType::GenAggregatedProof(GenAggregatedProofResponse {
+                batch_id: request.batch_id,
+                result_code: ProofResultCode::CompletedOk as i32,
+                result_string: task_id,
+                error_message: "".to_string(),
+            })),
         })
     }
 
@@ -674,11 +635,7 @@ impl ProverHandler for ProverRequestHandler {
             Err(e) => bail!("Failed to generate final proof: {:?}", e.to_string()),
         };
 
-        log::info!(
-            "generate final proof, task_id: {:?}, request id {:?}",
-            task_id,
-            msg_id
-        );
+        log::info!("generate final proof, task_id: {:?}, request id {:?}", task_id, msg_id);
 
         // waiting for the proof result
         let mut polling_ticker = time::interval(DEFAULT_FINAL_PROOF_POLLING_INTERVAL);
@@ -686,17 +643,12 @@ impl ProverHandler for ProverRequestHandler {
         let mut timeout_ticker =
             time::interval_at(timeout_start, DEFAULT_FINAL_PROOF_POLLING_TIMEOUT);
 
-        log::info!(
-            "polling the final proof of agg_task: {:?}, request id {:?}",
-            task_id,
-            msg_id
-        );
+        log::info!("polling the final proof of agg_task: {:?}, request id {:?}", task_id, msg_id);
 
         // let checkpoint_key = format!("{}_final", task_id.clone());
 
-        let prover_type: ProverType = std::env::var("PROVER_TYPE")
-            .unwrap_or("eigen".to_string())
-            .into();
+        let prover_type: ProverType =
+            std::env::var("PROVER_TYPE").unwrap_or("eigen".to_string()).into();
 
         let checkpoint_key: String = match prover_type {
             ProverType::Eigen => format!("{}_final", task_id.clone()),
@@ -724,10 +676,8 @@ impl ProverHandler for ProverRequestHandler {
             }
         }
 
-        let (proof, public_input) = PIPELINE
-            .lock()
-            .unwrap()
-            .load_final_proof_and_input(&checkpoint_key)?;
+        let (proof, public_input) =
+            PIPELINE.lock().unwrap().load_final_proof_and_input(&checkpoint_key)?;
 
         Ok(ProverResponse {
             id: msg_id,
@@ -735,10 +685,7 @@ impl ProverHandler for ProverRequestHandler {
                 batch_id: request.batch_id,
                 result_code: ProofResultCode::CompletedOk as i32,
                 result_string: "".to_string(),
-                final_proof: Some(FinalProof {
-                    proof,
-                    public_input,
-                }),
+                final_proof: Some(FinalProof { proof, public_input }),
                 error_message: "".to_string(),
             })),
         })
