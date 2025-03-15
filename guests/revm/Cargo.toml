@@ -1,0 +1,12 @@
+[package]
+name = "evm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
+models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
+serde = { version = "1.0", default-features = false, features = ["alloc", "derive", "rc"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+k256 = { version = "0.13.3", features = ["ecdsa"], default-features = false }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
