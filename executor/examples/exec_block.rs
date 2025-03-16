@@ -137,11 +137,7 @@ async fn main() -> anyhow::Result<()> {
                 local_fill!(etx.value, Some(tx.value), U256::from_limbs);
                 etx.data = tx.input.0.into();
                 let mut gas_priority_fee = U256::ZERO;
-                local_fill!(
-                    gas_priority_fee,
-                    tx.max_priority_fee_per_gas,
-                    U256::from_limbs
-                );
+                local_fill!(gas_priority_fee, tx.max_priority_fee_per_gas, U256::from_limbs);
                 etx.gas_priority_fee = Some(gas_priority_fee);
                 etx.chain_id = Some(chain_id);
                 etx.nonce = Some(tx.nonce.as_u64());
@@ -212,12 +208,7 @@ async fn main() -> anyhow::Result<()> {
             // 1. expect_exception: Option<String>,
             println!("expect_exception: {:?}", result.is_success());
             // indexes: TxPartIndices,
-            println!(
-                "indexes: data{:?}, value: {}, gas: {}",
-                data,
-                value,
-                result.gas_used()
-            );
+            println!("indexes: data{:?}, value: {}, gas: {}", data, value, result.gas_used());
             println!("output: {:?}", result.output());
 
             // TODO: hash: B256, // post state root
@@ -232,10 +223,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     console_bar.finish_with_message("Finished all transactions.");
-    println!(
-        "Finished execution. Total CPU time: {:.6}s",
-        elapsed.as_secs_f64()
-    );
+    println!("Finished execution. Total CPU time: {:.6}s", elapsed.as_secs_f64());
 
     Ok(())
 }

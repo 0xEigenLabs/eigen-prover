@@ -1,7 +1,7 @@
 use super::event::{Event, ResultStatus, TaskResult};
-use crate::contexts::BatchContext;
 use crate::scheduler::{AddServiceResult, ProofResult, TakeTaskResult};
-use crate::stage::Stage;
+use prover_core::contexts::BatchContext;
+use prover_core::stage::Stage;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -38,11 +38,7 @@ impl EventHandler {
         task_receiver: Arc<TokioMutex<mpsc::Receiver<BatchContext>>>,
         retry_to: Sender<BatchContext>,
     ) -> Self {
-        EventHandler {
-            event_receiver,
-            task_receiver,
-            retry_to,
-        }
+        EventHandler { event_receiver, task_receiver, retry_to }
     }
     pub async fn recv_both(&self) -> (Event, BatchContext) {
         let event = self.event_receiver.lock().await.recv().await.unwrap();
@@ -71,14 +67,11 @@ impl ResultHandler {
         result_receiver: Arc<TokioMutex<mpsc::Receiver<TaskResult>>>,
         retry_to: Sender<BatchContext>,
     ) -> Self {
-        ResultHandler {
-            result_receiver,
-            retry_to,
-        }
+        ResultHandler { result_receiver, retry_to }
     }
 
     pub async fn take_result(&self) -> TaskResult {
-        self.result_receiver.lock().await.recv().await.unwrap()
+        self.result_receiver.lock().await.recv().await.unwrap_or_default()
     }
 }
 
@@ -166,10 +159,7 @@ impl Scheduler {
     }
     pub async fn handle_event(&mut self, event: Event, ctx: BatchContext) {
         match event {
-            Event::AddService {
-                service_id,
-                relay_to,
-            } => {
+            Event::AddService { service_id, relay_to } => {
                 log::info!("[scheduler] add service: {}", service_id);
                 self.handle_add_service(service_id, relay_to).await
             }
@@ -177,10 +167,7 @@ impl Scheduler {
                 log::info!("[scheduler] remove service: {}", service_id);
                 self.handle_remove_service(service_id).await
             }
-            Event::TakeTask {
-                service_id,
-                relay_to,
-            } => {
+            Event::TakeTask { service_id, relay_to } => {
                 log::info!("[scheduler] [service:{}] take a task", service_id);
                 self.handle_take_task(service_id, relay_to, ctx).await
             }
@@ -188,13 +175,8 @@ impl Scheduler {
     }
 
     pub async fn handle_result(&mut self, result: TaskResult) {
-        log::info!(
-            "[service:{}] task result: {:?}",
-            &result.service_id,
-            &result.recursive_proof
-        );
-        self.handle_task_result(result.service_id, result.recursive_proof)
-            .await;
+        log::info!("[service:{}] task result: {:?}", &result.service_id, &result.recursive_proof);
+        self.handle_task_result(result.service_id, result.recursive_proof).await;
     }
 
     pub async fn handle_add_service(
@@ -213,10 +195,7 @@ impl Scheduler {
         };
         self.service_table.insert(service_id.clone(), new_service);
 
-        if let Err(e) = relay_to
-            .send(AddServiceResult::Success(service_id.clone()))
-            .await
-        {
+        if let Err(e) = relay_to.send(AddServiceResult::Success(service_id.clone())).await {
             log::error!("Failed to add service: {}, err: {}", service_id, e);
             self.service_table.remove(&service_id);
         }
@@ -244,11 +223,7 @@ impl Scheduler {
         }
 
         // put task to pending_results
-        log::info!(
-            "put task to pending_results: {}, task: {:?}",
-            service_id,
-            task.clone()
-        );
+        log::info!("put task to pending_results: {}, task: {:?}", service_id, task.clone());
         let task_key = self.construct_task_key(&task.task_id, &task.chunk_id);
         self.pending_results.insert(task_key, task.clone());
 
@@ -289,10 +264,8 @@ impl Scheduler {
             ResultStatus::Fail => false,
         };
 
-        let key = self.construct_task_key(
-            &recursive_proof_result.task_id,
-            &recursive_proof_result.chunk_id,
-        );
+        let key = self
+            .construct_task_key(&recursive_proof_result.task_id, &recursive_proof_result.chunk_id);
         if let Some(task_ctx) = self.pending_results.remove(&key) {
             let task_stage =
                 Stage::Batch(task_ctx.task_id, task_ctx.chunk_id, task_ctx.l2_batch_data);

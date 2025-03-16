@@ -4,7 +4,10 @@ members = [
   "service",
   "executor",
   "prover-scheduler",
-  "metrics"
+  "metrics",
+  "prover-core",
+  "guests/revm",
+  "guests/aggregation",
 ]
 
 resolver = "2"

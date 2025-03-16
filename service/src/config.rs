@@ -13,20 +13,14 @@ impl RuntimeConfig {
         let contents = match fs::read_to_string(path) {
             Ok(c) => c,
             Err(e) => {
-                error!(
-                    "Something went wrong reading the runtime config file, {:?}",
-                    e
-                );
+                error!("Something went wrong reading the runtime config file, {:?}", e);
                 return None;
             }
         };
         let config: RuntimeConfig = match toml::from_str(&contents) {
             Ok(c) => c,
             Err(e) => {
-                error!(
-                    "Something went wrong reading the runtime config file, {:?}",
-                    e
-                );
+                error!("Something went wrong reading the runtime config file, {:?}", e);
                 return None;
             }
         };

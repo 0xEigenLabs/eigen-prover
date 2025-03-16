@@ -118,10 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn wait_for_sigterm(tx: Sender<()>, send: watch::Sender<()>) {
     // close prover, NOTE: should use terminate?
-    let _ = signal(SignalKind::interrupt())
-        .expect("failed to install signal handler")
-        .recv()
-        .await;
+    let _ = signal(SignalKind::interrupt()).expect("failed to install signal handler").recv().await;
     let _ = tx.send(());
     let _ = send.send(());
     log::info!("SIGTERM received: shutting down");

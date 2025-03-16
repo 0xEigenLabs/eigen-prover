@@ -14,8 +14,8 @@ impl Stage {
     /// get the path of the stage
     pub fn path(&self) -> String {
         match self {
-            Self::Batch(task_id, chunk_id, _) => {
-                format!("proof/{task_id}/batch_proof_{chunk_id}")
+            Self::Batch(task_id, _, _) => {
+                format!("proof/{task_id}/batch_proof")
             }
             Self::Aggregate(task_id, _, _) => format!("proof/{task_id}/agg_proof"),
             Self::Final(task_id, _, _) => format!("proof/{task_id}/snark_proof"),
@@ -35,41 +35,27 @@ mod tests {
 
     #[test]
     fn test_batch_stage_path() {
-        let stage = Stage::Batch(
-            "task_id".to_string(),
-            "chunk_id".to_string(),
-            "".to_string(),
-        );
+        let stage = Stage::Batch("task_id".to_string(), "chunk_id".to_string(), "".to_string());
         assert_eq!(stage.path(), "proof/task_id/batch_proof_chunk_id");
     }
 
     #[test]
     fn test_agg_stage_path() {
-        let stage = Stage::Aggregate(
-            "task_id".to_string(),
-            "input".to_string(),
-            "input2".to_string(),
-        );
+        let stage =
+            Stage::Aggregate("task_id".to_string(), "input".to_string(), "input2".to_string());
         assert_eq!(stage.path(), "proof/task_id/agg_proof");
     }
 
     #[test]
     fn test_final_stage_path() {
-        let stage = Stage::Final(
-            "task_id".to_string(),
-            "curve".to_string(),
-            "prover_addr".to_string(),
-        );
+        let stage =
+            Stage::Final("task_id".to_string(), "curve".to_string(), "prover_addr".to_string());
         assert_eq!(stage.path(), "proof/task_id/snark_proof");
     }
 
     #[test]
     fn test_stage_to_string() {
-        let stage = Stage::Batch(
-            "task_id".to_string(),
-            "chunk_id".to_string(),
-            "".to_string(),
-        );
+        let stage = Stage::Batch("task_id".to_string(), "chunk_id".to_string(), "".to_string());
         assert_eq!(stage.to_string().unwrap(), r#"["task_id","chunk_id",""]"#);
     }
 }

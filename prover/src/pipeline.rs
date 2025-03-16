@@ -1,6 +1,11 @@
-use crate::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
-use crate::provers::{AggProver, BatchProver, FinalProver, Prover};
-use crate::stage::Stage;
+use crate::eigen_prover::{AggProver, BatchProver, FinalProver};
+use crate::sp1_prover::final_prover::Sp1FinalProver;
+use prover_core::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
+use prover_core::prover::Prover;
+use prover_core::stage::Stage;
+
+use crate::sp1_prover::agg_prover::Sp1AggProver;
+use crate::sp1_prover::batch_prover::Sp1BatchProver;
 
 use anyhow::{anyhow, bail, Result};
 use std::collections::{HashMap, VecDeque};
@@ -21,8 +26,12 @@ pub struct Pipeline {
     prove_data_cache: Arc<Mutex<ProveDataCache>>,
     task_sender: Option<Sender<BatchContext>>,
     prover_model: ProverModel,
+    prover_type: ProverType,
 
     force_bits: usize,
+
+    elf_path: String,
+    aggregation_elf_path: String,
 }
 
 #[derive(Debug)]
@@ -45,22 +54,52 @@ impl From<String> for ProverModel {
     }
 }
 
+#[derive(Debug)]
+pub enum ProverType {
+    Eigen,
+    SP1,
+}
+
+impl From<String> for ProverType {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "eigen" => ProverType::Eigen,
+            "sp1" => ProverType::SP1,
+            // invalid env value, use default local type
+            _ => {
+                log::error!("invalid prover type: {}, please set the env PROVER_TYPE to local or sp1, use default local model", value);
+                ProverType::Eigen
+            }
+        }
+    }
+}
+
 impl Pipeline {
     pub fn new(basedir: String, task_name: String) -> Self {
         // TODO move those codes out of Pipeline::new.
         let default_cache_dir = env::var("CACHE_DIR").unwrap_or(String::from(""));
-        let prover_model: ProverModel = env::var("PROVER_MODEL")
-            .unwrap_or("local".to_string())
-            .into();
+        let prover_model: ProverModel =
+            env::var("PROVER_MODEL").unwrap_or("local".to_string()).into();
         log::info!("start pipeline with prover model: {:?}", prover_model);
+        let prover_type: ProverType = env::var("PROVER_TYPE").unwrap_or("eigen".to_string()).into();
+        log::info!("start pipeline with prover type: {:?}", prover_type);
 
         let force_bits = std::env::var("FORCE_BIT").unwrap_or("0".to_string());
         let force_bits = force_bits
             .parse::<usize>()
             .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
-        log::info!("proof: compress setup, force_bits {force_bits}");
+        log::info!("pipeline: compress setup force_bits {force_bits}");
 
-        // TODO: recover tasks from basedir
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let elf_path = env::var("ELF_PATH").unwrap_or(format!(
+            "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
+            manifest_dir.display()
+        ));
+        let aggregation_elf_path = env::var("ELF_PATH").unwrap_or(format!(
+            "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/aggregation",
+            manifest_dir.display()
+        ));
+
         Pipeline {
             basedir: basedir.clone(),
             queue: VecDeque::new(),
@@ -73,7 +112,10 @@ impl Pipeline {
             ))),
             task_sender: None,
             prover_model,
+            prover_type,
             force_bits,
+            elf_path,
+            aggregation_elf_path,
         }
     }
 
@@ -112,9 +154,7 @@ impl Pipeline {
 
         if let Some(stage) = task {
             // mkdir
-            let workdir = Path::new(&self.basedir)
-                .join(stage.path())
-                .join("status.finished");
+            let workdir = Path::new(&self.basedir).join(stage.path()).join("status.finished");
             log::info!("load_checkpoint, check file: {:?}", workdir);
 
             let status = match std::fs::read_to_string(workdir)?.trim() {
@@ -140,20 +180,12 @@ impl Pipeline {
 
             let proof_path = workdir.clone().join("proof.json");
             let proof = std::fs::read_to_string(proof_path.clone()).map_err(|e| {
-                anyhow!(
-                    "Failed to load the proof.json: {:?}, err: {}",
-                    proof_path,
-                    e
-                )
+                anyhow!("Failed to load the proof.json: {:?}, err: {}", proof_path, e)
             })?;
 
             let input_path = workdir.join("public_input.json");
             let input = std::fs::read_to_string(input_path.clone()).map_err(|e| {
-                anyhow!(
-                    "Failed to load the public_input.json: {:?}, err: {}",
-                    input_path,
-                    e
-                )
+                anyhow!("Failed to load the public_input.json: {:?}, err: {}", input_path, e)
             })?;
 
             Ok((proof, input))
@@ -172,10 +204,7 @@ impl Pipeline {
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
-                w.insert(
-                    key.clone(),
-                    Stage::Batch(task_id.clone(), chunk_id, l2_batch_data),
-                );
+                w.insert(key.clone(), Stage::Batch(task_id.clone(), chunk_id, l2_batch_data));
                 self.save_checkpoint(&key, false)
             }
             _ => bail!("Task queue is full".to_string()),
@@ -252,11 +281,20 @@ impl Pipeline {
                             chunk_id,
                             l2_batch_data.clone(),
                             self.force_bits,
+                            &self.elf_path,
                         );
 
                         match self.prover_model {
                             ProverModel::Local => {
-                                BatchProver::new().prove(&ctx)?;
+                                match self.prover_type {
+                                    ProverType::Eigen => {
+                                        BatchProver::new().prove(&ctx)?;
+                                    }
+                                    ProverType::SP1 => {
+                                        Sp1BatchProver::new().prove(&ctx)?;
+                                    }
+                                }
+
                                 self.save_checkpoint(&key, true)?;
                             }
                             ProverModel::GRPC => {
@@ -281,8 +319,18 @@ impl Pipeline {
                             input2.clone(),
                             self.force_bits,
                             self.prove_data_cache.clone(),
+                            &self.elf_path,
+                            &self.aggregation_elf_path,
                         );
-                        AggProver::new().prove(&ctx)?;
+                        match self.prover_type {
+                            ProverType::Eigen => {
+                                AggProver::new().prove(&ctx)?;
+                            }
+                            ProverType::SP1 => {
+                                Sp1AggProver::new().prove(&ctx)?;
+                            }
+                        }
+
                         self.save_checkpoint(&key, true)?;
                     }
                     Stage::Final(task_id, curve_name, prover_addr) => {
@@ -294,7 +342,14 @@ impl Pipeline {
                             prover_addr.clone(),
                             self.prove_data_cache.clone(),
                         );
-                        FinalProver::new().prove(&ctx)?;
+                        match self.prover_type {
+                            ProverType::Eigen => {
+                                FinalProver::default().prove(&ctx)?;
+                            }
+                            ProverType::SP1 => {
+                                Sp1FinalProver::default().prove(&ctx)?;
+                            }
+                        }
                         self.save_checkpoint(&key, true)?;
                     }
                 },

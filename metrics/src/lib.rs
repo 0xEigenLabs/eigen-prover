@@ -141,10 +141,7 @@ impl PrometheusMetrics {
             .register(Box::new(prover_processing_time_histogram.clone()))
             .map_err(|e| PrometheusError::Msg(e.to_string()))?;
 
-        Ok(Self {
-            prover_processing_time_gauge,
-            prover_processing_time_histogram,
-        })
+        Ok(Self { prover_processing_time_gauge, prover_processing_time_histogram })
     }
 
     pub fn observe_prover_processing_time_gauge(&self, step: Step, function: Function, value: f64) {
@@ -242,42 +239,30 @@ mod tests {
         // let registry = Registry::new();
         // let prometheus_metrics = PrometheusMetrics::init().unwrap();
 
-        PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            .observe_prover_processing_time_gauge(
-                Step::Batch(Batch::BatchStark),
-                Function::Setup,
-                1.0,
-            );
-        PROMETHEUS_METRICS
-            .lock()
-            .unwrap()
-            ._observe_prover_processing_time_histogram(
-                Step::Batch(Batch::BatchStark),
-                Function::Setup,
-                1.0,
-            );
+        PROMETHEUS_METRICS.lock().unwrap().observe_prover_processing_time_gauge(
+            Step::Batch(Batch::BatchStark),
+            Function::Setup,
+            1.0,
+        );
+        PROMETHEUS_METRICS.lock().unwrap()._observe_prover_processing_time_histogram(
+            Step::Batch(Batch::BatchStark),
+            Function::Setup,
+            1.0,
+        );
 
         let prometheus_port =
             std::env::var("PROMETHEUS_ADDR").unwrap_or("0.0.0.0:43032".to_string());
         let prometheus_addr: SocketAddr = prometheus_port.parse().expect("Invalid socket address");
         // let prometheus_addr = ([127, 0, 0, 1], 33032).into();
         tokio::spawn(async move {
-            launch_prometheus(prometheus_addr)
-                .await
-                .expect("TODO: panic message");
+            launch_prometheus(prometheus_addr).await.expect("TODO: panic message");
         });
         tokio::time::sleep(Duration::from_secs(2)).await;
 
         let client = hyper::Client::new();
-        let uri = format!(
-            "http://{}:{}/metrics",
-            prometheus_addr.ip(),
-            prometheus_addr.port()
-        )
-        .parse()
-        .unwrap();
+        let uri = format!("http://{}:{}/metrics", prometheus_addr.ip(), prometheus_addr.port())
+            .parse()
+            .unwrap();
         let res = client.get(uri).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
 

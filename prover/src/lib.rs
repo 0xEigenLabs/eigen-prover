@@ -1,8 +1,7 @@
-pub mod args;
-pub mod contexts;
-pub mod provers;
-pub mod stage;
+pub mod eigen_prover;
 
 pub mod pipeline;
 
 pub mod scheduler;
+
+pub mod sp1_prover;

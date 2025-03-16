@@ -6,15 +6,37 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
-recursion = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
-groth16 = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false  }
-algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
-dsl_compile = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
-zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+starky                      = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+recursion                   = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+groth16                     = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false  }
+algebraic                   = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+dsl_compile                 = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
+zkvm                        = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+recursion-gnark-ffi   = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+
+once_cell = "1.18"
+
+#sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v4.1.3", features = ["native-gnark"]}
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v4.1.3" }
+bincode = "1.3.3"
+ark-groth16 = { version = "0.5.0" }
+ark-ff = { version = "0.5.0", default-features = false }
+ark-ec = { version = "0.5.0", default-features = false }
+ark-serialize = { version = "0.5.0", default-features = false, features = [ "derive" ] }
+ark-bls12-381 = { version = "0.5.0", default-features = false, features = ["curve"] }
+
+prover-core = { path = "../prover-core" }
+
+#starky      = { path = "../../eigen-zkvm/starky" }
+#recursion   = { path = "../../eigen-zkvm/recursion" }
+#groth16     = { path = "../../eigen-zkvm/groth16" }
+#algebraic   = { path = "../../eigen-zkvm/algebraic" }
+#dsl_compile = { path = "../../eigen-zkvm/dsl_compile" } 
+#zkvm        = { path = "../../eigen-zkvm/zkvm" }
+
 metrics = { path = "../metrics" }
 
-powdr = { git = "https://github.com/0xEigenLabs/powdr", branch = "binary-mux2", default-features = false }
+powdr = { git = "https://github.com/0xEigenLabs/powdr", branch = "eigen/v1", default-features = false }
 
 tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread", "signal", "sync"] }
 uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
@@ -23,9 +45,38 @@ serde_json = "1.0"
 anyhow = "1.0"
 log = "0.4.0"
 
+[build-dependencies]
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", tag = "v4.1.3" }
+
 [dev-dependencies]
 env_logger = "0.10"
 
 [features]
 default = ["algebraic/default", "groth16/default"]
 avx512 = ["starky/avx512", "recursion/avx512", "zkvm/avx512", "powdr/starky-avx512"]
+#sp1_prover = ["sp1-sdk", "sp1-build"]
+
+[patch.crates-io]
+# SHA2
+sha2-v0-9-9 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.9.9-sp1-4.0.0" }
+sha2-v0-10-6 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.6-sp1-4.0.0" }
+sha2-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
+# SHA3
+sha3-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
+# BigInt
+crypto-bigint = { git = "https://github.com/sp1-patches/RustCrypto-bigint", tag = "patch-0.5.5-sp1-4.0.0" }
+# Keccak
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0" }
+# Ed25519
+curve25519-dalek = { git = "https://github.com/sp1-patches/curve25519-dalek", tag = "patch-4.1.3-sp1-4.0.0" }
+curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-ng", tag = "patch-4.1.1-sp1-4.0.0" }
+# ECDSA
+k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-4.1.0" }
+p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-4.1.0" }
+secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", tag = "patch-0.29.1-sp1-4.0.0" }
+# BN254
+substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-4.0.0" }
+# BLS12-381
+bls12_381 = { git = "https://github.com/sp1-patches/bls12_381", tag = "patch-0.8.0-sp1-4.0.0-v2" }
+# RSA
+rsa = { git = "https://github.com/sp1-patches/RustCrypto-RSA/", tag = "patch-0.9.6-sp1-4.0.0" }

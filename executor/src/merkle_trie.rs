@@ -59,10 +59,9 @@ where
 
 // TODO: don't copy the PlainAccount
 pub fn state_merkle_trie_root(accounts: impl IntoIterator<Item = (Address, PlainAccount)>) -> B256 {
-    trie_root(accounts.into_iter().map(|(address, acc)| {
-        (
-            address,
-            alloy_rlp::encode_fixed_size(&TrieAccount::new(&acc)),
-        )
-    }))
+    trie_root(
+        accounts
+            .into_iter()
+            .map(|(address, acc)| (address, alloy_rlp::encode_fixed_size(&TrieAccount::new(&acc)))),
+    )
 }

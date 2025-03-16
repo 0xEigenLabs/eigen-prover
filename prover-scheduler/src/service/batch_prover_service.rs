@@ -1,6 +1,6 @@
-use prover::contexts::BatchContext;
-use prover::provers;
-use prover::provers::Prover;
+use prover::eigen_prover;
+use prover_core::contexts::BatchContext;
+use prover_core::prover::Prover;
 use scheduler_service::scheduler_service_client::SchedulerServiceClient;
 use scheduler_service::TakeBatchProofTaskResponse;
 use scheduler_service::{batch_prover_message, scheduler_message, BatchProverMessage};
@@ -25,10 +25,7 @@ impl BatchProverService {
         addr: String,
         batch_prover_handler: Arc<dyn BatchProverHandler + Send + Sync>,
     ) -> Self {
-        BatchProverService {
-            addr,
-            batch_prover_handler,
-        }
+        BatchProverService { addr, batch_prover_handler }
     }
 
     pub async fn launch_service(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -62,9 +59,7 @@ impl BatchProverService {
             if let Some(msg_type) = recv_msg.message_type {
                 let send_msg = match msg_type {
                     scheduler_message::MessageType::TakeBatchProofTaskResponse(r) => {
-                        self.batch_prover_handler
-                            .handle_take_batch_proof_task_response(r)
-                            .await
+                        self.batch_prover_handler.handle_take_batch_proof_task_response(r).await
                     }
                 };
                 tx.send(send_msg).await?;
@@ -93,20 +88,13 @@ impl BatchProverHandler for BatchProverServiceHandler {
         take_batch_proof_task_response: TakeBatchProofTaskResponse,
     ) -> BatchProverMessage {
         let ctx = serde_json::from_slice::<BatchContext>(
-            &take_batch_proof_task_response
-                .batch_context_bytes
-                .unwrap()
-                .data,
+            &take_batch_proof_task_response.batch_context_bytes.unwrap().data,
         )
         .unwrap();
         // TODO: async service execution and return immediately
         // or block until service finish?
-        log::debug!(
-            "[batch-prover] handles task: {}-{}",
-            ctx.task_id,
-            ctx.chunk_id
-        );
-        match provers::BatchProver::new().prove(&ctx) {
+        log::debug!("[batch-prover] handles task: {}-{}", ctx.task_id, ctx.chunk_id);
+        match eigen_prover::BatchProver::new().prove(&ctx) {
             Ok(_) => {
                 log::info!("batch prove success, task id: {}", ctx.task_id.clone());
                 // Return Result and Trigger next task
