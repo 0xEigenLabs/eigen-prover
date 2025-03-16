@@ -3,7 +3,7 @@ use prover_core::contexts::AggContext;
 use prover_core::prover::Prover;
 
 use sp1_sdk::{
-    include_elf, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
+    include_elf, HashableKey, EnvProver, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
     SP1VerifyingKey,
 };
 
@@ -33,7 +33,7 @@ impl Prover<AggContext> for Sp1AggProver {
         let agg_elf = std::fs::read(&ctx.aggregate_elf_path).unwrap();
         let program  = std::fs::read(&ctx.elf_path).unwrap();
 
-        let client: ProverClient = ProverClient::new();
+        let client: EnvProver = EnvProver::new();
         let (aggregation_pk, aggregation_vk) = client.setup(&agg_elf);
         log::info!("aggregation_vk: {:?}", aggregation_vk.bytes32());
         let (_, evm_vk) = client.setup(&program);
@@ -74,7 +74,7 @@ impl Prover<AggContext> for Sp1AggProver {
 
         // Generate the plonk bn254 proof.
         let agg_proof =
-            client.prove(&aggregation_pk, stdin).groth16().run().expect("proving failed");
+            client.prove(&aggregation_pk, &stdin).groth16().run().expect("proving failed");
 
         let agg_proof_path = format!("{}/{}/agg_proof.bin", ctx.basedir, ctx.task_path);
         agg_proof.save(agg_proof_path).expect("saving proof failed");

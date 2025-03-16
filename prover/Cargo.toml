@@ -16,7 +16,7 @@ recursion-gnark-ffi        = { git = "https://github.com/0xEigenLabs/eigen-zkvm"
 
 once_cell = "1.18"
 
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v4.1.3" }
 
 prover-core = { path = "../prover-core" }
 
@@ -39,7 +39,7 @@ anyhow = "1.0"
 log = "0.4.0"
 
 [build-dependencies]
-sp1-build = { git = "https://github.com/succinctlabs/sp1.git", rev = "9e13d02c3310966f50b3e5024821cfd0a5580ede" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", tag = "v4.1.3" }
 
 [dev-dependencies]
 env_logger = "0.10"

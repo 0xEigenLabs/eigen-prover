@@ -2,7 +2,7 @@ use anyhow::Result;
 use prover_core::contexts::BatchContext;
 use prover_core::prover::Prover;
 
-use sp1_sdk::{include_elf, HashableKey, ProverClient, SP1Stdin};
+use sp1_sdk::{include_elf, HashableKey, EnvProver, SP1Stdin};
 
 
 #[derive(Default)]
@@ -26,13 +26,13 @@ impl Prover<BatchContext> for Sp1BatchProver {
         let mut stdin = SP1Stdin::new();
         stdin.write(&serde_data);
 
-        let elf_data = std::fs::read(&ctx.elf_path).unwrap(); 
+        let elf_data = std::fs::read(&ctx.elf_path).unwrap();
 
-        let client = ProverClient::new();
+        let client = EnvProver::new();
         let (pk, vk) = client.setup(&elf_data);
         log::info!("vk: {:?}", vk.bytes32());
         // let proof = client.prove(&pk, stdin).compressed().run().unwrap();
-        let proof = client.prove(&pk, stdin).core().run().unwrap();
+        let proof = client.prove(&pk, &stdin).core().run().unwrap();
 
         client.verify(&proof, &vk).expect("verification failed");
         log::info!("ctx.basedir: {:?}", ctx.basedir);
