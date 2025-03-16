@@ -63,7 +63,7 @@ fn integration_sp1_test() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
     let curve_name = env::var("CURVE_NAME").unwrap_or("BN128".to_string());
 
-    let basedir = env::var("BASEDIR").unwrap_or("data".to_string());
+    let basedir = env::var("BASEDIR").unwrap_or("data/proof".to_string());
     // init pipeline.
     let mut pipeline =
         Pipeline::new(basedir.clone(), env::var("TASK_NAME").unwrap_or("evm".to_string()));

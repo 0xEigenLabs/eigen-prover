@@ -9,7 +9,6 @@ use ark_groth16::VerifyingKey;
 use recursion_gnark_ffi::ffi::build_groth16;
 use recursion_gnark_ffi::json_util::{Groth16Proof, JsonPublicInput, JsonVerificationKey};
 use std::fs;
-use std::io::Read;
 use std::path::Path;
 
 #[derive(Default)]
@@ -19,7 +18,7 @@ impl Prover<FinalContext> for Sp1FinalProver {
     fn prove(&self, ctx: &FinalContext) -> Result<()> {
         let vk_path = format!(
             "{}/.sp1/circuits/groth16/v4.0.0-rc.3/groth16_vk.bin",
-            std::env::home_dir().unwrap().display()
+            std::env::var("HOME").unwrap(),
         );
         let proof_with_pis_path = std::path::Path::new(&ctx.basedir).join("agg_proof.bin");
         log::debug!("read proof");
@@ -78,9 +77,11 @@ impl Prover<FinalContext> for Sp1FinalProver {
     }
 }
 
+#[allow(unused_imports)]
 mod tests {
-    use super::*;
-
+    use super::Sp1FinalProver;
+    use prover_core::contexts::FinalContext;
+    use prover_core::prover::Prover;
     #[test]
     fn test_sp1_final_prove() {
         env_logger::try_init().unwrap_or_default();
@@ -88,8 +89,10 @@ mod tests {
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-        let mut agg_context = FinalContext::default();
-        agg_context.basedir = format!("{}/test_vectors/proof", &manifest_dir.display());
+        let agg_context = FinalContext {
+            basedir: format!("{}/test_vectors/proof", &manifest_dir.display()),
+            ..Default::default()
+        };
 
         sp1_prover.prove(&agg_context).unwrap();
     }

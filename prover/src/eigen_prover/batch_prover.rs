@@ -29,7 +29,7 @@ impl Prover<BatchContext> for BatchProver {
         let prove_start = std::time::Instant::now();
         // 1. stark prove: generate `.circom` file.
         // given that the l2batch data has been stored in ctx.l2_data.
-        let serde_data = ctx.l2_batch_data.clone();
+        let _serde_data = ctx.l2_batch_data.clone();
         // the circom: $output/main_proof.bin_1
         // the zkin(stark proof): $output/main_proof.bin_0
         let bootloader_input_path = format!(
@@ -85,7 +85,7 @@ impl Prover<BatchContext> for BatchProver {
         //let id_vec = serde_json::to_vec(&machine_ids)?;
         //f.write_all(&id_vec)?;
 
-        let machine_ids = (0..17).into_iter();
+        let machine_ids = 0..17;
         for submachine_id in machine_ids {
             let batch_circom = ctx.get_circom(&ctx.task_name, submachine_id);
             let batch_circom_file = batch_circom.circom(false);

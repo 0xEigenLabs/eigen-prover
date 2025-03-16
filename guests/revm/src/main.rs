@@ -34,8 +34,8 @@ pub fn main() {
 }
 
 // FIXME: serde by runtime.
-fn read_suite(s: &String) -> TestUnit {
-    let suite: TestUnit = serde_json::from_str(s).map_err(|e| e).unwrap();
+fn read_suite(s: &str) -> TestUnit {
+    let suite: TestUnit = serde_json::from_str(s).unwrap();
     suite
 }
 
@@ -82,7 +82,7 @@ fn execute_test(unit: &TestUnit) -> Result<(), String> {
     env.tx.caller = match unit.transaction.sender {
         Some(address) => address,
         _ => {
-            recover_address(unit.transaction.secret_key.as_slice()).ok_or_else(|| String::new())?
+            recover_address(unit.transaction.secret_key.as_slice()).ok_or_else(|| "".to_string())?
         }
     };
     env.tx.gas_price =

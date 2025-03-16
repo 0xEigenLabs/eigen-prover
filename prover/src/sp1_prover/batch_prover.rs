@@ -61,17 +61,29 @@ mod tests {
             &manifest_dir.display()
         ));
         let suite_json = fs::read_to_string(test_file).unwrap();
-        let mut batch_context = BatchContext::default();
-        batch_context.l2_batch_data = suite_json;
-        batch_context.basedir = format!("{}/test_vectors/proof", &manifest_dir.display());
-        batch_context.task_id = "0".to_string();
-        batch_context.elf_path = format!(
-            "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
-            manifest_dir.display()
-        );
-        let _ = sp1_prover.prove(&batch_context);
 
-        batch_context.task_id = "1".to_string();
-        let _ = sp1_prover.prove(&batch_context);
+        let batch_context = BatchContext {
+            l2_batch_data: suite_json.clone(),
+            basedir: format!("{}/test_vectors/proof", &manifest_dir.display()),
+            task_id: "0".to_string(),
+            elf_path: format!(
+                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
+                manifest_dir.display()
+            ),
+            ..Default::default()
+        };
+        sp1_prover.prove(&batch_context).unwrap();
+
+        let batch_context = BatchContext {
+            l2_batch_data: suite_json,
+            basedir: format!("{}/test_vectors/proof", &manifest_dir.display()),
+            task_id: "1".to_string(),
+            elf_path: format!(
+                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
+                manifest_dir.display()
+            ),
+            ..Default::default()
+        };
+        sp1_prover.prove(&batch_context).unwrap();
     }
 }

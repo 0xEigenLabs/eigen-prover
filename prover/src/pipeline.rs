@@ -1,4 +1,5 @@
 use crate::eigen_prover::{AggProver, BatchProver, FinalProver};
+use crate::sp1_prover::final_prover::Sp1FinalProver;
 use prover_core::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
 use prover_core::prover::Prover;
 use prover_core::stage::Stage;
@@ -89,8 +90,19 @@ impl Pipeline {
             .unwrap_or_else(|_| panic!("Can not parse {} to usize", force_bits));
         log::info!("pipeline: compress setup force_bits {force_bits}");
 
-        let elf_path = env::var("ELF_PATH").unwrap();
-        let aggregation_elf_path = env::var("ELF_PATH").unwrap();
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let elf_path = env::var("ELF_PATH").unwrap_or(
+            format!(
+                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
+                manifest_dir.display()
+            )
+        );
+        let aggregation_elf_path = env::var("ELF_PATH").unwrap_or(
+            format!(
+                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/aggregation",
+                manifest_dir.display()
+            )
+        );
 
         Pipeline {
             basedir: basedir.clone(),
@@ -339,7 +351,7 @@ impl Pipeline {
                                 FinalProver::default().prove(&ctx)?;
                             }
                             ProverType::SP1 => {
-                                // nothing
+                                Sp1FinalProver::default().prove(&ctx)?;
                             }
                         }
                         self.save_checkpoint(&key, true)?;

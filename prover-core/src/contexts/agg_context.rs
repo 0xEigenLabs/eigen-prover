@@ -27,6 +27,7 @@ pub struct AggContext {
 }
 
 impl AggContext {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         basedir: &str,
         task_id: &str,
