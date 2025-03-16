@@ -36,7 +36,7 @@ impl Prover<BatchContext> for Sp1BatchProver {
 
         client.verify(&proof, &vk).expect("verification failed");
         log::info!("ctx.basedir: {:?}", ctx.basedir);
-        let proof_path = format!("{}/proof/{}/sp1_core_proof.bin", ctx.basedir, ctx.task_id);
+        let proof_path = format!("{}/proof/sp1_proof_{}.bin", ctx.basedir, ctx.task_id);
         proof.save(proof_path).expect("saving proof failed");
 
         let prove_elapsed = prove_start.elapsed();
@@ -54,14 +54,24 @@ mod tests {
 
     #[test]
     fn test_sp1_prove() {
+        env_logger::try_init().unwrap_or_default();
         let sp1_prover = Sp1BatchProver::new();
+        
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let test_file = stdenv::var("SUITE_JSON")
-            .unwrap_or(String::from("../../../../../executor/test-vectors/solidityExample.json"));
+            .unwrap_or(format!("{}/../executor/test-vectors/solidityExample.json", &manifest_dir.display()));
+        log::info!("current: {}", std::env::current_dir().unwrap().display());
+        log::info!("current: {}", std::env::current_exe().unwrap().display());
         let suite_json = fs::read_to_string(test_file).unwrap();
         let mut batch_context = BatchContext::default();
         batch_context.l2_batch_data = suite_json;
-        batch_context.basedir = "../../test_vectors".to_string();
+        batch_context.basedir = format!("{}/test_vectors", &manifest_dir.display());
         batch_context.task_id = "0".to_string();
+        batch_context.elf_path = format!("{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm", manifest_dir.display());
+        let _ = sp1_prover.prove(&batch_context);
+
+
+        batch_context.task_id = "1".to_string();
         let _ = sp1_prover.prove(&batch_context);
     }
 }

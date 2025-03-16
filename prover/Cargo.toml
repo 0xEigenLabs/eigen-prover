@@ -17,6 +17,7 @@ recursion-gnark-ffi        = { git = "https://github.com/0xEigenLabs/eigen-zkvm"
 once_cell = "1.18"
 
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v4.1.3" }
+bincode = "*"
 
 prover-core = { path = "../prover-core" }
 

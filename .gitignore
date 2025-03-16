@@ -30,4 +30,5 @@ Cargo.lock
 .idea
 .vscode
 prover/data/proof
+prover/test-vectors/proof
 prover-scheduler/data

@@ -95,7 +95,7 @@ fn integration_sp1_test() -> anyhow::Result<()> {
     log::info!("agg task: {task3}");
 
     let task4 = pipeline
-        .final_prove(task3, "BN128".to_, "273030697313060285579891744179749754319274977764".into())
+        .final_prove(task3, curve_name, "273030697313060285579891744179749754319274977764".into())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("final task: {task4}");
