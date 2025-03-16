@@ -13,7 +13,7 @@ pub struct BatchContext {
     pub program_output: String,
     pub task_id: String,
     pub task_name: String,
-    
+
     pub elf_path: String,
 
     pub c12_task_name: String,
@@ -48,7 +48,6 @@ impl BatchContext {
             batch_struct: format!("{}/{}/batch.stark_struct.json", basedir, task_name),
             c12_struct: format!("{}/{}/c12.stark_struct.json", basedir, task_name),
 
-
             task_path: task_path.clone(),
 
             program_output,
@@ -70,10 +69,7 @@ impl BatchContext {
     }
 
     pub fn new_sp1(elf_path: String) -> Self {
-        Self {
-            elf_path,
-            ..Default::default()
-        }
+        Self { elf_path, ..Default::default() }
     }
 
     pub fn get_circom(&self, name: &str, submachine_id: usize) -> CircomCompileArgs {

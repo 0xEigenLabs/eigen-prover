@@ -3,10 +3,8 @@ use prover_core::contexts::AggContext;
 use prover_core::prover::Prover;
 
 use sp1_sdk::{
-    include_elf, HashableKey, EnvProver, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
-    SP1VerifyingKey,
+    EnvProver, HashableKey, SP1Proof, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
 };
-
 
 /// An input to the aggregation program.
 ///
@@ -32,7 +30,7 @@ impl Prover<AggContext> for Sp1AggProver {
         log::info!("ctx: {:?}", ctx);
         // A program that aggregates the proofs of the simple program.
         let agg_elf = std::fs::read(&ctx.aggregate_elf_path).unwrap();
-        let program  = std::fs::read(&ctx.elf_path).unwrap();
+        let program = std::fs::read(&ctx.elf_path).unwrap();
 
         let client: EnvProver = EnvProver::new();
         let (aggregation_pk, _aggregation_vk) = client.setup(&agg_elf);
@@ -73,11 +71,6 @@ impl Prover<AggContext> for Sp1AggProver {
 
         let agg_proof_path = format!("{}/proof/agg_proof.bin", ctx.basedir);
         agg_proof.save(agg_proof_path).expect("saving proof failed");
-
-        let agg_public_input_path = format!("{}/proof/agg_public_inputs.json", ctx.basedir);
-        let mut file = std::fs::File::create(agg_public_input_path)?;
-        serde_json::to_writer(&file, &agg_proof.public_values)?;
-
         log::info!("end aggregate prove");
         Ok(())
     }
@@ -94,15 +87,24 @@ mod tests {
         let mut agg_context = AggContext::default();
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        
-        agg_context.basedir = format!("{}/test_vectors", manifest_dir.display());
-        agg_context.input = format!("{}/test_vectors/proof/sp1_proof_0.bin", manifest_dir.display());
-        println!("agg_context.input: {:?}", agg_context.input);
-        agg_context.input2 = format!("{}/test_vectors/proof/sp1_proof_1.bin", manifest_dir.display());
 
-        agg_context.task_path = format!("{}/test_vectors/proof/agg_proof.bin", manifest_dir.display());
-        agg_context.elf_path = format!("{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm", manifest_dir.display());
-        agg_context.aggregate_elf_path = format!("{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/aggregation", manifest_dir.display());
+        agg_context.basedir = format!("{}/test_vectors", manifest_dir.display());
+        agg_context.input =
+            format!("{}/test_vectors/proof/sp1_proof_0.bin", manifest_dir.display());
+        println!("agg_context.input: {:?}", agg_context.input);
+        agg_context.input2 =
+            format!("{}/test_vectors/proof/sp1_proof_1.bin", manifest_dir.display());
+
+        agg_context.task_path =
+            format!("{}/test_vectors/proof/agg_proof.bin", manifest_dir.display());
+        agg_context.elf_path = format!(
+            "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
+            manifest_dir.display()
+        );
+        agg_context.aggregate_elf_path = format!(
+            "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/aggregation",
+            manifest_dir.display()
+        );
 
         log::info!("task_path: {:?}", agg_context.task_path);
         let _ = agg_prover.prove(&agg_context);

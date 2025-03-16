@@ -3,7 +3,6 @@ use prover_core::contexts::BatchContext;
 use prover_core::prover::Prover;
 
 use anyhow::Result;
-use groth16::bellman_ce::plonk::better_better_cs::verifier;
 use powdr::number::{FieldElement, GoldilocksField};
 
 use dsl_compile::circom_compiler;
@@ -11,9 +10,8 @@ use metrics::Batch::BatchStark;
 use metrics::{Batch, Function, Step};
 use recursion::{compressor12_exec::exec, compressor12_setup::setup};
 use starky::prove::stark_prove;
-use std::io::Write;
 use std::{fs, io::Read};
-use zkvm::zkvm_prove_only;
+//use zkvm::zkvm_prove_only;
 
 #[derive(Default)]
 pub struct BatchProver {}
