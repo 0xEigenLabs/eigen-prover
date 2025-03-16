@@ -65,12 +65,18 @@ impl Prover<AggContext> for Sp1AggProver {
             stdin.write_proof(*proof, input.vk.vk);
         }
 
+        log::info!("agg_proof prove");
+
         // Generate the plonk bn254 proof.
         let agg_proof =
             client.prove(&aggregation_pk, &stdin).groth16().run().expect("proving failed");
 
         let agg_proof_path = format!("{}/proof/agg_proof.bin", ctx.basedir);
         agg_proof.save(agg_proof_path).expect("saving proof failed");
+
+        let agg_public_input_path = format!("{}/proof/agg_public_inputs.json", ctx.basedir);
+        let mut file = std::fs::File::create(agg_public_input_path)?;
+        serde_json::to_writer(&file, &agg_proof.public_values)?;
 
         log::info!("end aggregate prove");
         Ok(())
@@ -89,7 +95,9 @@ mod tests {
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         
+        agg_context.basedir = format!("{}/test_vectors", manifest_dir.display());
         agg_context.input = format!("{}/test_vectors/proof/sp1_proof_0.bin", manifest_dir.display());
+        println!("agg_context.input: {:?}", agg_context.input);
         agg_context.input2 = format!("{}/test_vectors/proof/sp1_proof_1.bin", manifest_dir.display());
 
         agg_context.task_path = format!("{}/test_vectors/proof/agg_proof.bin", manifest_dir.display());

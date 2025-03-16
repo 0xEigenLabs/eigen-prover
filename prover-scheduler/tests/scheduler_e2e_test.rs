@@ -110,7 +110,7 @@ impl SchedulerHandler for MockSchedulerServerHandler {
         .unwrap();
         let force_bits = 18;
         let first_task =
-            BatchContext::new(basedir, task_id, task_name, chunk_id, l2_batch_data, force_bits);
+            BatchContext::new(basedir, task_id, task_name, chunk_id, l2_batch_data, force_bits, ".");
         // just test the server and client communication
         // we will test the message sending in lib prover
         log::info!(

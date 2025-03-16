@@ -1,2 +1,0 @@
-#SUITE_JSON="/mnt/nfs/sy/eigen-prover/executor/test-vectors/blockInfo.json" RUST_LOG=debug cargo test test_sp1_prove --release -- --nocapture
-SUITE_JSON="/mnt/nfs/sy/eigen-prover/reth.block_68858.json" RUST_LOG=info cargo test test_sp1_prove --release -- --nocapture

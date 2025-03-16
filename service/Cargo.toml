@@ -21,9 +21,9 @@ prover = { path = "../prover", default-features = false }
 prover-core = { path = "../prover-core" }
 prover-scheduler = { path = "../prover-scheduler" }
 metrics = { path = "../metrics" }
-starky = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+starky    = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
 algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
-models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
+models    = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
 lazy_static = "1.4.0"
 ethers-providers = { version = "2.0", features = ["ws"] }
 anyhow =  "1.0"
@@ -35,7 +35,7 @@ uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 
 #log
 log = "0.4.0"
-env_logger = "0.10"
+env_logger = "0.11.7"
 
 [build-dependencies]
 tonic-build = "0.8.0"

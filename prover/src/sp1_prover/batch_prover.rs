@@ -32,7 +32,7 @@ impl Prover<BatchContext> for Sp1BatchProver {
         let (pk, vk) = client.setup(&elf_data);
         log::info!("vk: {:?}", vk.bytes32());
         // let proof = client.prove(&pk, stdin).compressed().run().unwrap();
-        let proof = client.prove(&pk, &stdin).core().run().unwrap();
+        let proof = client.prove(&pk, &stdin).compressed().run().unwrap();
 
         client.verify(&proof, &vk).expect("verification failed");
         log::info!("ctx.basedir: {:?}", ctx.basedir);

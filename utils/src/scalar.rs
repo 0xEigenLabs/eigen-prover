@@ -1,8 +1,8 @@
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use num_traits::Num;
-use plonky::ff::from_hex;
-use plonky::field_gl::Fr;
+use ff::from_hex;
+use field::field_gl::Fr;
 
 pub fn remove_0x(key: &str) -> String {
     key.trim_start_matches("0x").to_string()
