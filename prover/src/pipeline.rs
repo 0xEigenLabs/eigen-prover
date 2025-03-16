@@ -91,18 +91,14 @@ impl Pipeline {
         log::info!("pipeline: compress setup force_bits {force_bits}");
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let elf_path = env::var("ELF_PATH").unwrap_or(
-            format!(
-                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
-                manifest_dir.display()
-            )
-        );
-        let aggregation_elf_path = env::var("ELF_PATH").unwrap_or(
-            format!(
-                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/aggregation",
-                manifest_dir.display()
-            )
-        );
+        let elf_path = env::var("ELF_PATH").unwrap_or(format!(
+            "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
+            manifest_dir.display()
+        ));
+        let aggregation_elf_path = env::var("ELF_PATH").unwrap_or(format!(
+            "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/aggregation",
+            manifest_dir.display()
+        ));
 
         Pipeline {
             basedir: basedir.clone(),
