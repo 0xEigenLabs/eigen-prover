@@ -36,8 +36,10 @@ impl Prover<AggContext> for Sp1AggProver {
         let (aggregation_pk, _aggregation_vk) = client.setup(&agg_elf);
         let (_, evm_vk) = client.setup(&program);
 
-        let proof_1 = SP1ProofWithPublicValues::load(&ctx.input)?;
-        let proof_2 = SP1ProofWithPublicValues::load(&ctx.input2)?;
+        let input = format!("{}/{}/sp1_proof.bin", &ctx.basedir, &ctx.input);
+        let input2 = format!("{}/{}/sp1_proof.bin", &ctx.basedir, &ctx.input2);
+        let proof_1 = SP1ProofWithPublicValues::load(&input)?;
+        let proof_2 = SP1ProofWithPublicValues::load(&input2)?;
         let agg_input1 = AggregationInput { proof: proof_1, vk: evm_vk.clone() };
         let agg_input2 = AggregationInput { proof: proof_2, vk: evm_vk };
         let inputs = vec![agg_input1, agg_input2];
@@ -69,7 +71,11 @@ impl Prover<AggContext> for Sp1AggProver {
         let agg_proof =
             client.prove(&aggregation_pk, &stdin).groth16().run().expect("proving failed");
 
-        let agg_proof_path = format!("{}/proof/agg_proof.bin", ctx.basedir);
+        let tmp_path = format!("{}/{}", ctx.basedir, ctx.task_id);
+        std::fs::create_dir_all(&tmp_path)?;
+
+        let agg_proof_path = format!("{}/agg_proof.bin", tmp_path);
+
         agg_proof.save(agg_proof_path).expect("saving proof failed");
         log::info!("end aggregate prove");
         Ok(())
@@ -88,15 +94,13 @@ mod tests {
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-        agg_context.basedir = format!("{}/test_vectors", manifest_dir.display());
-        agg_context.input =
-            format!("{}/test_vectors/proof/sp1_proof_0.bin", manifest_dir.display());
-        println!("agg_context.input: {:?}", agg_context.input);
-        agg_context.input2 =
-            format!("{}/test_vectors/proof/sp1_proof_1.bin", manifest_dir.display());
+        agg_context.basedir = format!("{}/test_vectors/proof", manifest_dir.display());
+        agg_context.input = "0".to_string();
+        agg_context.input2 = "1".to_string();
+        agg_context.task_id = "2".to_string();
 
-        agg_context.task_path =
-            format!("{}/test_vectors/proof/agg_proof.bin", manifest_dir.display());
+        //agg_context.task_path =
+        //    format!("{}/test_vectors/proof/agg_proof.bin", manifest_dir.display());
         agg_context.elf_path = format!(
             "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
             manifest_dir.display()
@@ -106,7 +110,6 @@ mod tests {
             manifest_dir.display()
         );
 
-        log::info!("task_path: {:?}", agg_context.task_path);
         let _ = agg_prover.prove(&agg_context);
     }
 }

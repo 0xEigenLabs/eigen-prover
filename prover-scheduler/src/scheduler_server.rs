@@ -267,7 +267,6 @@ impl SchedulerHandler for SchedulerServerHandler {
                 service_id: r.prover_id.clone(),
                 recursive_proof: ProofResult {
                     task_id: r.task_id.clone(),
-                    chunk_id: r.chunk_id.clone(),
                     result_code: ResultStatus::Success,
                 },
             }
@@ -276,7 +275,6 @@ impl SchedulerHandler for SchedulerServerHandler {
                 service_id: r.prover_id.clone(),
                 recursive_proof: ProofResult {
                     task_id: r.task_id.clone(),
-                    chunk_id: r.chunk_id.clone(),
                     result_code: ResultStatus::Fail,
                 },
             }

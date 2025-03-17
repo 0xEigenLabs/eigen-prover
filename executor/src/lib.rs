@@ -5,7 +5,6 @@ use ethers_core::types::{
     GethTraceFrame, PreStateFrame,
 };
 use ethers_providers::{Http, Middleware, Provider};
-use powdr::number::FieldElement;
 use revm::{
     db::{CacheDB, EthersDB, PlainAccount, StateBuilder},
     inspector_handle_register,
@@ -17,10 +16,9 @@ use revm::{
 };
 use ruint::Uint;
 use std::collections::BTreeMap;
-use std::path::Path;
 use std::sync::Arc;
-use std::{fs, io::Write};
-use zkvm::zkvm_generate_chunks;
+//use std::{fs, io::Write};
+//use zkvm::zkvm_generate_chunks;
 
 type ExecResult = Result<Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)>>;
 mod merkle_trie;
@@ -144,6 +142,7 @@ fn fill_test_env(
     test_env
 }
 
+/*
 fn generate_chunks(task: &str, task_id: &str, base_dir: &str, json_string: &String) -> usize {
     let output_path = format!("{}/{}/{}", base_dir, task_id, task);
     log::debug!("output_path: {}", output_path);
@@ -172,6 +171,7 @@ fn generate_chunks(task: &str, task_id: &str, base_dir: &str, json_string: &Stri
 
     cnt_chunks
 }
+*/
 
 fn fill_test_post(
     all_result: &[(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)],
@@ -304,14 +304,11 @@ pub async fn batch_process(
     client: Arc<Provider<Http>>,
     block_number: u64,
     chain_id: u64,
-    task: &str,
-    task_id: &str,
-    base_dir: &str,
-) -> (ExecResult, String, usize) {
+) -> (ExecResult, String) {
     let (all_result, json_string) = gen_block_json(client, block_number, chain_id).await;
-    let cnt_chunks = generate_chunks(task, task_id, base_dir, &json_string);
+    //let cnt_chunks = generate_chunks(task, task_id, base_dir, &json_string);
     log::info!("all_result: {:?}", all_result);
-    (all_result, json_string, cnt_chunks)
+    (all_result, json_string)
 }
 
 pub async fn gen_block_json(
@@ -450,36 +447,6 @@ mod tests {
     use hex::FromHex;
     use revm::primitives::Bytecode;
     use std::env as stdenv;
-
-    #[test]
-    fn test_zkvm_evm_generate_chunks() {
-        env_logger::try_init().unwrap_or_default();
-        //let test_file = "test-vectors/blockInfo.json";
-        let test_file =
-            stdenv::var("SUITE_JSON").unwrap_or(String::from("test-vectors/solidityExample.json"));
-        let suite_json = fs::read_to_string(test_file).unwrap();
-        let task: String = stdenv::var("TASK").unwrap_or(String::from("lr"));
-        let task_id = "0";
-        let output_path = format!("../prover/data/proof/{}/{}", task_id, task);
-        let workspace = format!("program/{}", task);
-        let bootloader_inputs =
-            zkvm_generate_chunks(workspace.as_str(), &suite_json, output_path.as_str()).unwrap();
-        let cnt_chunks: usize = bootloader_inputs.len();
-        log::info!("Generated {} chunks", cnt_chunks);
-        // save the chunks
-        let bi_files: Vec<_> = (0..cnt_chunks)
-            .map(|i| Path::new(output_path.as_str()).join(format!("{task}_chunks_{i}.data")))
-            .collect();
-        log::debug!("bi_files: {:#?}", bi_files);
-        bootloader_inputs.iter().zip(&bi_files).for_each(|(data, filename)| {
-            let mut f = fs::File::create(filename).unwrap();
-            f.write_all(&data.1.to_le_bytes()).unwrap();
-            for d in &data.0 {
-                f.write_all(&d.to_bytes_le()[0..8]).unwrap();
-            }
-        });
-    }
-
     #[test]
     fn test_state_merkle_trie_root() {
         let addr =

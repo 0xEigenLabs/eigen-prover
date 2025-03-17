@@ -21,8 +21,8 @@ prover = { path = "../prover", default-features = false }
 prover-core = { path = "../prover-core" }
 prover-scheduler = { path = "../prover-scheduler" }
 metrics = { path = "../metrics" }
-starky    = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
-algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+#starky    = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+#algebraic = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
 models    = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
 lazy_static = "1.4.0"
 ethers-providers = { version = "2.0", features = ["ws"] }
@@ -40,6 +40,6 @@ env_logger = "0.11.7"
 [build-dependencies]
 tonic-build = "0.8.0"
 
-[features]
-default = [ "algebraic/default" ]
-avx512 = ["prover/avx512", "starky/avx512", "executor/avx512"]
+#[features]
+#default = [ "algebraic/default" ]
+#avx512 = ["prover/avx512", "starky/avx512", "executor/avx512"]

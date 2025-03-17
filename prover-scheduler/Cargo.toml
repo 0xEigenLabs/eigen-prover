@@ -15,20 +15,16 @@ prover-core = { path = "../prover-core" }
 anyhow =  "1.0"
 
 serde = "1.0.92"
-serde_derive = "1.0.92"
 uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 
 #log
 log = "0.4.0"
 
 [dev-dependencies]
-mockall = "0.10.2"
-tokio-test = "0.2.1"
 tonic = "0.8.1"
 env_logger = "0.11.7"
 serde_json = "1.0.108"
 serde = "1.0.92"
-serde_derive = "1.0.92"
 prost = "0.11.0"
 
 
@@ -36,5 +32,5 @@ prost = "0.11.0"
 tonic-build = "0.8.0"
 
 [features]
-default = []
-avx512 = ["prover/avx512"]
+#default = []
+#avx512 = ["prover/avx512"]

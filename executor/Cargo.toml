@@ -14,9 +14,9 @@ log = "0.4.0"
 
 anyhow =  "1.0"
 revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde", "ethersdb" ] }
-powdr = { git = "https://github.com/0xEigenLabs/powdr", branch = "eigen/v1", default-features = false }
+#powdr = { git = "https://github.com/0xEigenLabs/powdr", branch = "eigen/v1", default-features = false }
 
-zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
+#zkvm = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
 #zkvm = { path = "../../eigen-zkvm/zkvm" }
 
 models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
@@ -46,5 +46,5 @@ indicatif = "0.17"
 env_logger = "0.11.7"
 
 [features]
-default = []
-avx512 = ["zkvm/avx512"]
+#default = []
+#avx512 = ["zkvm/avx512"]

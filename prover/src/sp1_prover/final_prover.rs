@@ -20,7 +20,8 @@ impl Prover<FinalContext> for Sp1FinalProver {
             "{}/.sp1/circuits/groth16/v4.0.0-rc.3/groth16_vk.bin",
             std::env::var("HOME").unwrap(),
         );
-        let proof_with_pis_path = std::path::Path::new(&ctx.basedir).join("agg_proof.bin");
+        let proof_with_pis_path = std::path::Path::new(&ctx.basedir)
+            .join(format!("{}_final/agg_proof.bin", ctx.agg_task_id));
         log::debug!("read proof");
         let sp1_proof = match sp1_sdk::SP1ProofWithPublicValues::load(&proof_with_pis_path) {
             Ok(proof) => proof,
@@ -89,11 +90,13 @@ mod tests {
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-        let agg_context = FinalContext {
+        let final_context = FinalContext {
             basedir: format!("{}/test_vectors/proof", &manifest_dir.display()),
+            agg_task_id: "2".to_string(),
+
             ..Default::default()
         };
 
-        sp1_prover.prove(&agg_context).unwrap();
+        sp1_prover.prove(&final_context).unwrap();
     }
 }
