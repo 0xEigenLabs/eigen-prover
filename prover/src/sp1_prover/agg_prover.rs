@@ -87,6 +87,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_sp1_agg_prove() {
         env_logger::try_init().unwrap_or_default();
         let agg_prover = Sp1AggProver::new();

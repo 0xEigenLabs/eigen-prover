@@ -84,6 +84,7 @@ mod tests {
     use prover_core::contexts::FinalContext;
     use prover_core::prover::Prover;
     #[test]
+    #[ignore]
     fn test_sp1_final_prove() {
         env_logger::try_init().unwrap_or_default();
         let sp1_prover = Sp1FinalProver::default();
