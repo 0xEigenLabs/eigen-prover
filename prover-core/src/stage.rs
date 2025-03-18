@@ -36,25 +36,25 @@ mod tests {
     #[test]
     fn test_batch_stage_path() {
         let stage = Stage::Batch("task_id".to_string(), "".to_string());
-        assert_eq!(stage.path(), "proof/task_id/batch_proof_chunk_id");
+        assert_eq!(stage.path(), "task_id/batch_proof");
     }
 
     #[test]
     fn test_agg_stage_path() {
         let stage =
             Stage::Aggregate("task_id".to_string(), "input".to_string(), "input2".to_string());
-        assert_eq!(stage.path(), "proof/task_id/agg_proof");
+        assert_eq!(stage.path(), "task_id/agg_proof");
     }
 
     #[test]
     fn test_final_stage_path() {
         let stage = Stage::Final("task_id".to_string(), "prover_addr".to_string());
-        assert_eq!(stage.path(), "proof/task_id/snark_proof");
+        assert_eq!(stage.path(), "task_id/snark_proof");
     }
 
     #[test]
     fn test_stage_to_string() {
         let stage = Stage::Batch("task_id".to_string(), "".to_string());
-        assert_eq!(stage.to_string().unwrap(), r#"["task_id","chunk_id",""]"#);
+        assert_eq!(stage.to_string().unwrap(), r#"["task_id",""]"#);
     }
 }

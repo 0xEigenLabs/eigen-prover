@@ -446,7 +446,6 @@ mod tests {
     use super::*;
     use hex::FromHex;
     use revm::primitives::Bytecode;
-    use std::env as stdenv;
     #[test]
     fn test_state_merkle_trie_root() {
         let addr =

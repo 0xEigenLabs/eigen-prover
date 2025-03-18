@@ -49,19 +49,11 @@ impl ExecutorService for ExecutorServiceSVC {
         // let t: TestUnit = serde_json::from_str(&batch_l2_data).unwrap();
         let block_number = batch_l2_data.parse::<u64>().unwrap();
 
-        let task = stdenv::var("TASK").unwrap_or(String::from("lr"));
-        let base_dir = stdenv::var("BASEDIR").unwrap_or(String::from("/tmp"));
         let execute_task_id = uuid::Uuid::new_v4();
         let chain_id = stdenv::var("CHAINID").unwrap_or(String::from("1"));
-        let (state_result, _l2_batch_data, cnt_chunks) = batch_process(
-            self.client.clone(),
-            block_number,
-            chain_id.parse::<u64>().unwrap(),
-            &task,
-            execute_task_id.to_string().as_str(),
-            base_dir.as_str(),
-        )
-        .await;
+        let (state_result, _l2_batch_data) =
+            batch_process(self.client.clone(), block_number, chain_id.parse::<u64>().unwrap())
+                .await;
         let mut response = executor_service::ProcessBatchResponse::default();
         let last_element = match state_result {
             Ok(res) => {
@@ -79,7 +71,7 @@ impl ExecutorService for ExecutorServiceSVC {
         debug!("batch_process last_element: {:?}", last_element);
 
         response.execute_task_id = execute_task_id.to_string();
-        response.cnt_chunks = cnt_chunks as u32;
+        response.cnt_chunks = 0;
         let (txbytes, data, value, ResultAndState { result, state }) = last_element.unwrap();
         {
             // 1. expect_exception: Option<String>,
