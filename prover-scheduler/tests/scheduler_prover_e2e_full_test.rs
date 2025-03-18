@@ -53,17 +53,17 @@ async fn prover_scheduler_e2e_full_test() {
     )
     .unwrap();
     log::info!("====================4. Task incoming ====================");
-    let task1 = pipeline.batch_prove("0".into(), "0".into(), l2_batch_data.clone()).unwrap();
+    let task1 = pipeline.batch_prove("0".into(), l2_batch_data.clone()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task: {task1}");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-    let task2 = pipeline.batch_prove("0".into(), "1".into(), l2_batch_data.clone()).unwrap();
+    let task2 = pipeline.batch_prove("0".into(), l2_batch_data.clone()).unwrap();
     pipeline.prove().unwrap();
     log::info!("task2: {task2}");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-    let task3 = pipeline.batch_prove("0".into(), "2".into(), l2_batch_data).unwrap();
+    let task3 = pipeline.batch_prove("0".into(), l2_batch_data).unwrap();
     pipeline.prove().unwrap();
     log::info!("task3: {task3}");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
@@ -84,11 +84,7 @@ async fn prover_scheduler_e2e_full_test() {
     log::info!("agg task: {task4}");
 
     let task5 = pipeline
-        .final_prove(
-            task4,
-            "BN128".into(),
-            "273030697313060285579891744179749754319274977764".into(),
-        )
+        .final_prove(task4, "273030697313060285579891744179749754319274977764".into())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("final task: {task5}");
@@ -98,11 +94,7 @@ async fn prover_scheduler_e2e_full_test() {
     log::info!("agg task: {task6}");
 
     let task7 = pipeline
-        .final_prove(
-            task6,
-            "BN128".into(),
-            "273030697313060285579891744179749754319274977764".into(),
-        )
+        .final_prove(task6, "273030697313060285579891744179749754319274977764".into())
         .unwrap();
     pipeline.prove().unwrap();
     log::info!("final task: {task7}");

@@ -36,7 +36,6 @@ message TakeBatchProofTask {
 message BatchProofResult {
   string prover_id = 1;
   string task_id = 2;
-  string chunk_id = 3;
   Result result = 4;
 }
 

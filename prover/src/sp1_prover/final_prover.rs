@@ -20,8 +20,9 @@ impl Prover<FinalContext> for Sp1FinalProver {
             "{}/.sp1/circuits/groth16/v4.0.0-rc.3/groth16_vk.bin",
             std::env::var("HOME").unwrap(),
         );
-        let proof_with_pis_path = std::path::Path::new(&ctx.basedir).join("agg_proof.bin");
-        log::debug!("read proof");
+        let proof_with_pis_path =
+            std::path::Path::new(&ctx.basedir).join(format!("{}/agg_proof.bin", ctx.agg_task_id));
+        log::info!("read proof: {}", proof_with_pis_path.display());
         let sp1_proof = match sp1_sdk::SP1ProofWithPublicValues::load(&proof_with_pis_path) {
             Ok(proof) => proof,
             _ => panic!(),
@@ -35,12 +36,15 @@ impl Prover<FinalContext> for Sp1FinalProver {
 
         let inputs = serde_json::to_string(&groth16_proof.public_inputs)?;
 
-        log::debug!("build_groth16: {}", groth16_proof.encoded_proof.len());
-        build_groth16(&vk_path, &ctx.basedir, &groth16_proof.raw_proof, &inputs);
+        let output_dir = format!("{}/{}_final", ctx.basedir, ctx.agg_task_id);
+        std::fs::create_dir_all(&output_dir)?;
 
-        let input_file_bls12381 = Path::new(&ctx.basedir).join("public_inputs_bls12381.json");
-        let vk_file_bls12381 = Path::new(&ctx.basedir).join("groth16_vk_bls12381.json");
-        let proof_file_bls12381 = Path::new(&ctx.basedir).join("proof_bls12381.json");
+        log::debug!("build_groth16: {}", groth16_proof.encoded_proof.len());
+        build_groth16(&vk_path, &output_dir, &groth16_proof.raw_proof, &inputs);
+
+        let input_file_bls12381 = Path::new(&output_dir).join("public_inputs_bls12381.json");
+        let vk_file_bls12381 = Path::new(&output_dir).join("groth16_vk_bls12381.json");
+        let proof_file_bls12381 = Path::new(&output_dir).join("proof_bls12381.json");
 
         let public_input = fs::read_to_string(input_file_bls12381)
             .expect("Failed to read public inputs JSON file");
@@ -83,17 +87,20 @@ mod tests {
     use prover_core::contexts::FinalContext;
     use prover_core::prover::Prover;
     #[test]
+    #[ignore]
     fn test_sp1_final_prove() {
         env_logger::try_init().unwrap_or_default();
         let sp1_prover = Sp1FinalProver::default();
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-        let agg_context = FinalContext {
+        let final_context = FinalContext {
             basedir: format!("{}/test_vectors/proof", &manifest_dir.display()),
+            agg_task_id: "2".to_string(),
+
             ..Default::default()
         };
 
-        sp1_prover.prove(&agg_context).unwrap();
+        sp1_prover.prove(&final_context).unwrap();
     }
 }

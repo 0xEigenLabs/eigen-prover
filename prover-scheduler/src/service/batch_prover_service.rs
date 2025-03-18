@@ -1,4 +1,4 @@
-use prover::eigen_prover;
+use prover::sp1_prover;
 use prover_core::contexts::BatchContext;
 use prover_core::prover::Prover;
 use scheduler_service::scheduler_service_client::SchedulerServiceClient;
@@ -93,8 +93,8 @@ impl BatchProverHandler for BatchProverServiceHandler {
         .unwrap();
         // TODO: async service execution and return immediately
         // or block until service finish?
-        log::debug!("[batch-prover] handles task: {}-{}", ctx.task_id, ctx.chunk_id);
-        match eigen_prover::BatchProver::new().prove(&ctx) {
+        log::debug!("[batch-prover] handles task: {}", ctx.task_id);
+        match sp1_prover::batch_prover::Sp1BatchProver::new().prove(&ctx) {
             Ok(_) => {
                 log::info!("batch prove success, task id: {}", ctx.task_id.clone());
                 // Return Result and Trigger next task
@@ -104,7 +104,6 @@ impl BatchProverHandler for BatchProverServiceHandler {
                         BatchProofResult {
                             prover_id: take_batch_proof_task_response.prover_id,
                             task_id: ctx.task_id.clone(),
-                            chunk_id: ctx.chunk_id.clone(),
                             result: 1,
                         },
                     )),
@@ -119,7 +118,6 @@ impl BatchProverHandler for BatchProverServiceHandler {
                         BatchProofResult {
                             prover_id: take_batch_proof_task_response.prover_id,
                             task_id: ctx.task_id.clone(),
-                            chunk_id: ctx.chunk_id.clone(),
                             result: 0, // Indicate failure
                         },
                     )),

@@ -328,22 +328,14 @@ impl ProverHandler for ProverRequestHandler {
         let prover_type: ProverType =
             std::env::var("PROVER_TYPE").unwrap_or("eigen".to_string()).into();
 
-        let (_res, l2_batch_data, cnt_chunks) = match prover_type {
+        let (_res, l2_batch_data) = match prover_type {
             ProverType::Eigen => {
-                batch_process(
-                    client.clone(),
-                    block_number,
-                    request.chain_id,
-                    &request.program_name,
-                    execute_task_id.to_string().as_str(),
-                    self.executor_base_dir.as_str(),
-                )
-                .await
+                batch_process(client.clone(), block_number, request.chain_id).await
             }
             ProverType::SP1 => {
                 let (_res, l2_batch_data) =
                     gen_block_json(client.clone(), block_number, request.chain_id).await;
-                (_res, l2_batch_data, 1)
+                (_res, l2_batch_data)
             }
         };
 
@@ -380,7 +372,7 @@ impl ProverHandler for ProverRequestHandler {
                     batch_id: request.batch_id,
                     task_id: execute_task_id,
                     result_code: 0,
-                    chunk_count: cnt_chunks as u64,
+                    chunk_count: 1,
                     batch_data: l2_batch_data,
                     pre_state_root: Vec::from(pre_state_root),
                     post_state_root: Vec::from(post_state_root),
@@ -415,8 +407,7 @@ impl ProverHandler for ProverRequestHandler {
         // put the task into the pipeline, skip the finished tasks
         for (index, key) in pending_tasks.iter().enumerate() {
             // let proof_result = PIPELINE.lock().unwrap().get_proof(key.clone(), 0);
-            let tmp_stage =
-                Stage::Batch(execute_task_id.clone(), index.to_string(), l2_batch_data.clone());
+            let tmp_stage = Stage::Batch(execute_task_id.clone(), l2_batch_data.clone());
             let task_result_dir =
                 Path::new(&*BASE_DIR).join(tmp_stage.path()).join("status.finished");
             log::info!("check the task status: {}", task_result_dir.display());
@@ -445,11 +436,11 @@ impl ProverHandler for ProverRequestHandler {
                 false => {
                     // not finished, put the task to the pipeline
                     log::info!("task: {:?} not finished, put the task to pipeline", key);
-                    match PIPELINE.lock().unwrap().batch_prove(
-                        execute_task_id.to_string(),
-                        index.to_string(),
-                        l2_batch_data.clone(),
-                    ) {
+                    match PIPELINE
+                        .lock()
+                        .unwrap()
+                        .batch_prove(execute_task_id.to_string(), l2_batch_data.clone())
+                    {
                         Ok(_) => continue,
                         Err(err) => {
                             bail!("Failed to generate batch proof: {:?}", err);
@@ -626,11 +617,11 @@ impl ProverHandler for ProverRequestHandler {
         msg_id: String,
         request: GenFinalProofRequest,
     ) -> Result<ProverResponse> {
-        let task_id = match PIPELINE.lock().unwrap().final_prove(
-            request.recursive_proof.clone(),
-            request.curve_name.clone(),
-            request.aggregator_addr.clone(),
-        ) {
+        let task_id = match PIPELINE
+            .lock()
+            .unwrap()
+            .final_prove(request.recursive_proof.clone(), request.aggregator_addr.clone())
+        {
             Ok(id) => id,
             Err(e) => bail!("Failed to generate final proof: {:?}", e.to_string()),
         };

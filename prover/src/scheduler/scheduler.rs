@@ -224,8 +224,7 @@ impl Scheduler {
 
         // put task to pending_results
         log::info!("put task to pending_results: {}, task: {:?}", service_id, task.clone());
-        let task_key = self.construct_task_key(&task.task_id, &task.chunk_id);
-        self.pending_results.insert(task_key, task.clone());
+        self.pending_results.insert(task.task_id.clone(), task.clone());
 
         /*
         if let Some(service) = self.service_table.get_mut(&service_id) {
@@ -264,11 +263,9 @@ impl Scheduler {
             ResultStatus::Fail => false,
         };
 
-        let key = self
-            .construct_task_key(&recursive_proof_result.task_id, &recursive_proof_result.chunk_id);
+        let key = recursive_proof_result.task_id.clone();
         if let Some(task_ctx) = self.pending_results.remove(&key) {
-            let task_stage =
-                Stage::Batch(task_ctx.task_id, task_ctx.chunk_id, task_ctx.l2_batch_data);
+            let task_stage = Stage::Batch(task_ctx.task_id, task_ctx.l2_batch_data);
             let workdir = Path::new(&task_ctx.basedir).join(task_stage.path());
 
             log::info!("save_checkpoint, mkdir: {:?}", workdir);
@@ -309,10 +306,6 @@ impl Scheduler {
                 service_id
             );
         }
-    }
-
-    fn construct_task_key(&self, task_id: &String, chunk_id: &String) -> String {
-        format!("{}_{}", task_id, chunk_id)
     }
 }
 #[derive(Clone)]

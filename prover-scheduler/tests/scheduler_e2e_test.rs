@@ -102,21 +102,17 @@ impl SchedulerHandler for MockSchedulerServerHandler {
         let basedir = "/tmp";
         let task_id = "task_id_1";
         let task_name = "task_name_1";
-        let chunk_id = "chunk_id_1";
         let l2_batch_data = std::fs::read_to_string(
             env::var("SUITE_JSON")
                 .unwrap_or("../executor/test-vectors/solidityExample.json".to_string()),
         )
         .unwrap();
-        let force_bits = 18;
         let first_task = BatchContext::new(
             basedir,
             task_id,
             task_name,
-            chunk_id,
             l2_batch_data,
-            force_bits,
-            ".",
+            std::env!("EVM_ELF_DATA"),
         );
         // just test the server and client communication
         // we will test the message sending in lib prover
@@ -197,7 +193,6 @@ impl BatchProverHandler for MockBatchProverHandler {
                 ClientBatchProofResult {
                     prover_id: take_batch_proof_task_response.prover_id,
                     task_id: ctx.task_id.clone(),
-                    chunk_id: ctx.chunk_id.clone(),
                     result: 1,
                 },
             )),

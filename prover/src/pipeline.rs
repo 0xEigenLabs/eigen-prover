@@ -1,4 +1,4 @@
-use crate::eigen_prover::{AggProver, BatchProver, FinalProver};
+//use crate::eigen_prover::{AggProver, BatchProver, FinalProver};
 use crate::sp1_prover::final_prover::Sp1FinalProver;
 use prover_core::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
 use prover_core::prover::Prover;
@@ -13,7 +13,7 @@ use std::env;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::Sender;
-use uuid::Uuid;
+//use uuid::Uuid;
 
 /// Each task handled by one pipeline
 pub struct Pipeline {
@@ -27,8 +27,6 @@ pub struct Pipeline {
     task_sender: Option<Sender<BatchContext>>,
     prover_model: ProverModel,
     prover_type: ProverType,
-
-    force_bits: usize,
 
     elf_path: String,
     aggregation_elf_path: String,
@@ -113,7 +111,6 @@ impl Pipeline {
             task_sender: None,
             prover_model,
             prover_type,
-            force_bits,
             elf_path,
             aggregation_elf_path,
         }
@@ -123,8 +120,8 @@ impl Pipeline {
         self.task_sender = Some(task_sender);
     }
 
-    pub fn get_key(&self, task_id: &String, chunk_id: &String) -> String {
-        format!("{}_{}", task_id, chunk_id)
+    pub fn get_key(&self, task_id: &str, phase: &str) -> String {
+        format!("{}_{}", task_id, phase)
     }
 
     fn save_checkpoint(&self, key: &String, finished: bool) -> Result<String> {
@@ -194,17 +191,12 @@ impl Pipeline {
         }
     }
 
-    pub fn batch_prove(
-        &mut self,
-        task_id: String,
-        chunk_id: String,
-        l2_batch_data: String,
-    ) -> Result<String> {
-        let key = self.get_key(&task_id, &chunk_id);
+    pub fn batch_prove(&mut self, task_id: String, l2_batch_data: String) -> Result<String> {
+        let key = task_id.clone(); //self.get_key(&task_id, &chunk_id);
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
-                w.insert(key.clone(), Stage::Batch(task_id.clone(), chunk_id, l2_batch_data));
+                w.insert(key.clone(), Stage::Batch(task_id.clone(), l2_batch_data));
                 self.save_checkpoint(&key, false)
             }
             _ => bail!("Task queue is full".to_string()),
@@ -213,36 +205,31 @@ impl Pipeline {
 
     /// Add a new task into task queue
     pub fn aggregate_prove(&mut self, task: String, task2: String) -> Result<String> {
-        let task_id = Uuid::new_v4().to_string();
-        let key = self.get_key(&task_id, &"agg".to_string());
+        let key = self.get_key(&task, &task2);
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
                 w.insert(key.clone(), Stage::Aggregate(key.clone(), task, task2));
                 self.save_checkpoint(&key, false)?;
-                Ok(task_id)
+                Ok(key)
             }
             _ => bail!("Task queue is full".to_string()),
         }
     }
 
     /// Add a new task into task queue
-    pub fn final_prove(
-        &mut self,
-        task_id: String,
-        curve_name: String,
-        prover_addr: String,
-    ) -> Result<String> {
-        let key = self.get_key(&task_id, &"final".to_string());
+    pub fn final_prove(&mut self, agg_task_id: String, prover_addr: String) -> Result<String> {
+        // key := ${agg task id}_final
+        let key = self.get_key(&agg_task_id, "final");
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
                 w.insert(
                     key.clone(),
-                    Stage::Final(task_id.clone(), curve_name, prover_addr), // use task_id first, then compute the right task_name in final context
+                    Stage::Final(agg_task_id.clone(), prover_addr), // use task_id first, then compute the right task_name in final context
                 );
                 self.save_checkpoint(&key, false)?;
-                Ok(task_id)
+                Ok(agg_task_id)
             }
             _ => bail!("Task queue is full".to_string()),
         }
@@ -273,14 +260,12 @@ impl Pipeline {
         if let Some(key) = self.queue.pop_front() {
             match self.task_map.get_mut().unwrap().get(&key) {
                 Some(v) => match v {
-                    Stage::Batch(task_id, chunk_id, l2_batch_data) => {
+                    Stage::Batch(task_id, l2_batch_data) => {
                         let ctx = BatchContext::new(
                             &self.basedir,
                             task_id,
                             &self.task_name.clone(),
-                            chunk_id,
                             l2_batch_data.clone(),
-                            self.force_bits,
                             &self.elf_path,
                         );
 
@@ -288,7 +273,8 @@ impl Pipeline {
                             ProverModel::Local => {
                                 match self.prover_type {
                                     ProverType::Eigen => {
-                                        BatchProver::new().prove(&ctx)?;
+                                        //BatchProver::new().prove(&ctx)?;
+                                        todo!();
                                     }
                                     ProverType::SP1 => {
                                         Sp1BatchProver::new().prove(&ctx)?;
@@ -317,14 +303,14 @@ impl Pipeline {
                             &self.task_name,
                             input.clone(),
                             input2.clone(),
-                            self.force_bits,
                             self.prove_data_cache.clone(),
                             &self.elf_path,
                             &self.aggregation_elf_path,
                         );
                         match self.prover_type {
                             ProverType::Eigen => {
-                                AggProver::new().prove(&ctx)?;
+                                //AggProver::new().prove(&ctx)?;
+                                todo!();
                             }
                             ProverType::SP1 => {
                                 Sp1AggProver::new().prove(&ctx)?;
@@ -333,18 +319,18 @@ impl Pipeline {
 
                         self.save_checkpoint(&key, true)?;
                     }
-                    Stage::Final(task_id, curve_name, prover_addr) => {
+                    Stage::Final(agg_task_id, prover_addr) => {
                         let ctx = FinalContext::new(
                             self.basedir.clone(),
-                            task_id.clone(),
+                            agg_task_id.clone(),
                             self.task_name.clone(),
-                            curve_name.clone(),
                             prover_addr.clone(),
                             self.prove_data_cache.clone(),
                         );
                         match self.prover_type {
                             ProverType::Eigen => {
-                                FinalProver::default().prove(&ctx)?;
+                                //FinalProver::default().prove(&ctx)?;
+                                todo!();
                             }
                             ProverType::SP1 => {
                                 Sp1FinalProver::default().prove(&ctx)?;

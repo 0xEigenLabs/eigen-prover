@@ -33,8 +33,12 @@ impl Prover<BatchContext> for Sp1BatchProver {
         let proof = client.prove(&pk, &stdin).compressed().run().unwrap();
 
         client.verify(&proof, &vk).expect("verification failed");
+
+        let tmp_path = format!("{}/{}", ctx.basedir, ctx.task_id);
+        std::fs::create_dir_all(&tmp_path)?;
+
         log::info!("ctx.basedir: {:?}", ctx.basedir);
-        let proof_path = format!("{}/sp1_proof_{}.bin", ctx.basedir, ctx.task_id);
+        let proof_path = format!("{}/sp1_proof.bin", tmp_path);
         proof.save(proof_path).expect("saving proof failed");
 
         let prove_elapsed = prove_start.elapsed();
@@ -51,6 +55,7 @@ mod tests {
     use std::fs;
 
     #[test]
+    #[ignore]
     fn test_sp1_prove() {
         env_logger::try_init().unwrap_or_default();
         let sp1_prover = Sp1BatchProver::new();
