@@ -205,14 +205,13 @@ impl Pipeline {
 
     /// Add a new task into task queue
     pub fn aggregate_prove(&mut self, task: String, task2: String) -> Result<String> {
-        let task_id = Uuid::new_v4().to_string();
         let key = self.get_key(&task, &task2);
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
                 w.insert(key.clone(), Stage::Aggregate(key.clone(), task, task2));
                 self.save_checkpoint(&key, false)?;
-                Ok(task_id)
+                Ok(key)
             }
             _ => bail!("Task queue is full".to_string()),
         }

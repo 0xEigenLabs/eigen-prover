@@ -1,7 +1,6 @@
 use prover::pipeline::Pipeline;
 use std::env;
 #[test]
-#[ignore]
 fn integration_sp1_test() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
     let basedir = env::var("BASEDIR").unwrap_or("data/".to_string());
