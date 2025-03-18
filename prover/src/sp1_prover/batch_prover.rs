@@ -57,7 +57,6 @@ mod tests {
     #[test]
     #[ignore]
     fn test_sp1_prove() {
-
         env_logger::try_init().unwrap_or_default();
         let sp1_prover = Sp1BatchProver::new();
 

@@ -36,7 +36,6 @@ pub struct TaskResult {
 #[derive(Debug, Clone, Default)]
 pub struct ProofResult {
     pub task_id: String,
-    pub chunk_id: String,
     pub result_code: ResultStatus,
 }
 

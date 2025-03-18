@@ -20,8 +20,8 @@ impl Prover<FinalContext> for Sp1FinalProver {
             "{}/.sp1/circuits/groth16/v4.0.0-rc.3/groth16_vk.bin",
             std::env::var("HOME").unwrap(),
         );
-        let proof_with_pis_path = std::path::Path::new(&ctx.basedir)
-            .join(format!("{}/agg_proof.bin", ctx.agg_task_id));
+        let proof_with_pis_path =
+            std::path::Path::new(&ctx.basedir).join(format!("{}/agg_proof.bin", ctx.agg_task_id));
         log::info!("read proof: {}", proof_with_pis_path.display());
         let sp1_proof = match sp1_sdk::SP1ProofWithPublicValues::load(&proof_with_pis_path) {
             Ok(proof) => proof,
@@ -36,9 +36,9 @@ impl Prover<FinalContext> for Sp1FinalProver {
 
         let inputs = serde_json::to_string(&groth16_proof.public_inputs)?;
 
-        let output_dir =  format!("{}/{}_final", ctx.basedir, ctx.agg_task_id);
+        let output_dir = format!("{}/{}_final", ctx.basedir, ctx.agg_task_id);
         std::fs::create_dir_all(&output_dir)?;
-        
+
         log::debug!("build_groth16: {}", groth16_proof.encoded_proof.len());
         build_groth16(&vk_path, &output_dir, &groth16_proof.raw_proof, &inputs);
 

@@ -13,7 +13,7 @@ use std::env;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::Sender;
-use uuid::Uuid;
+//use uuid::Uuid;
 
 /// Each task handled by one pipeline
 pub struct Pipeline {
