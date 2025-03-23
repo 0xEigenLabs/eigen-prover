@@ -18,7 +18,7 @@ impl Stage {
                 format!("{task_id}/batch_proof")
             }
             Self::Aggregate(task_id, _, _) => format!("{task_id}/agg_proof"),
-            Self::Final(task_id, _) => format!("{task_id}/snark_proof"),
+            Self::Final(task_id, _) => format!("{task_id}_final/snark_proof"),
         }
     }
 

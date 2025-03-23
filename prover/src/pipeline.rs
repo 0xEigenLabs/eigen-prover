@@ -127,7 +127,7 @@ impl Pipeline {
     fn save_checkpoint(&self, key: &String, finished: bool) -> Result<String> {
         let binding = self.task_map.lock().unwrap();
         let task = binding.get(key);
-
+        log::debug!("task: {:?}", task);
         if let Some(status) = task {
             // mkdir
             let workdir = Path::new(&self.basedir).join(status.path());
@@ -172,15 +172,22 @@ impl Pipeline {
 
         if let Some(stage) = task {
             // mkdir
-            let workdir = Path::new(&self.basedir).join(stage.path());
+            let workdir: std::path::PathBuf = Path::new(&self.basedir).join(stage.path());
             log::info!("load_final_proof_and_input, workdir: {:?}", workdir);
 
-            let proof_path = workdir.clone().join("proof.json");
+            let proof_path: std::path::PathBuf = match self.prover_type {
+                ProverType::Eigen => workdir.clone().join("../proof.json"),
+                ProverType::SP1 => workdir.clone().join("../proof_bls12381.json"),
+            };
+
             let proof = std::fs::read_to_string(proof_path.clone()).map_err(|e| {
                 anyhow!("Failed to load the proof.json: {:?}, err: {}", proof_path, e)
             })?;
 
-            let input_path = workdir.join("public_input.json");
+            let input_path: std::path::PathBuf = match self.prover_type {
+                ProverType::Eigen => workdir.clone().join("../public_input.json"),
+                ProverType::SP1 => workdir.clone().join("../public_inputs_bls12381.json"),
+            };
             let input = std::fs::read_to_string(input_path.clone()).map_err(|e| {
                 anyhow!("Failed to load the public_input.json: {:?}, err: {}", input_path, e)
             })?;
@@ -192,7 +199,7 @@ impl Pipeline {
     }
 
     pub fn batch_prove(&mut self, task_id: String, l2_batch_data: String) -> Result<String> {
-        let key = task_id.clone(); //self.get_key(&task_id, &chunk_id);
+        let key = task_id.clone();
         match self.task_map.get_mut() {
             Ok(w) => {
                 self.queue.push_back(key.clone());
