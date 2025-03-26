@@ -175,19 +175,14 @@ impl Pipeline {
             let workdir: std::path::PathBuf = Path::new(&self.basedir).join(stage.path());
             log::info!("load_final_proof_and_input, workdir: {:?}", workdir);
 
-            let proof_path: std::path::PathBuf = match self.prover_type {
-                ProverType::Eigen => workdir.clone().join("../proof.json"),
-                ProverType::SP1 => workdir.clone().join("../proof_bls12381.json"),
-            };
+            let proof_path = workdir.clone().join("../proof_bls12381.json");
 
             let proof = std::fs::read_to_string(proof_path.clone()).map_err(|e| {
                 anyhow!("Failed to load the proof.json: {:?}, err: {}", proof_path, e)
             })?;
 
-            let input_path: std::path::PathBuf = match self.prover_type {
-                ProverType::Eigen => workdir.clone().join("../public_input.json"),
-                ProverType::SP1 => workdir.clone().join("../public_inputs_bls12381.json"),
-            };
+            let input_path = workdir.clone().join("../public_inputs_bls12381.json");
+
             let input = std::fs::read_to_string(input_path.clone()).map_err(|e| {
                 anyhow!("Failed to load the public_input.json: {:?}, err: {}", input_path, e)
             })?;
