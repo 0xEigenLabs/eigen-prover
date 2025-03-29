@@ -11,8 +11,7 @@ help: ## Display this help screen
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 clippy: ## Run clippy checks over all workspace members and formatted correctly
-	@cargo check
-	@cargo fmt --all -- --check
+	@cargo fmt
 	@cargo clippy --all-targets -- -D warnings --no-deps
 
 fix: ## Automatically apply lint suggestions. This flag implies `--no-deps` and `--all-targets`

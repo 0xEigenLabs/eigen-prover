@@ -36,7 +36,7 @@ prover-core = { path = "../prover-core" }
 
 metrics = { path = "../metrics" }
 
-powdr = { git = "https://github.com/0xEigenLabs/powdr", branch = "eigen/v1", default-features = false }
+#powdr = { git = "https://github.com/0xEigenLabs/powdr", branch = "eigen/v1", default-features = false }
 
 tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread", "signal", "sync"] }
 uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
