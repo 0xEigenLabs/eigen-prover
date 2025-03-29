@@ -397,9 +397,7 @@ impl ProverHandler for ProverRequestHandler {
         // key:  format!("{}_{}", task_id, chunk_id)
         // pending task
         let mut pending_tasks = Vec::<String>::new();
-        for chunk_id in 0..cnt_chunk {
-            pending_tasks.push(format!("{}_{}", execute_task_id, chunk_id))
-        }
+        pending_tasks.push(execute_task_id.clone());
 
         let mut finished_tasks = vec![];
         let mut results = vec![String::new(); cnt_chunk];
@@ -407,7 +405,7 @@ impl ProverHandler for ProverRequestHandler {
         // put the task into the pipeline, skip the finished tasks
         for (index, key) in pending_tasks.iter().enumerate() {
             // let proof_result = PIPELINE.lock().unwrap().get_proof(key.clone(), 0);
-            let tmp_stage = Stage::Batch(execute_task_id.clone(), l2_batch_data.clone());
+            let tmp_stage = Stage::Batch(key.clone(), l2_batch_data.clone());
             let task_result_dir =
                 Path::new(&*BASE_DIR).join(tmp_stage.path()).join("status.finished");
             log::info!("check the task status: {}", task_result_dir.display());
@@ -531,7 +529,8 @@ impl ProverHandler for ProverRequestHandler {
             let chunk_proof = ChunkProof {
                 chunk_id: chunk_id as u64,
                 proof_key: chunk_proof_key.clone(),
-                proof: format!("{}_chunk_{}", execute_task_id, chunk_id),
+                // proof: format!("{}_chunk_{}", execute_task_id, chunk_id),
+                proof: execute_task_id.clone(),
             };
 
             batch_proof_result.chunk_proofs.push(chunk_proof);
@@ -556,7 +555,6 @@ impl ProverHandler for ProverRequestHandler {
         msg_id: String,
         request: GenAggregatedProofRequest,
     ) -> Result<ProverResponse> {
-        // put the task into the pipeline
         let task_id = match PIPELINE
             .lock()
             .unwrap()
@@ -576,15 +574,16 @@ impl ProverHandler for ProverRequestHandler {
 
         log::info!("polling the agg proof of agg_task: {:?}, request id {:?}", task_id, msg_id);
 
-        let checkpoint_key = format!("{}_agg", task_id.clone());
+        log::debug!("task_id: {:?}", task_id.clone());
         // let result_key: String;
         loop {
             tokio::select! {
                 _ = polling_ticker.tick() => {
-                    let proof_result = PIPELINE.lock().unwrap().get_proof(checkpoint_key.clone(), 0);
+                    let proof_result = PIPELINE.lock().unwrap().get_proof(task_id.clone(), 0);
                     match proof_result {
                         Ok(_) => {
                             // result_key = task_key;
+                            log::info!("finished the agg stage!");
                             break;
                         }
                         Err(_) => {
@@ -600,6 +599,12 @@ impl ProverHandler for ProverRequestHandler {
                 }
             }
         }
+
+        log::debug!(
+            "Finished the task of generate agg proof, task id: {:?}, request id {:?}",
+            task_id,
+            msg_id
+        );
 
         Ok(ProverResponse {
             id: msg_id,
@@ -636,15 +641,9 @@ impl ProverHandler for ProverRequestHandler {
 
         log::info!("polling the final proof of agg_task: {:?}, request id {:?}", task_id, msg_id);
 
-        // let checkpoint_key = format!("{}_final", task_id.clone());
+        let checkpoint_key: String = format!("{}_final", task_id.clone());
 
-        let prover_type: ProverType =
-            std::env::var("PROVER_TYPE").unwrap_or("eigen".to_string()).into();
-
-        let checkpoint_key: String = match prover_type {
-            ProverType::Eigen => format!("{}_final", task_id.clone()),
-            ProverType::SP1 => format!("{}_agg", task_id.clone()),
-        };
+        log::debug!("checkpoint_key: {:?}", checkpoint_key.clone());
         loop {
             tokio::select! {
                 _ = polling_ticker.tick() => {
@@ -666,6 +665,12 @@ impl ProverHandler for ProverRequestHandler {
                 }
             }
         }
+
+        log::debug!(
+            "Finished the task of generate final proof, task id: {:?}, request id {:?}",
+            task_id,
+            msg_id
+        );
 
         let (proof, public_input) =
             PIPELINE.lock().unwrap().load_final_proof_and_input(&checkpoint_key)?;

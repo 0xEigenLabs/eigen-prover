@@ -44,7 +44,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: nightly-2025-02-16
           override: true
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
@@ -60,7 +60,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: nightly-2025-02-16
           override: true
       - name: Install Dependencies
         run: sudo apt install protobuf-compiler

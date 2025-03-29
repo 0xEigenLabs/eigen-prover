@@ -18,7 +18,7 @@ impl Stage {
                 format!("{task_id}/batch_proof")
             }
             Self::Aggregate(task_id, _, _) => format!("{task_id}/agg_proof"),
-            Self::Final(task_id, _) => format!("{task_id}/snark_proof"),
+            Self::Final(task_id, _) => format!("{task_id}_final/snark_proof"),
         }
     }
 
@@ -49,7 +49,7 @@ mod tests {
     #[test]
     fn test_final_stage_path() {
         let stage = Stage::Final("task_id".to_string(), "prover_addr".to_string());
-        assert_eq!(stage.path(), "task_id/snark_proof");
+        assert_eq!(stage.path(), "task_id_final/snark_proof");
     }
 
     #[test]
