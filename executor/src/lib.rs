@@ -12,7 +12,7 @@ use revm::{
     primitives::{
         Address, Bytes, FixedBytes, HashMap, ResultAndState, Storage, TransactTo, B256, U256,
     },
-    Database, DatabaseCommit, Evm,
+    DatabaseCommit, Evm,
 };
 use ruint::Uint;
 use std::collections::BTreeMap;
