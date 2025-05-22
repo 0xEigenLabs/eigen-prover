@@ -17,6 +17,7 @@ use revm::{
 use ruint::Uint;
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Instant;
 //use std::{fs, io::Write};
 //use zkvm::zkvm_generate_chunks;
 
@@ -41,11 +42,18 @@ fn new_storage(storage: &Storage) -> HashMap<U256, U256> {
     storage.iter().map(|(k, v)| (*k, v.present_value)).collect()
 }
 
+fn core256_to_revm256(core256: ethers_core::types::U256) -> revm::primitives::U256 {
+    revm::primitives::U256::from_str_radix(core256.to_string().as_str(), 10).unwrap()
+}
+
 fn fill_test_tx(
     transaction_parts: &mut models::TransactionParts,
     tx: &ethers_core::types::Transaction,
+    block: &ethers_core::types::Block<ethers_core::types::Transaction>,
 ) {
-    let gas_limit_uint = Uint::from(tx.gas.as_u64());
+    let gas_limit_uint =
+        core256_to_revm256(if tx.gas.as_u64() > 0 { tx.gas } else { block.gas_limit });
+    log::info!("gas_limit: {:?}", gas_limit_uint);
     transaction_parts.gas_limit.push(gas_limit_uint);
 
     let tx_data = tx.input.0.clone();
@@ -240,61 +248,78 @@ fn fill_test_post(
 }
 
 async fn fill_test_pre(
-    block: &ethers_core::types::Block<ethers_core::types::Transaction>,
-    state: &mut revm::db::State<CacheDB<EthersDB<Provider<Http>>>>,
+    // block: &ethers_core::types::Block<ethers_core::types::Transaction>,
+    tx: &ethers_core::types::Transaction,
+    // state: &mut revm::db::State<CacheDB<EthersDB<Provider<Http>>>>,
     client: &Arc<Provider<Http>>,
 ) -> HashMap<Address, models::AccountInfo> {
     let mut test_pre: HashMap<Address, models::AccountInfo> = HashMap::new();
+    // let from_acc = Address::from(tx.from.as_fixed_bytes());
+    // // query basic properties of an account incl bytecode
+    // let acc_info: revm::primitives::AccountInfo = state.basic(from_acc).unwrap().unwrap();
+    // log::info!("acc_info: {} => {:?}", from_acc, acc_info);
 
-    for tx in &block.transactions {
-        let from_acc = Address::from(tx.from.as_fixed_bytes());
-        // query basic properties of an account incl bytecode
-        let acc_info: revm::primitives::AccountInfo = state.basic(from_acc).unwrap().unwrap();
-        log::debug!("acc_info: {} => {:?}", from_acc, acc_info);
+    let trace_options = GethDebugTracingOptions {
+        tracer: Some(GethDebugTracerType::BuiltInTracer(
+            GethDebugBuiltInTracerType::PreStateTracer,
+        )),
+        ..Default::default()
+    };
 
-        let trace_options = GethDebugTracingOptions {
-            tracer: Some(GethDebugTracerType::BuiltInTracer(
-                GethDebugBuiltInTracerType::PreStateTracer,
-            )),
-            ..Default::default()
-        };
+    let geth_trace_res = client.debug_trace_transaction(tx.hash, trace_options).await;
 
-        let geth_trace: ethers_core::types::GethTrace =
-            client.debug_trace_transaction(tx.hash, trace_options).await.unwrap();
+    match geth_trace_res {
+        Ok(geth_trace) => {
+            log::debug!("geth_trace: {:#?}", geth_trace);
 
-        log::debug!("geth_trace: {:#?}", geth_trace);
+            match geth_trace.clone() {
+                GethTrace::Known(frame) => {
+                    if let GethTraceFrame::PreStateTracer(PreStateFrame::Default(pre_state_mode)) =
+                        frame
+                    {
+                        for (address, account_state) in pre_state_mode.0.iter() {
+                            let mut account_info = models::AccountInfo {
+                                balance: U256::from(0),
+                                code: Bytes::from(account_state.code.clone().unwrap_or_default()),
+                                nonce: account_state.nonce.unwrap_or_default().as_u64(),
+                                storage: HashMap::new(),
+                            };
 
-        match geth_trace.clone() {
-            GethTrace::Known(frame) => {
-                if let GethTraceFrame::PreStateTracer(PreStateFrame::Default(pre_state_mode)) =
-                    frame
-                {
-                    for (address, account_state) in pre_state_mode.0.iter() {
-                        let mut account_info = models::AccountInfo {
-                            balance: Uint::ZERO,
-                            code: Bytes::from(account_state.code.clone().unwrap_or_default()),
-                            nonce: account_state.nonce.unwrap_or_default().as_u64(),
-                            storage: HashMap::new(),
-                        };
+                            let balance: ethers_core::types::U256 =
+                                account_state.balance.unwrap_or_default();
+                            // The radix of account_state.balance is 10, while that of account_info.balance is 16.
+                            account_info.balance = revm::primitives::U256::from_str_radix(
+                                balance.to_string().as_str(),
+                                10,
+                            )
+                            .unwrap();
 
-                        let balance: ethers_core::types::U256 =
-                            account_state.balance.unwrap_or_default();
-                        // The radix of account_state.balance is 10, while that of account_info.balance is 16.
-                        account_info.balance =
-                            Uint::from_str_radix(balance.to_string().as_str(), 10).unwrap();
-
-                        if let Some(storage) = account_state.storage.clone() {
-                            for (key, value) in storage.iter() {
-                                let new_key: Uint<256, 4> = U256::from_be_bytes(key.0);
-                                let new_value: Uint<256, 4> = U256::from_be_bytes(value.0);
-                                account_info.storage.insert(new_key, new_value);
+                            if let Some(storage) = account_state.storage.clone() {
+                                for (key, value) in storage.iter() {
+                                    let new_key: U256 = U256::from_be_bytes(key.0);
+                                    let new_value: U256 = U256::from_be_bytes(value.0);
+                                    account_info.storage.insert(new_key, new_value);
+                                }
+                            }
+                            log::info!("test_pre acc_info: {} => balance:{:?} code_len:{} nonce:{} storage:{:?}",
+                                Address::from(address.as_fixed_bytes()),
+                                account_info.balance,
+                                account_info.code.len(),
+                                account_info.nonce,
+                                account_info.storage,
+                            );
+                            if !test_pre.contains_key(&Address::from(address.as_fixed_bytes())) {
+                                test_pre
+                                    .insert(Address::from(address.as_fixed_bytes()), account_info);
                             }
                         }
-                        test_pre.insert(Address::from(address.as_fixed_bytes()), account_info);
                     }
                 }
+                GethTrace::Unknown(_) => {}
             }
-            GethTrace::Unknown(_) => {}
+        }
+        Err(e) => {
+            log::info!("debug_trace_transaction faild {}", e)
         }
     }
     test_pre
@@ -335,7 +360,7 @@ pub async fn gen_block_json(
     let mut state: revm::db::State<CacheDB<EthersDB<Provider<Http>>>> =
         StateBuilder::new_with_database(cache_db).build();
 
-    let test_pre = fill_test_pre(&block, &mut state, &client).await;
+    let mut test_units: BTreeMap<String, models::TestUnit> = BTreeMap::new();
 
     let mut evm = Evm::builder()
         .with_db(&mut state)
@@ -362,12 +387,7 @@ pub async fn gen_block_json(
     let txs = block.transactions.len();
     log::debug!("Found {txs} transactions.");
 
-    // Ensure the sender is 0x000..000 by default
-    let mut transaction_parts = models::TransactionParts {
-        sender: Some(Address::default()),
-        to: Some(Address::default()),
-        ..Default::default()
-    };
+    let start = Instant::now();
 
     // Fill in CfgEnv
     let mut all_result: Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)> = vec![];
@@ -411,32 +431,47 @@ pub async fn gen_block_json(
             })
             .build();
 
-        fill_test_tx(&mut transaction_parts, &tx);
+        let test_pre = fill_test_pre(&tx, &client).await;
+        let mut transaction_parts = models::TransactionParts {
+            sender: Some(Address::default()),
+            to: Some(Address::default()),
+            ..Default::default()
+        };
+        fill_test_tx(&mut transaction_parts, &tx, &block);
 
-        let result = evm.transact().unwrap();
-        log::debug!("evm transact result: {:?}", result.result);
+        let result = evm.transact();
+        if result.is_err() {
+            log::error!("evm transact error: {:?}", result);
+            continue;
+        }
+        let result = result.unwrap();
+        log::info!("evm transact result: {:?}", result.result);
         evm.context.evm.db.commit(result.state.clone());
         let env = evm.context.evm.env.clone();
-        let txbytes = serde_json::to_vec(&env.tx).unwrap();
+        let txbytes = serde_cbor::to_vec(&env.tx).unwrap();
         all_result.push((txbytes, env.tx.data, env.tx.value, result));
+
+        let test_env = fill_test_env(&block);
+        let test_post = fill_test_post(&all_result);
+
+        let test_unit = models::TestUnit {
+            info: None,
+            chain_id: Some(chain_id),
+            env: test_env,
+            pre: test_pre,
+            post: test_post,
+            transaction: transaction_parts,
+            out: None,
+        };
+
+        test_units.insert(format!("{:?}", tx.hash), test_unit);
     }
-    let test_env = fill_test_env(&block);
-    let test_post = fill_test_post(&all_result);
 
-    let test_unit = models::TestUnit {
-        info: None,
-        env: test_env,
-        // pre: HashMap<Address, AccountInfo, BuildHasherDefault<AHasher>, Global>
-        pre: test_pre,
-        // post: BTreeMap<SpecName, Vec<Test, Global>, Global>
-        post: test_post,
-        chain_id: Some(chain_id),
-        transaction: transaction_parts,
-        out: None,
-    };
+    let json_string = serde_json::to_string(&test_units).expect("Failed to serialize");
+    log::debug!("test_units: {}", json_string);
 
-    let json_string = serde_json::to_string(&test_unit).expect("Failed to serialize");
-    log::debug!("test_unit: {}", json_string);
+    let elapsed = start.elapsed();
+    log::info!("Finished execution. Total CPU time: {:.6}s", elapsed.as_secs_f64());
 
     (Ok(all_result), json_string)
 }
