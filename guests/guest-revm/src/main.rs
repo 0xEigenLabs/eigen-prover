@@ -56,7 +56,7 @@ pub fn main() {
     // let data = sp1_zkvm::io::read::<Vec<u8>>();
     // let data = TEST_DATA.to_vec();
     let encoded = sp1_zkvm::io::read::<Vec<u8>>();
-    
+
     assert!(verify_revm_tx(&encoded).unwrap());
 }
 
@@ -68,7 +68,7 @@ pub fn verify_revm_tx(tx_list: &[u8]) -> Result<bool, String> {
 pub fn read_suite(s: &[u8]) -> Result<TestSuite, String> {
     match serde_cbor::from_slice(s) {
         Ok(btm) => Ok(TestSuite(btm)),
-        Err(e) => Err(e.to_string())
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -114,9 +114,8 @@ pub fn execute_test_suite(suite: TestSuite) -> Result<(), String> {
         // tx env
         env.tx.caller = match unit.transaction.sender {
             Some(address) => address,
-            _ => {
-                recover_address(unit.transaction.secret_key.as_slice()).ok_or_else(|| "".to_string())?
-            }
+            _ => recover_address(unit.transaction.secret_key.as_slice())
+                .ok_or_else(|| "".to_string())?,
         };
         env.tx.gas_price =
             unit.transaction.gas_price.or(unit.transaction.max_fee_per_gas).unwrap_or_default();
@@ -129,7 +128,9 @@ pub fn execute_test_suite(suite: TestSuite) -> Result<(), String> {
         for (spec_name, tests) in &unit.post {
             if matches!(
                 spec_name,
-                SpecName::ByzantiumToConstantinopleAt5 | SpecName::Constantinople | SpecName::Unknown
+                SpecName::ByzantiumToConstantinopleAt5
+                    | SpecName::Constantinople
+                    | SpecName::Unknown
             ) {
                 continue;
             }
@@ -172,8 +173,10 @@ pub fn execute_test_suite(suite: TestSuite) -> Result<(), String> {
                     spec_id,
                     revm::primitives::SpecId::SPURIOUS_DRAGON,
                 ));
-                let mut state =
-                    revm::db::State::builder().with_cached_prestate(cache).with_bundle_update().build();
+                let mut state = revm::db::State::builder()
+                    .with_cached_prestate(cache)
+                    .with_bundle_update()
+                    .build();
 
                 let mut evm = revm::Evm::builder()
                     .with_db(&mut state)

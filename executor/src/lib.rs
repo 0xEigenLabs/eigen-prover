@@ -343,14 +343,9 @@ pub async fn gen_block_json(
 ) -> (ExecResult, String) {
     let client = Arc::clone(&client);
     tokio::task::spawn_blocking(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
 
-        rt.block_on(async move {
-            gen_block_json_inner(client, block_number, chain_id).await
-        })
+        rt.block_on(async move { gen_block_json_inner(client, block_number, chain_id).await })
     })
     .await
     .expect("spawn_blocking panicked")
@@ -450,7 +445,7 @@ pub async fn gen_block_json_inner(
                 };
             })
             .build();
-        
+
         let mut cur_result: Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)> = vec![];
 
         let test_pre = fill_test_pre(&tx, &client).await;
