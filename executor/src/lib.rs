@@ -341,6 +341,26 @@ pub async fn gen_block_json(
     block_number: u64,
     chain_id: u64,
 ) -> (ExecResult, String) {
+    let client = Arc::clone(&client);
+    tokio::task::spawn_blocking(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        rt.block_on(async move {
+            gen_block_json_inner(client, block_number, chain_id).await
+        })
+    })
+    .await
+    .expect("spawn_blocking panicked")
+}
+
+pub async fn gen_block_json_inner(
+    client: Arc<Provider<Http>>,
+    block_number: u64,
+    chain_id: u64,
+) -> (ExecResult, String) {
     //let client = Provider::<Http>::try_from(url).unwrap();
     //let client = Arc::new(client);
     let block: ethers_core::types::Block<ethers_core::types::Transaction> =
@@ -430,6 +450,8 @@ pub async fn gen_block_json(
                 };
             })
             .build();
+        
+        let mut cur_result: Vec<(Vec<u8>, Bytes, Uint<256, 4>, ResultAndState)> = vec![];
 
         let test_pre = fill_test_pre(&tx, &client).await;
         let mut transaction_parts = models::TransactionParts {
@@ -449,10 +471,13 @@ pub async fn gen_block_json(
         evm.context.evm.db.commit(result.state.clone());
         let env = evm.context.evm.env.clone();
         let txbytes = serde_cbor::to_vec(&env.tx).unwrap();
-        all_result.push((txbytes, env.tx.data, env.tx.value, result));
+
+        all_result.push((txbytes.clone(), env.tx.data.clone(), env.tx.value, result.clone()));
+
+        cur_result.push((txbytes, env.tx.data, env.tx.value, result));
 
         let test_env = fill_test_env(&block);
-        let test_post = fill_test_post(&all_result);
+        let test_post = fill_test_post(&cur_result);
 
         let test_unit = models::TestUnit {
             info: None,

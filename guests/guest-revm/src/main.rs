@@ -15,7 +15,7 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;
-use alloc::collections::BTreeMap;
+// use alloc::collections::BTreeMap;
 use k256::ecdsa::SigningKey;
 
 /// Recover the address from a private key (SigningKey).
@@ -60,12 +60,12 @@ pub fn main() {
     assert!(verify_revm_tx(&encoded).unwrap());
 }
 
-pub fn verify_revm_tx(tx_list: &Vec<u8>) -> Result<bool, String> {
-    let suite = read_suite(&tx_list)?;
+pub fn verify_revm_tx(tx_list: &[u8]) -> Result<bool, String> {
+    let suite = read_suite(tx_list)?;
     Ok(execute_test_suite(suite).is_ok())
 }
 
-pub fn read_suite(s: &Vec<u8>) -> Result<TestSuite, String> {
+pub fn read_suite(s: &[u8]) -> Result<TestSuite, String> {
     match serde_cbor::from_slice(s) {
         Ok(btm) => Ok(TestSuite(btm)),
         Err(e) => Err(e.to_string())
