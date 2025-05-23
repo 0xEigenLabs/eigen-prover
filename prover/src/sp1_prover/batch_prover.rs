@@ -1,8 +1,9 @@
 use anyhow::Result;
+use models::*;
 use prover_core::contexts::BatchContext;
 use prover_core::prover::Prover;
-
 use sp1_sdk::{EnvProver, HashableKey, SP1Stdin};
+use std::collections::BTreeMap;
 
 #[derive(Default)]
 pub struct Sp1BatchProver {}
@@ -11,6 +12,18 @@ impl Sp1BatchProver {
     pub fn new() -> Self {
         Self::default()
     }
+}
+
+#[derive(Debug)]
+pub enum HostDataErr {
+    SerdeJsonErr(serde_json::Error),
+    SerdeCborErr(serde_cbor::Error),
+}
+
+pub fn cbor_serialize(data: &[u8]) -> Result<Vec<u8>, HostDataErr> {
+    let suite: BTreeMap<String, TestUnit> =
+        serde_json::from_slice(data).map_err(HostDataErr::SerdeJsonErr)?;
+    serde_cbor::to_vec(&suite).map_err(HostDataErr::SerdeCborErr)
 }
 
 impl Prover<BatchContext> for Sp1BatchProver {
@@ -23,7 +36,11 @@ impl Prover<BatchContext> for Sp1BatchProver {
         // let suite: TestUnit = serde_json::from_str(serde_data.as_str()).map_err(|e| e).unwrap();
 
         let mut stdin = SP1Stdin::new();
-        stdin.write(&serde_data);
+        // stdin.write_vec(serde_data.as_bytes().to_vec());
+        // stdin.write(&serde_data);
+        // stdin.write_slice(serde_data.as_bytes());
+        let encoded = cbor_serialize(&serde_data.into_bytes()).unwrap();
+        stdin.write::<Vec<u8>>(&encoded);
 
         let elf_data = std::fs::read(&ctx.elf_path).unwrap();
 
@@ -72,7 +89,7 @@ mod tests {
             basedir: format!("{}/test_vectors/proof", &manifest_dir.display()),
             task_id: "0".to_string(),
             elf_path: format!(
-                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
+                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/guest-revm",
                 manifest_dir.display()
             ),
             ..Default::default()
@@ -84,7 +101,7 @@ mod tests {
             basedir: format!("{}/test_vectors/proof", &manifest_dir.display()),
             task_id: "1".to_string(),
             elf_path: format!(
-                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/evm",
+                "{}/../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/guest-revm",
                 manifest_dir.display()
             ),
             ..Default::default()
