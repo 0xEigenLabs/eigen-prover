@@ -1,0 +1,2 @@
+WORK_BASE="/mnt/sy/nfs/eigen-zkvm/starkjs"
+SUITE_JSON="/tmp/suite_opt.json" PROVER_TYPE=sp1 FORCE_BIT=18 RUSTFLAGS="-C target-feature=+avx2" RUST_MIN_STACK=2073741821 RUST_BACKTRACE=1 RUST_LOG=debug CIRCOMLIB=${WORK_BASE}/node_modules/circomlib/circuits STARK_VERIFIER_GL=$WORK_BASE/node_modules/pil-stark/circuits.gl STARK_VERIFIER_BN128=$WORK_BASE/node_modules/pil-stark/circuits.bn128 cargo test --release integration_sp1_test -- --nocapture

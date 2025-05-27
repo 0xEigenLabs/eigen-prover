@@ -239,7 +239,7 @@ impl SchedulerHandler for SchedulerServerHandler {
                                 TakeBatchProofTaskResponse {
                                     prover_id: provider_id.clone(),
                                     batch_context_bytes: Some(BatchContextBytes {
-                                        data: serde_json::to_vec(&batch_ctx).unwrap(),
+                                        data: serde_cbor::to_vec(&batch_ctx).unwrap(),
                                     }),
                                 },
                             ),

@@ -128,7 +128,7 @@ impl SchedulerHandler for MockSchedulerServerHandler {
                 ServerTakeBatchProofTaskResponse {
                     prover_id: r.prover_id.clone(),
                     batch_context_bytes: Some(ServerBatchContextBytes {
-                        data: serde_json::to_vec(&first_task).unwrap(),
+                        data: serde_cbor::to_vec(&first_task).unwrap(),
                     }),
                 },
             )),
@@ -173,7 +173,7 @@ impl BatchProverHandler for MockBatchProverHandler {
         &self,
         take_batch_proof_task_response: ClientTakeBatchProofTaskResponse,
     ) -> ClientBatchProverMessage {
-        let ctx = serde_json::from_slice::<BatchContext>(
+        let ctx = serde_cbor::from_slice::<BatchContext>(
             &take_batch_proof_task_response.batch_context_bytes.unwrap().data,
         )
         .unwrap();

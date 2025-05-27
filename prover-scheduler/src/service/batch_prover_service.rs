@@ -87,7 +87,7 @@ impl BatchProverHandler for BatchProverServiceHandler {
         &self,
         take_batch_proof_task_response: TakeBatchProofTaskResponse,
     ) -> BatchProverMessage {
-        let ctx = serde_json::from_slice::<BatchContext>(
+        let ctx = serde_cbor::from_slice::<BatchContext>(
             &take_batch_proof_task_response.batch_context_bytes.unwrap().data,
         )
         .unwrap();
