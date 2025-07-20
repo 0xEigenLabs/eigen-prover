@@ -13,7 +13,7 @@ edition = { workspace = true }
 #dsl_compile                 = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main" }
 #zkvm                        = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
 recursion-gnark-ffi   = { git = "https://github.com/0xEigenLabs/eigen-zkvm", branch = "main", default-features = false }
-
+hex = "0.4"
 once_cell = "1.18"
 
 models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
