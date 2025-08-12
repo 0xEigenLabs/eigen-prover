@@ -1,4 +1,4 @@
-use prover::sp1_prover;
+use prover::zkm_prover;
 use prover_core::contexts::BatchContext;
 use prover_core::prover::Prover;
 use scheduler_service::scheduler_service_client::SchedulerServiceClient;
@@ -94,7 +94,7 @@ impl BatchProverHandler for BatchProverServiceHandler {
         // TODO: async service execution and return immediately
         // or block until service finish?
         log::debug!("[batch-prover] handles task: {}", ctx.task_id);
-        match sp1_prover::batch_prover::Sp1BatchProver::new().prove(&ctx) {
+        match zkm_prover::batch_prover::ZKMBatchProver::new().prove(&ctx) {
             Ok(_) => {
                 log::info!("batch prove success, task id: {}", ctx.task_id.clone());
                 // Return Result and Trigger next task

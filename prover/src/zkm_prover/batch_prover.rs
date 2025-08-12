@@ -2,13 +2,13 @@ use anyhow::Result;
 use models::*;
 use prover_core::contexts::BatchContext;
 use prover_core::prover::Prover;
-use sp1_sdk::{EnvProver, HashableKey, SP1Stdin};
+use zkm_sdk::{EnvProver, HashableKey, ZKMStdin};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
-pub struct Sp1BatchProver {}
+pub struct ZKMBatchProver {}
 
-impl Sp1BatchProver {
+impl ZKMBatchProver {
     pub fn new() -> Self {
         Self::default()
     }
@@ -26,7 +26,7 @@ pub fn cbor_serialize(data: &[u8]) -> Result<Vec<u8>, HostDataErr> {
     serde_cbor::to_vec(&suite).map_err(HostDataErr::SerdeCborErr)
 }
 
-impl Prover<BatchContext> for Sp1BatchProver {
+impl Prover<BatchContext> for ZKMBatchProver {
     /// Generate stark proof and generate its verifier circuit in circom
     fn prove(&self, ctx: &BatchContext) -> Result<()> {
         log::info!("start batch prove, ctx: {:?}", ctx);
@@ -35,7 +35,7 @@ impl Prover<BatchContext> for Sp1BatchProver {
         let serde_data = ctx.l2_batch_data.clone();
         // let suite: TestUnit = serde_json::from_str(serde_data.as_str()).map_err(|e| e).unwrap();
 
-        let mut stdin = SP1Stdin::new();
+        let mut stdin = ZKMStdin::new();
         // stdin.write_vec(serde_data.as_bytes().to_vec());
         // stdin.write(&serde_data);
         // stdin.write_slice(serde_data.as_bytes());
@@ -55,7 +55,7 @@ impl Prover<BatchContext> for Sp1BatchProver {
         std::fs::create_dir_all(&tmp_path)?;
 
         log::info!("ctx.basedir: {:?}", ctx.basedir);
-        let proof_path = format!("{}/sp1_proof.bin", tmp_path);
+        let proof_path = format!("{}/zkm_proof.bin", tmp_path);
         proof.save(proof_path).expect("saving proof failed");
 
         let prove_elapsed = prove_start.elapsed();
@@ -72,10 +72,9 @@ mod tests {
     use std::fs;
 
     #[test]
-    #[ignore]
-    fn test_sp1_prove() {
+    fn test_zkm_prove() {
         env_logger::try_init().unwrap_or_default();
-        let sp1_prover = Sp1BatchProver::new();
+        let zkm_prover = ZKMBatchProver::new();
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let test_file = stdenv::var("SUITE_JSON").unwrap_or(format!(
@@ -94,7 +93,7 @@ mod tests {
             ),
             ..Default::default()
         };
-        sp1_prover.prove(&batch_context).unwrap();
+        zkm_prover.prove(&batch_context).unwrap();
 
         let batch_context = BatchContext {
             l2_batch_data: suite_json,
@@ -106,6 +105,6 @@ mod tests {
             ),
             ..Default::default()
         };
-        sp1_prover.prove(&batch_context).unwrap();
+        zkm_prover.prove(&batch_context).unwrap();
     }
 }

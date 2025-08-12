@@ -332,7 +332,7 @@ impl ProverHandler for ProverRequestHandler {
             ProverType::Eigen => {
                 batch_process(client.clone(), block_number, request.chain_id).await
             }
-            ProverType::SP1 => {
+            ProverType::ZKM => {
                 let (_res, l2_batch_data) =
                     gen_block_json(client.clone(), block_number, request.chain_id).await;
                 (_res, l2_batch_data)

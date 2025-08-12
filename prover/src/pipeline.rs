@@ -1,11 +1,11 @@
 //use crate::eigen_prover::{AggProver, BatchProver, FinalProver};
-use crate::sp1_prover::final_prover::Sp1FinalProver;
+use crate::zkm_prover::final_prover::ZKMFinalProver;
 use prover_core::contexts::{AggContext, BatchContext, FinalContext, ProveDataCache};
 use prover_core::prover::Prover;
 use prover_core::stage::Stage;
 
-use crate::sp1_prover::agg_prover::Sp1AggProver;
-use crate::sp1_prover::batch_prover::Sp1BatchProver;
+use crate::zkm_prover::agg_prover::ZKMAggProver;
+use crate::zkm_prover::batch_prover::ZKMBatchProver;
 
 use anyhow::{anyhow, bail, Result};
 use std::collections::{HashMap, VecDeque};
@@ -55,17 +55,17 @@ impl From<String> for ProverModel {
 #[derive(Debug)]
 pub enum ProverType {
     Eigen,
-    SP1,
+    ZKM,
 }
 
 impl From<String> for ProverType {
     fn from(value: String) -> Self {
         match value.as_str() {
             "eigen" => ProverType::Eigen,
-            "sp1" => ProverType::SP1,
+            "zkm" => ProverType::ZKM,
             // invalid env value, use default local type
             _ => {
-                log::error!("invalid prover type: {}, please set the env PROVER_TYPE to local or sp1, use default local model", value);
+                log::error!("invalid prover type: {}, please set the env PROVER_TYPE to local or zkm, use default local model", value);
                 ProverType::Eigen
             }
         }
@@ -278,8 +278,8 @@ impl Pipeline {
                                         //BatchProver::new().prove(&ctx)?;
                                         todo!();
                                     }
-                                    ProverType::SP1 => {
-                                        Sp1BatchProver::new().prove(&ctx)?;
+                                    ProverType::ZKM => {
+                                        ZKMBatchProver::new().prove(&ctx)?;
                                     }
                                 }
 
@@ -314,8 +314,8 @@ impl Pipeline {
                                 //AggProver::new().prove(&ctx)?;
                                 todo!();
                             }
-                            ProverType::SP1 => {
-                                Sp1AggProver::new().prove(&ctx)?;
+                            ProverType::ZKM => {
+                                ZKMAggProver::new().prove(&ctx)?;
                             }
                         }
 
@@ -334,8 +334,8 @@ impl Pipeline {
                                 //FinalProver::default().prove(&ctx)?;
                                 todo!();
                             }
-                            ProverType::SP1 => {
-                                Sp1FinalProver::default().prove(&ctx)?;
+                            ProverType::ZKM => {
+                                ZKMFinalProver::default().prove(&ctx)?;
                             }
                         }
                         self.save_checkpoint(&key, true)?;

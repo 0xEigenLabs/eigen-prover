@@ -1,5 +1,5 @@
 #![no_main]
-sp1_zkvm::entrypoint!(main);
+zkm_zkvm::entrypoint!(main);
 use revm::{
     db::CacheState,
     interpreter::CreateScheme,
@@ -38,8 +38,8 @@ pub fn recover_address(private_key: &[u8]) -> Option<Address> {
 
 // pub fn main() {
 //     // let suite_json: String = io::read(TEST_CHANNEL);
-//     // let suite: TestUnit = sp1_zkvm::io::read::<TestUnit>();
-//     let data = sp1_zkvm::io::read::<Vec<u8>>();
+//     // let suite: TestUnit = zkm_zkvm::io::read::<TestUnit>();
+//     let data = zkm_zkvm::io::read::<Vec<u8>>();
 //     // let data = TEST_DATA.to_vec();
 //     let encoded = cbor_serialize(&data).unwrap();
 
@@ -52,10 +52,10 @@ pub fn recover_address(private_key: &[u8]) -> Option<Address> {
 
 pub fn main() {
     // let suite_json: String = io::read(TEST_CHANNEL);
-    // let suite: TestUnit = sp1_zkvm::io::read::<TestUnit>();
-    // let data = sp1_zkvm::io::read::<Vec<u8>>();
+    // let suite: TestUnit = zkm_zkvm::io::read::<TestUnit>();
+    // let data = zkm_zkvm::io::read::<Vec<u8>>();
     // let data = TEST_DATA.to_vec();
-    let encoded = sp1_zkvm::io::read::<Vec<u8>>();
+    let encoded = zkm_zkvm::io::read::<Vec<u8>>();
 
     assert!(verify_revm_tx(&encoded).unwrap());
 }

@@ -4,4 +4,4 @@ pub mod pipeline;
 
 pub mod scheduler;
 
-pub mod sp1_prover;
+pub mod zkm_prover;

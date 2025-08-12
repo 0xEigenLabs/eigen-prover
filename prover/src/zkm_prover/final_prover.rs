@@ -12,24 +12,24 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Default)]
-pub struct Sp1FinalProver {}
+pub struct ZKMFinalProver {}
 
-impl Prover<FinalContext> for Sp1FinalProver {
+impl Prover<FinalContext> for ZKMFinalProver {
     fn prove(&self, ctx: &FinalContext) -> Result<()> {
         let vk_path = format!(
-            "{}/.sp1/circuits/groth16/v4.0.0-rc.3/groth16_vk.bin",
+            "{}/.zkm/circuits/groth16/v4.0.0-rc.3/groth16_vk.bin",
             std::env::var("HOME").unwrap(),
         );
         let proof_with_pis_path =
             std::path::Path::new(&ctx.basedir).join(format!("{}/agg_proof.bin", ctx.agg_task_id));
         log::info!("read proof: {}", proof_with_pis_path.display());
-        let sp1_proof = match sp1_sdk::SP1ProofWithPublicValues::load(&proof_with_pis_path) {
+        let zkm_proof = match zkm_sdk::ZKMProofWithPublicValues::load(&proof_with_pis_path) {
             Ok(proof) => proof,
             _ => panic!(),
         };
 
-        let groth16_proof = match &sp1_proof.proof {
-            sp1_sdk::SP1Proof::Groth16(x) => x.clone(),
+        let groth16_proof = match &zkm_proof.proof {
+            zkm_sdk::ZKMProof::Groth16(x) => x.clone(),
             _ => panic!(),
         };
         log::debug!("load groth16 done");
@@ -83,14 +83,14 @@ impl Prover<FinalContext> for Sp1FinalProver {
 
 #[allow(unused_imports)]
 mod tests {
-    use super::Sp1FinalProver;
+    use super::ZKMFinalProver;
     use prover_core::contexts::FinalContext;
     use prover_core::prover::Prover;
     #[test]
     #[ignore]
-    fn test_sp1_final_prove() {
+    fn test_zkm_final_prove() {
         env_logger::try_init().unwrap_or_default();
-        let sp1_prover = Sp1FinalProver::default();
+        let zkm_prover = ZKMFinalProver::default();
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
@@ -101,6 +101,6 @@ mod tests {
             ..Default::default()
         };
 
-        sp1_prover.prove(&final_context).unwrap();
+        zkm_prover.prove(&final_context).unwrap();
     }
 }

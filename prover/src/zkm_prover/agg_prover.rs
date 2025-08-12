@@ -2,28 +2,28 @@ use anyhow::Result;
 use prover_core::contexts::AggContext;
 use prover_core::prover::Prover;
 
-use sp1_sdk::{
-    EnvProver, HashableKey, SP1Proof, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
+use zkm_sdk::{
+    EnvProver, HashableKey, ZKMProof, ZKMProofWithPublicValues, ZKMStdin, ZKMVerifyingKey,
 };
 
 /// An input to the aggregation program.
 ///
 /// Consists of a proof and a verification key.
 struct AggregationInput {
-    pub proof: SP1ProofWithPublicValues,
-    pub vk: SP1VerifyingKey,
+    pub proof: ZKMProofWithPublicValues,
+    pub vk: ZKMVerifyingKey,
 }
 
 #[derive(Default)]
-pub struct Sp1AggProver {}
+pub struct ZKMAggProver {}
 
-impl Sp1AggProver {
+impl ZKMAggProver {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl Prover<AggContext> for Sp1AggProver {
+impl Prover<AggContext> for ZKMAggProver {
     fn prove(&self, ctx: &AggContext) -> Result<()> {
         log::info!("start aggregate prove, ctx: {:?}", ctx);
 
@@ -36,16 +36,16 @@ impl Prover<AggContext> for Sp1AggProver {
         let (aggregation_pk, _aggregation_vk) = client.setup(&agg_elf);
         let (_, evm_vk) = client.setup(&program);
 
-        let input = format!("{}/{}/sp1_proof.bin", &ctx.basedir, &ctx.input);
-        let input2 = format!("{}/{}/sp1_proof.bin", &ctx.basedir, &ctx.input2);
-        let proof_1 = SP1ProofWithPublicValues::load(&input)?;
-        let proof_2 = SP1ProofWithPublicValues::load(&input2)?;
+        let input = format!("{}/{}/zkm_proof.bin", &ctx.basedir, &ctx.input);
+        let input2 = format!("{}/{}/zkm_proof.bin", &ctx.basedir, &ctx.input2);
+        let proof_1 = ZKMProofWithPublicValues::load(&input)?;
+        let proof_2 = ZKMProofWithPublicValues::load(&input2)?;
         let agg_input1 = AggregationInput { proof: proof_1, vk: evm_vk.clone() };
         let agg_input2 = AggregationInput { proof: proof_2, vk: evm_vk };
         let inputs = vec![agg_input1, agg_input2];
 
         // Aggregate the proofs.
-        let mut stdin = SP1Stdin::new();
+        let mut stdin = ZKMStdin::new();
 
         // Write the verification keys.
         let vkeys = inputs.iter().map(|input| input.vk.hash_u32()).collect::<Vec<_>>();
@@ -59,9 +59,9 @@ impl Prover<AggContext> for Sp1AggProver {
         // Write the proofs.
         //
         // Note: this data will not actually be read by the aggregation program, instead it will be
-        // witnessed by the prover during the recursive aggregation process inside SP1 itself.
+        // witnessed by the prover during the recursive aggregation process inside ZKM itself.
         for input in inputs {
-            let SP1Proof::Compressed(proof) = input.proof.proof else { panic!() };
+            let ZKMProof::Compressed(proof) = input.proof.proof else { panic!() };
             stdin.write_proof(*proof, input.vk.vk);
         }
 
@@ -88,9 +88,9 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn test_sp1_agg_prove() {
+    fn test_zkm_agg_prove() {
         env_logger::try_init().unwrap_or_default();
-        let agg_prover = Sp1AggProver::new();
+        let agg_prover = ZKMAggProver::new();
         let mut agg_context = AggContext::default();
 
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
