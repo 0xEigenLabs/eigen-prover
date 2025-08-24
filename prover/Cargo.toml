@@ -16,7 +16,8 @@ recursion-gnark-ffi   = { git = "https://github.com/0xEigenLabs/eigen-zkvm", bra
 
 once_cell = "1.18"
 
-models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
+# models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
+models = { path = "../../powdr-revme/models" }
 serde_cbor = "0.11.2"
 
 zkm-sdk = { git = "https://github.com/ProjectZKM/Ziren", branch = "main" }

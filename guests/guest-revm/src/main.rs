@@ -1,12 +1,17 @@
 #![no_main]
 zkm_zkvm::entrypoint!(main);
 use revm::{
-    db::CacheState,
+    database::CacheState,
     interpreter::CreateScheme,
+    inspector::{inspectors::TracerEip3155, InspectEvm},
     primitives::{
-        calc_excess_blob_gas, keccak256, AccountInfo, Address, Bytecode, Env, SpecId, TransactTo,
+        keccak256, Address, hardfork::SpecId, TxKind,
         U256,
     },
+    context::TxEnv,
+    state::{AccountInfo, Bytecode},
+    context_interface::block::calc_excess_blob_gas,
+    Context, MainBuilder, MainContext,
 };
 
 use models::*;
@@ -162,8 +167,8 @@ pub fn execute_test_suite(suite: TestSuite) -> Result<(), String> {
                     .collect();
 
                 let to = match unit.transaction.to {
-                    Some(add) => TransactTo::Call(add),
-                    None => TransactTo::Create(CreateScheme::Create),
+                    Some(add) => TxKind::Call(add),
+                    None => TxKind::Create(CreateScheme::Create),
                 };
                 env.tx.transact_to = to;
                 let spec_id = spec_name.to_spec_id();
@@ -171,18 +176,30 @@ pub fn execute_test_suite(suite: TestSuite) -> Result<(), String> {
                 let mut cache = cache_state.clone();
                 cache.set_state_clear_flag(SpecId::enabled(
                     spec_id,
-                    revm::primitives::SpecId::SPURIOUS_DRAGON,
+                    SpecId::SPURIOUS_DRAGON,
                 ));
-                let mut state = revm::db::State::builder()
+                let mut state = revm::database::State::builder()
                     .with_cached_prestate(cache)
                     .with_bundle_update()
                     .build();
-
-                let mut evm = revm::Evm::builder()
+                
+                let ctx = Context::mainnet()
                     .with_db(&mut state)
-                    .modify_env(|e| *e = env.clone())
-                    .spec_id(spec_id)
-                    .build();
+                    .modify_block_chained(|b| {
+                        b.number = U256::from(block.header.number);
+                        b.beneficiary = block.header.beneficiary;
+                        b.timestamp = U256::from(block.header.timestamp);
+
+                        b.difficulty = block.header.difficulty;
+                        b.gas_limit = block.header.gas_limit;
+                        b.basefee = block.header.base_fee_per_gas.unwrap_or_default();
+                    })
+                    .modify_cfg_chained(|c| {
+                        c.chain_id = chain_id;
+                    });
+
+                let writer = FlushWriter::new(Arc::clone(&inner));
+                let mut evm = ctx.build_mainnet_with_inspector(TracerEip3155::new(Box::new(writer)));
 
                 // do the deed
                 let exec_result = evm.transact_commit();

@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
-models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
+# revm = { git = "https://github.com/0xEigenLabs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
+revm = { git = "https://github.com/bluealloy/revm", rev = "bef418476ca014d7544f52be62ac1b004eceaad9", default-features = false, features = [ "serde", "optional_no_base_fee", "optional_balance_check" ] }
+# models = { git = "https://github.com/0xEigenLabs/powdr-revme", branch = "continuations", package = "models" }
+models = { path = "../../../powdr-revme/models" }
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 k256 = { version = "0.13.3", features = ["ecdsa"], default-features = false }
